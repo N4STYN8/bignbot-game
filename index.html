@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bignbot Tower Defense</title>
+  <style>
+    :root{
+      --bg:#070b14; --panel:#0f1830; --panel2:#0b1226;
+      --text:#eaf1ff; --muted:#9bb0d6; --accent:#4cc9f0;
+      --good:#b8ffcc; --bad:#ffb4b4; --warn:#ffe08a;
+      --line:rgba(255,255,255,0.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; padding:14px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: radial-gradient(1200px 600px at 50% 10%, #0c1430 0%, var(--bg) 55%, #05070d 100%);
+      color:var(--text);
+      display:grid; place-items:center;
+    }
+    .wrap{
+      width:min(1180px, 96vw);
+      display:grid;
+      grid-template-columns: 1fr 330px;
+      gap:12px;
+      align-items:start;
+    }
+    canvas{
+      width:100%; height:auto;
+      background: linear-gradient(180deg, #081027 0%, #070c18 100%);
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 18px 50px rgba(0,0,0,0.45);
+      cursor:crosshair;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(15,24,48,0.92), rgba(11,18,38,0.92));
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:14px;
+      box-shadow:0 18px 50px rgba(0,0,0,0.35);
+      position:sticky; top:10px;
+    }
+    .title{font-weight:850; font-size:18px; letter-spacing:0.2px;}
+    .muted{color:var(--muted); font-size:13px; line-height:1.35;}
+    .row{display:flex; justify-content:space-between; gap:10px; margin:8px 0;}
+    .big{font-size:18px; font-weight:800;}
+    .grid{display:grid; gap:8px;}
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+    button, select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color:var(--text);
+      font-weight:700;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+      outline:none;
+    }
+    button:hover, select:hover{ background: rgba(255,255,255,0.10); border-color: rgba(76,201,240,0.45); }
+    button:active{ transform: translateY(1px); }
+    button:disabled{ opacity:0.45; cursor:not-allowed; }
+    .seg{display:flex; gap:8px;}
+    .seg button{ width:auto; flex:1; padding:9px 10px; }
+    .pill{
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      padding:10px 12px;
+      border:1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.15);
+      border-radius:14px;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      padding: 2px 6px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(0,0,0,0.25);
+      font-size: 12px;
+    }
+    .ok{color:var(--good)}
+    .bad{color:var(--bad)}
+    .warn{color:var(--warn)}
+    .hint{margin-top:10px}
+    .hr{height:1px; background:var(--line); margin:12px 0;}
+    .small{font-size:12px}
+    .selected{
+      border-color: rgba(76,201,240,0.8) !important;
+      box-shadow: 0 0 0 2px rgba(76,201,240,0.15) inset;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game" width="820" height="520"></canvas>
+
+    <div class="panel">
+      <div class="title">Bignbot Tower Defense</div>
+      <div class="muted">Click to place turrets (not on path). Click a turret to upgrade or sell.</div>
+
+      <div class="row"><div class="muted">Cash</div><div id="cash" class="big"></div></div>
+      <div class="row"><div class="muted">Lives</div><div id="lives" class="big"></div></div>
+      <div class="row"><div class="muted">Map</div><div id="mapName" class="big"></div></div>
+      <div class="row"><div class="muted">Wave</div><div id="wave" class="big"></div></div>
+
+      <div class="pill">
+        <div class="muted">Game speed</div>
+        <div class="seg">
+          <button id="s1">1×</button>
+          <button id="s2">2×</button>
+          <button id="s3">3×</button>
+          <button id="s4">4×</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <select id="mapSelect"></select>
+
+        <div class="grid2">
+          <button id="startWave">Start wave</button>
+          <button id="pause">Pause</button>
+        </div>
+
+        <button id="restart">Restart map</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="muted small">Turrets</div>
+      <div class="grid" id="turretButtons"></div>
+
+      <div class="hr"></div>
+
+      <div class="muted small">Selected turret</div>
+      <div id="selectedBox" class="pill">
+        <div class="muted">None</div>
+        <div class="kbd">Click a turret</div>
+      </div>
+
+      <div class="grid2" style="margin-top:8px">
+        <button id="upgradeBtn" disabled>Upgrade</button>
+        <button id="sellBtn" disabled>Sell</button>
+      </div>
+
+      <div id="msg" class="muted hint"></div>
+
+      <div class="muted hint">
+        Tips:
+        <ul>
+          <li>Place turrets near corners.</li>
+          <li>Use <span class="kbd">2×–4×</span> speed to fast-forward waves.</li>
+          <li><span class="kbd">R</span> toggles range preview.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== Canvas =====
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  // ===== UI =====
+  const elCash = document.getElementById("cash");
+  const elLives = document.getElementById("lives");
+  const elWave = document.getElementById("wave");
+  const elMapName = document.getElementById("mapName");
+  const elMapSelect = document.getElementById("mapSelect");
+  const elMsg = document.getElementById("msg");
+
+  const btnStartWave = document.getElementById("startWave");
+  const btnRestart = document.getElementById("restart");
+  const btnPause = document.getElementById("pause");
+
+  const btnS1 = document.getElementById("s1");
+  const btnS2 = document.getElementById("s2");
+  const btnS3 = document.getElementById("s3");
+  const btnS4 = document.getElementById("s4");
+
+  const turretButtonsWrap = document.getElementById("turretButtons");
+  const selectedBox = document.getElementById("selectedBox");
+  const upgradeBtn = document.getElementById("upgradeBtn");
+  const sellBtn = document.getElementById("sellBtn");
+
+  // ===== Helpers =====
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx, ay-by);
+
+  function setMsg(html, tone="") {
+    elMsg.innerHTML = html ? `<div class="${tone}">${html}</div>` : "";
+  }
+
+  function linePointDistance(px,py, ax,ay, bx,by) {
+    const vx = bx-ax, vy = by-ay;
+    const wx = px-ax, wy = py-ay;
+    const c1 = vx*wx + vy*wy;
+    if (c1 <= 0) return Math.hypot(px-ax, py-ay);
+    const c2 = vx*vx + vy*vy;
+    if (c2 <= c1) return Math.hypot(px-bx, py-by);
+    const t = c1 / c2;
+    const projx = ax + t*vx, projy = ay + t*vy;
+    return Math.hypot(px-projx, py-projy);
+  }
+
+  function getMousePos(evt) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (evt.clientX - r.left) * (canvas.width / r.width),
+      y: (evt.clientY - r.top) * (canvas.height / r.height),
+    };
+  }
+
+  // ===== Content =====
+  const PATH_WIDTH = 46;
+
+  const MAPS = [
+    {
+      key: "training",
+      name: "Training Grounds",
+      path: [
+        {x: 40, y: 260},
+        {x: 190, y: 260},
+        {x: 190, y: 120},
+        {x: 420, y: 120},
+        {x: 420, y: 400},
+        {x: 650, y: 400},
+        {x: 650, y: 220},
+        {x: 790, y: 220},
+      ],
+      waves: [
+        {count: 10, hp: 45, speed: 55, reward: 10},
+        {count: 14, hp: 60, speed: 58, reward: 11},
+        {count: 18, hp: 80, speed: 62, reward: 12},
+        {count: 1,  hp: 420, speed: 38, reward: 60, boss:true},
+      ],
+      startingCash: 140,
+      startingLives: 20,
+    },
+    {
+      key: "crossroads",
+      name: "Crossroads",
+      path: [
+        {x: 40, y: 90},
+        {x: 260, y: 90},
+        {x: 260, y: 260},
+        {x: 130, y: 260},
+        {x: 130, y: 430},
+        {x: 520, y: 430},
+        {x: 520, y: 200},
+        {x: 760, y: 200},
+      ],
+      waves: [
+        {count: 12, hp: 55, speed: 60, reward: 10},
+        {count: 18, hp: 70, speed: 66, reward: 11},
+        {count: 22, hp: 90, speed: 70, reward: 12},
+        {count: 6,  hp: 140, speed: 58, reward: 16, armored:true},
+        {count: 1,  hp: 650, speed: 35, reward: 90, boss:true, armored:true},
+      ],
+      startingCash: 150,
+      startingLives: 18,
+    },
+    {
+      key: "spiral",
+      name: "Spiral Run",
+      path: [
+        {x: 40, y: 420},
+        {x: 740, y: 420},
+        {x: 740, y: 110},
+        {x: 130, y: 110},
+        {x: 130, y: 350},
+        {x: 620, y: 350},
+        {x: 620, y: 180},
+        {x: 260, y: 180},
+        {x: 260, y: 280},
+        {x: 790, y: 280},
+      ],
+      waves: [
+        {count: 16, hp: 55, speed: 64, reward: 10},
+        {count: 22, hp: 75, speed: 70, reward: 11},
+        {count: 8,  hp: 140, speed: 88, reward: 14, fast:true},
+        {count: 10, hp: 170, speed: 62, reward: 16, armored:true},
+        {count: 1,  hp: 900, speed: 34, reward: 120, boss:true, armored:true},
+      ],
+      startingCash: 160,
+      startingLives: 16,
+    }
+  ];
+
+  const TURRET_TYPES = {
+    basic: {
+      name: "Basic",
+      desc: "Balanced.",
+      cost: 55,
+      range: 130,
+      damage: 12,
+      cooldown: 0.55,
+      projSpeed: 420,
+      pierce: 1,
+      splash: 0,
+      color: "#4cc9f0",
+    },
+    rapid: {
+      name: "Rapid",
+      desc: "Fast shots.",
+      cost: 80,
+      range: 105,
+      damage: 6,
+      cooldown: 0.18,
+      projSpeed: 520,
+      pierce: 1,
+      splash: 0,
+      color: "#80ff72",
+    },
+    sniper: {
+      name: "Sniper",
+      desc: "Long range.",
+      cost: 125,
+      range: 240,
+      damage: 44,
+      cooldown: 1.35,
+      projSpeed: 700,
+      pierce: 1,
+      splash: 0,
+      color: "#ff595e",
+    },
+    splash: {
+      name: "Splash",
+      desc: "AOE damage.",
+      cost: 110,
+      range: 150,
+      damage: 18,
+      cooldown: 0.85,
+      projSpeed: 360,
+      pierce: 1,
+      splash: 52, // radius
+      color: "#ffd166",
+    }
+  };
+
+  // ===== State =====
+  const state = {
+    mapIdx: 0,
+    path: MAPS[0].path,
+    inWave: false,
+    waveIdx: 0,       // 0-based into map waves
+    spawnTimer: 0,
+    spawned: 0,
+    waveGap: 0.45,
+    enemies: [],
+    turrets: [],
+    projectiles: [],
+    particles: [],
+    cash: 0,
+    lives: 0,
+    paused: false,
+    gameOver: false,
+    victory: false,
+    showRanges: true,
+    speed: 1,
+    selectedTurretType: "basic",
+    selectedTurretId: null,
+    muzzleFlashes: [],
+  };
+
+  // ===== Placement / collisions =====
+  function pointOnPath(px, py) {
+    const path = state.path;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      const d = linePointDistance(px, py, a.x, a.y, b.x, b.y);
+      if (d <= PATH_WIDTH / 2) return true;
+    }
+    return false;
+  }
+
+  function withinBounds(px, py) {
+    return px >= 12 && px <= W - 12 && py >= 12 && py <= H - 12;
+  }
+
+  function turretAt(px, py) {
+    for (const t of state.turrets) {
+      if (dist(px,py,t.x,t.y) <= t.r + 6) return t;
+    }
+    return null;
+  }
+
+  // ===== Entities =====
+  let nextId = 1;
+
+  function makeEnemy(waveSpec) {
+    const baseR = waveSpec.boss ? 16 : 11;
+    const maxHp = waveSpec.hp;
+    const speed = waveSpec.speed;
+    const armored = !!waveSpec.armored;
+    const fast = !!waveSpec.fast;
+
+    return {
+      id: nextId++,
+      x: state.path[0].x,
+      y: state.path[0].y,
+      r: fast ? baseR - 2 : baseR,
+      hp: maxHp,
+      maxHp,
+      speed: fast ? speed * 1.25 : speed,
+      reward: waveSpec.reward ?? 10,
+      armored,
+      boss: !!waveSpec.boss,
+      pathIdx: 0,
+      alive: true
+    };
+  }
+
+  function makeTurret(x, y, typeKey) {
+    const def = TURRET_TYPES[typeKey];
+    return {
+      id: nextId++,
+      type: typeKey,
+      x, y,
+      r: 14,
+      angle: 0,
+      cooldown: 0,
+      level: 1,
+
+      // base stats
+      baseRange: def.range,
+      baseDamage: def.damage,
+      baseCooldown: def.cooldown,
+      baseProjSpeed: def.projSpeed,
+      splash: def.splash,
+      pierce: def.pierce,
+
+      // upgraded stats (computed)
+      range: def.range,
+      damage: def.damage,
+      fireCd: def.cooldown,
+      projSpeed: def.projSpeed,
+      value: def.cost, // total invested
+    };
+  }
+
+  function makeProjectile(x,y, vx,vy, dmg, splash, pierce, color, targetId=null) {
+    return {
+      x,y,vx,vy,
+      dmg,
+      splash,
+      pierce,
+      color,
+      alive:true,
+      hitIds: new Set(),
+      targetId,
+      life: 2.5
+    };
+  }
+
+  function addParticle(x,y, vx,vy, life) {
+    state.particles.push({x,y,vx,vy,life,maxLife:life});
+  }
+
+  // ===== Upgrades =====
+  function upgradeCost(t) {
+    // Level 1->2, 2->3
+    // Cost scales with turret base cost
+    const base = TURRET_TYPES[t.type].cost;
+    return Math.round(base * (t.level === 1 ? 0.75 : 1.10));
+  }
+
+  function applyUpgrade(t) {
+    // 3 levels max
+    // Level scaling:
+    // dmg: +45% per level, range: +10% per level, cooldown: -12% per level
+    const lvl = t.level;
+    const dmgMult = 1 + 0.45*(lvl-1);
+    const rangeMult = 1 + 0.10*(lvl-1);
+    const cdMult = Math.pow(0.88, (lvl-1));
+
+    t.damage = t.baseDamage * dmgMult;
+    t.range  = t.baseRange  * rangeMult;
+    t.fireCd = t.baseCooldown * cdMult;
+    t.projSpeed = t.baseProjSpeed; // keep consistent
+  }
+
+  function upgradeSelectedTurret() {
+    const t = state.turrets.find(tt => tt.id === state.selectedTurretId);
+    if (!t) return;
+
+    if (t.level >= 3) { setMsg("Already max level.", "warn"); return; }
+    const cost = upgradeCost(t);
+    if (state.cash < cost) { setMsg("Not enough cash to upgrade.", "bad"); return; }
+
+    state.cash -= cost;
+    t.level++;
+    t.value += cost;
+    applyUpgrade(t);
+    setMsg(`Upgraded ${TURRET_TYPES[t.type].name} to Level ${t.level}.`, "ok");
+    syncSelectedUI();
+    syncUI();
+  }
+
+  function sellSelectedTurret() {
+    const idx = state.turrets.findIndex(tt => tt.id === state.selectedTurretId);
+    if (idx === -1) return;
+    const t = state.turrets[idx];
+
+    // sell back 70% of total investment
+    const refund = Math.round(t.value * 0.70);
+    state.cash += refund;
+    state.turrets.splice(idx, 1);
+    state.selectedTurretId = null;
+    setMsg(`Sold turret for $${refund}.`, "ok");
+    syncSelectedUI();
+    syncUI();
+  }
+
+  // ===== Waves / Map =====
+  function currentMap() { return MAPS[state.mapIdx]; }
+
+  function startWave() {
+    if (state.gameOver || state.victory) return;
+    if (state.inWave) return;
+
+    const map = currentMap();
+    if (state.waveIdx >= map.waves.length) return;
+
+    state.inWave = true;
+    state.spawnTimer = 0;
+    state.spawned = 0;
+
+    // spawn pacing ramps by wave
+    state.waveGap = clamp(0.60 - state.waveIdx * 0.06, 0.24, 0.70);
+
+    setMsg(`Wave <b>${state.waveIdx + 1}</b> started.`, "ok");
+    syncUI();
+  }
+
+  function resetMap() {
+    const map = currentMap();
+    state.path = map.path;
+
+    state.cash = map.startingCash;
+    state.lives = map.startingLives;
+    state.waveIdx = 0;
+    state.inWave = false;
+    state.spawnTimer = 0;
+    state.spawned = 0;
+
+    state.enemies = [];
+    state.turrets = [];
+    state.projectiles = [];
+    state.particles = [];
+    state.muzzleFlashes = [];
+    state.gameOver = false;
+    state.victory = false;
+    state.paused = false;
+
+    state.selectedTurretId = null;
+
+    setMsg("Place turrets, then start Wave 1.", "");
+    syncSelectedUI();
+    syncUI();
+  }
+
+  function setMap(idx) {
+    state.mapIdx = idx;
+    resetMap();
+  }
+
+  // ===== UI build =====
+  function buildMapSelect() {
+    elMapSelect.innerHTML = "";
+    MAPS.forEach((m, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = m.name;
+      elMapSelect.appendChild(opt);
+    });
+    elMapSelect.value = String(state.mapIdx);
+  }
+
+  function buildTurretButtons() {
+    turretButtonsWrap.innerHTML = "";
+    Object.entries(TURRET_TYPES).forEach(([key, def]) => {
+      const btn = document.createElement("button");
+      btn.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <div style="text-align:left">
+          <div style="font-weight:850">${def.name} <span class="muted">(${def.desc})</span></div>
+          <div class="muted small">DMG ${def.damage} • RNG ${def.range} • CD ${def.cooldown.toFixed(2)}${def.splash?` • AOE ${def.splash}`:""}</div>
+        </div>
+        <div class="kbd">$${def.cost}</div>
+      </div>`;
+      btn.addEventListener("click", () => {
+        state.selectedTurretType = key;
+        highlightTurretType();
+        setMsg(`Selected turret: <b>${def.name}</b>. Click on the map to place it.`, "");
+      });
+      turretButtonsWrap.appendChild(btn);
+    });
+    highlightTurretType();
+  }
+
+  function highlightTurretType() {
+    const keys = Object.keys(TURRET_TYPES);
+    [...turretButtonsWrap.children].forEach((b, i) => {
+      b.classList.toggle("selected", keys[i] === state.selectedTurretType);
+    });
+  }
+
+  function syncSelectedUI() {
+    const t = state.turrets.find(tt => tt.id === state.selectedTurretId);
+    if (!t) {
+      selectedBox.innerHTML = `<div class="muted">None</div><div class="kbd">Click a turret</div>`;
+      upgradeBtn.disabled = true;
+      sellBtn.disabled = true;
+      return;
+    }
+    const def = TURRET_TYPES[t.type];
+    const cost = t.level >= 3 ? "MAX" : `$${upgradeCost(t)}`;
+    selectedBox.innerHTML = `
+      <div style="text-align:left">
+        <div style="font-weight:900">${def.name} <span class="muted">Lv ${t.level}/3</span></div>
+        <div class="muted small">DMG ${t.damage.toFixed(1)} • RNG ${Math.round(t.range)} • CD ${t.fireCd.toFixed(2)}${t.splash?` • AOE ${t.splash}`:""}</div>
+      </div>
+      <div class="kbd">Upg: ${cost}</div>
+    `;
+    upgradeBtn.disabled = (t.level >= 3) || state.gameOver || state.victory;
+    sellBtn.disabled = state.gameOver || state.victory;
+  }
+
+  function syncUI() {
+    elCash.textContent = `$${state.cash}`;
+    elLives.textContent = `${state.lives}`;
+    const map = currentMap();
+    elMapName.textContent = map.name;
+    elWave.textContent = `${Math.min(state.waveIdx+ (state.inWave?1:0), map.waves.length)} / ${map.waves.length}`;
+
+    btnStartWave.disabled = state.inWave || state.gameOver || state.victory;
+
+    btnPause.textContent = state.paused ? "Resume" : "Pause";
+    btnRestart.disabled = false;
+
+    // speed button highlight
+    [btnS1,btnS2,btnS3,btnS4].forEach(b=>b.classList.remove("selected"));
+    ({1:btnS1,2:btnS2,3:btnS3,4:btnS4}[state.speed]).classList.add("selected");
+  }
+
+  // ===== Input =====
+  canvas.addEventListener("click", (evt) => {
+    if (state.gameOver || state.victory) return;
+    const {x,y} = getMousePos(evt);
+    if (!withinBounds(x,y)) return;
+
+    // If clicked on turret -> select it
+    const tHit = turretAt(x,y);
+    if (tHit) {
+      state.selectedTurretId = tHit.id;
+      setMsg(`Selected <b>${TURRET_TYPES[tHit.type].name}</b> (Lv ${tHit.level}).`, "");
+      syncSelectedUI();
+      return;
+    }
+
+    // otherwise: place turret
+    if (pointOnPath(x,y)) { setMsg("Can't place on the path.", "bad"); return; }
+
+    // can't overlap
+    for (const t of state.turrets) {
+      if (dist(x,y,t.x,t.y) < (t.r + 14 + 8)) {
+        setMsg("Too close to another turret.", "bad");
+        return;
+      }
+    }
+
+    const def = TURRET_TYPES[state.selectedTurretType];
+    if (state.cash < def.cost) { setMsg("Not enough cash.", "bad"); return; }
+
+    state.cash -= def.cost;
+    const t = makeTurret(x,y,state.selectedTurretType);
+    applyUpgrade(t);
+    state.turrets.push(t);
+
+    setMsg(`Placed <b>${def.name}</b>.`, "ok");
+    syncUI();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() === "r") {
+      state.showRanges = !state.showRanges;
+      setMsg(`Range preview: <b>${state.showRanges ? "ON" : "OFF"}</b>.`, "");
+    }
+  });
+
+  btnStartWave.addEventListener("click", startWave);
+  btnRestart.addEventListener("click", resetMap);
+  btnPause.addEventListener("click", () => { state.paused = !state.paused; syncUI(); });
+
+  upgradeBtn.addEventListener("click", upgradeSelectedTurret);
+  sellBtn.addEventListener("click", sellSelectedTurret);
+
+  function setSpeed(n){ state.speed = n; syncUI(); }
+  btnS1.addEventListener("click",()=>setSpeed(1));
+  btnS2.addEventListener("click",()=>setSpeed(2));
+  btnS3.addEventListener("click",()=>setSpeed(3));
+  btnS4.addEventListener("click",()=>setSpeed(4));
+
+  elMapSelect.addEventListener("change", () => {
+    const idx = Number(elMapSelect.value);
+    setMap(idx);
+  });
+
+  // ===== Combat / Targeting =====
+  function findBestTarget(t) {
+    // pick enemy with most progress that is in range
+    let best = null;
+    let bestScore = -Infinity;
+    for (const e of state.enemies) {
+      const d = dist(t.x,t.y,e.x,e.y);
+      if (d > t.range) continue;
+      // progress score: path index + closeness to next waypoint
+      const score = e.pathIdx * 10000 - d; // favor further along path
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  function spawnLogic(dt) {
+    if (!state.inWave) return;
+
+    const map = currentMap();
+    const wave = map.waves[state.waveIdx];
+    state.spawnTimer -= dt;
+
+    if (state.spawned < wave.count && state.spawnTimer <= 0) {
+      state.enemies.push(makeEnemy(wave));
+      state.spawned++;
+      state.spawnTimer = state.waveGap;
+    }
+
+    // wave ends when all spawned and no enemies remain
+    if (state.spawned >= wave.count && state.enemies.length === 0) {
+      state.inWave = false;
+      state.waveIdx++;
+
+      if (state.waveIdx >= map.waves.length) {
+        state.victory = true;
+        setMsg(`<b class="ok">VICTORY!</b> You cleared <b>${map.name}</b>. Pick another map to keep playing.`, "");
+      } else {
+        setMsg(`Wave cleared. Get ready for <b>Wave ${state.waveIdx+1}</b>.`, "");
+      }
+      syncUI();
+    }
+  }
+
+  function moveEnemies(dt) {
+    const path = state.path;
+    for (const e of state.enemies) {
+      const a = path[e.pathIdx];
+      const b = path[e.pathIdx + 1];
+      if (!b) {
+        // reached end
+        state.lives -= 1;
+        e.alive = false;
+        continue;
+      }
+
+      const dx = b.x - e.x, dy = b.y - e.y;
+      const d = Math.hypot(dx,dy);
+
+      if (d < 0.001) {
+        e.pathIdx++;
+        continue;
+      }
+
+      const step = e.speed * dt;
+      const nx = dx / d, ny = dy / d;
+
+      if (step >= d) {
+        e.x = b.x; e.y = b.y;
+        e.pathIdx++;
+      } else {
+        e.x += nx*step;
+        e.y += ny*step;
+      }
+    }
+
+    state.enemies = state.enemies.filter(e => e.alive && e.hp > 0);
+
+    if (state.lives <= 0 && !state.gameOver) {
+      state.lives = 0;
+      state.gameOver = true;
+      state.inWave = false;
+      setMsg(`<b class="bad">GAME OVER.</b> Restart map to try again.`, "");
+      syncUI();
+      syncSelectedUI();
+    }
+  }
+
+  function turretLogic(dt) {
+    for (const t of state.turrets) {
+      t.cooldown -= dt;
+      if (t.cooldown > 0) continue;
+
+      const target = findBestTarget(t);
+      if (!target) continue;
+
+      // turret angle
+      const dx = target.x - t.x, dy = target.y - t.y;
+      t.angle = Math.atan2(dy, dx);
+
+      // fire projectile
+      const d = Math.hypot(dx,dy) || 1;
+      const vx = (dx/d) * t.projSpeed;
+      const vy = (dy/d) * t.projSpeed;
+
+      const color = TURRET_TYPES[t.type].color;
+      state.projectiles.push(makeProjectile(
+        t.x + Math.cos(t.angle)*16,
+        t.y + Math.sin(t.angle)*16,
+        vx, vy,
+        t.damage,
+        t.splash,
+        t.pierce,
+        color,
+        target.id
+      ));
+
+      // muzzle flash
+      state.muzzleFlashes.push({x:t.x, y:t.y, a:t.angle, life:0.08});
+      t.cooldown = t.fireCd;
+    }
+  }
+
+  function projectileLogic(dt) {
+    for (const p of state.projectiles) {
+      p.life -= dt;
+      if (p.life <= 0) { p.alive=false; continue; }
+
+      const px0 = p.x, py0 = p.y;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      // offscreen
+      if (p.x < -40 || p.x > W+40 || p.y < -40 || p.y > H+40) { p.alive=false; continue; }
+
+      // hit detection (first hit per enemy; allow pierce)
+      for (const e of state.enemies) {
+        if (p.pierce <= 0) break;
+        if (p.hitIds.has(e.id)) continue;
+        if (dist(p.x,p.y,e.x,e.y) <= e.r + 4) {
+          p.hitIds.add(e.id);
+
+          // damage (armored reduces)
+          const dmg = e.armored ? p.dmg * 0.75 : p.dmg;
+          e.hp -= dmg;
+
+          // particles on hit
+          for (let i=0;i<6;i++){
+            const ang = Math.random()*Math.PI*2;
+            const sp = 60 + Math.random()*140;
+            addParticle(e.x, e.y, Math.cos(ang)*sp, Math.sin(ang)*sp, 0.25+Math.random()*0.2);
+          }
+
+          // splash
+          if (p.splash > 0) {
+            for (const e2 of state.enemies) {
+              if (e2.id === e.id) continue;
+              if (dist(e.x,e.y,e2.x,e2.y) <= p.splash) {
+                const dmg2 = (e2.armored ? p.dmg*0.65 : p.dmg*0.85);
+                e2.hp -= dmg2;
+              }
+            }
+            // splash ring particles
+            for (let i=0;i<14;i++){
+              const ang = (i/14)*Math.PI*2;
+              addParticle(e.x + Math.cos(ang)*6, e.y + Math.sin(ang)*6, Math.cos(ang)*120, Math.sin(ang)*120, 0.22);
+            }
+          }
+
+          // enemy death reward
+          if (e.hp <= 0) {
+            state.cash += e.reward + (e.boss ? 40 : 0);
+            // death burst
+            for (let i=0;i<18;i++){
+              const ang = Math.random()*Math.PI*2;
+              const sp = 80 + Math.random()*220;
+              addParticle(e.x, e.y, Math.cos(ang)*sp, Math.sin(ang)*sp, 0.35+Math.random()*0.25);
+            }
+          }
+
+          p.pierce -= 1;
+          if (p.pierce <= 0) p.alive = false;
+        }
+      }
+
+      // trail particles
+      if (Math.random() < 0.8) addParticle(px0, py0, (p.vx*-0.02), (p.vy*-0.02), 0.12);
+    }
+
+    state.projectiles = state.projectiles.filter(p => p.alive);
+  }
+
+  function particlesLogic(dt) {
+    for (const q of state.particles) {
+      q.life -= dt;
+      if (q.life <= 0) continue;
+      q.x += q.vx * dt;
+      q.y += q.vy * dt;
+      q.vx *= (1 - 2.2*dt);
+      q.vy *= (1 - 2.2*dt);
+    }
+    state.particles = state.particles.filter(q => q.life > 0);
+
+    for (const f of state.muzzleFlashes) f.life -= dt;
+    state.muzzleFlashes = state.muzzleFlashes.filter(f => f.life > 0);
+  }
+
+  // ===== Draw =====
+  function drawGrid() {
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    for (let x=0; x<=W; x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=0; y<=H; y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPath() {
+    const path = state.path;
+
+    // thick path
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.lineWidth = PATH_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i=1;i<path.length;i++) ctx.lineTo(path[i].x, path[i].y);
+    ctx.stroke();
+
+    // glowing outline
+    ctx.strokeStyle = "rgba(76,201,240,0.20)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i=1;i<path.length;i++) ctx.lineTo(path[i].x, path[i].y);
+    ctx.stroke();
+
+    // start/end markers
+    const s = path[0], e = path[path.length-1];
+    ctx.fillStyle = "rgba(184,255,204,0.18)";
+    ctx.beginPath(); ctx.arc(s.x,s.y,16,0,Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = "rgba(255,180,180,0.22)";
+    ctx.beginPath(); ctx.arc(e.x,e.y,18,0,Math.PI*2); ctx.fill();
+  }
+
+  function drawParticles() {
+    // particles fade
+    for (const q of state.particles) {
+      const a = q.life / q.maxLife;
+      ctx.globalAlpha = clamp(a,0,1);
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 1.6, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawTurrets() {
+    for (const t of state.turrets) {
+      const def = TURRET_TYPES[t.type];
+
+      if (state.showRanges) {
+        ctx.globalAlpha = 0.10;
+        ctx.fillStyle = def.color;
+        ctx.beginPath();
+        ctx.arc(t.x,t.y,t.range,0,Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // base
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.arc(t.x,t.y,t.r,0,Math.PI*2);
+      ctx.fill();
+
+      // outline
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = (state.selectedTurretId===t.id) ? 5 : 3;
+      ctx.globalAlpha = (state.selectedTurretId===t.id) ? 0.9 : 0.55;
+      ctx.beginPath();
+      ctx.arc(t.x,t.y,t.r+2,0,Math.PI*2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // barrel
+      const bx = t.x + Math.cos(t.angle)*16;
+      const by = t.y + Math.sin(t.angle)*16;
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(t.x, t.y);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+
+      // level pips
+      for (let i=0;i<t.level;i++){
+        ctx.fillStyle = def.color;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(t.x - 10 + i*10, t.y + 20, 3, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // muzzle flashes
+    for (const f of state.muzzleFlashes) {
+      const a = clamp(f.life/0.08, 0, 1);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.beginPath();
+      ctx.arc(f.x + Math.cos(f.a)*20, f.y + Math.sin(f.a)*20, 5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawEnemies() {
+    for (const e of state.enemies) {
+      // body
+      ctx.fillStyle = e.boss ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.88)";
+      ctx.beginPath();
+      ctx.arc(e.x,e.y,e.r,0,Math.PI*2);
+      ctx.fill();
+
+      // armor ring
+      if (e.armored) {
+        ctx.strokeStyle = "rgba(255,209,102,0.75)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(e.x,e.y,e.r+2,0,Math.PI*2);
+        ctx.stroke();
+      }
+
+      // HP bar
+      const w = e.boss ? 52 : 34;
+      const h = 6;
+      const x = e.x - w/2;
+      const y = e.y - e.r - 14;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(x, y, w, h);
+
+      // color shifts with hp
+      const hpPct = clamp(e.hp / e.maxHp, 0, 1);
+      ctx.fillStyle = `rgba(76,201,240,${0.55 + 0.35*(1-hpPct)})`;
+      ctx.fillRect(x, y, w*hpPct, h);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawProjectiles() {
+    for (const p of state.projectiles) {
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(p.x - p.vx*0.02, p.y - p.vy*0.02);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.6, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawHUD() {
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    const map = currentMap();
+    const status = state.gameOver ? "GAME OVER" : (state.victory ? "VICTORY" : (state.paused ? "PAUSED" : "RUNNING"));
+    ctx.fillText(`Map: ${map.name} | Wave: ${Math.min(state.waveIdx + (state.inWave?1:0), map.waves.length)}/${map.waves.length} | Enemies: ${state.enemies.length} | Speed: ${state.speed}x | ${status}`, 12, 18);
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    drawGrid();
+    drawPath();
+    drawParticles();
+    drawProjectiles();
+    drawEnemies();
+    drawTurrets();
+    drawHUD();
+  }
+
+  // ===== Game Loop =====
+  let last = performance.now();
+
+  function update(dt) {
+    if (state.paused || state.gameOver || state.victory) return;
+
+    // wave spawns
+    spawnLogic(dt);
+
+    // entity updates
+    moveEnemies(dt);
+    turretLogic(dt);
+    projectileLogic(dt);
+    particlesLogic(dt);
+
+    syncUI();
+  }
+
+  function loop(now) {
+    const rawDt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    const dt = rawDt * state.speed;
+
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ===== Init =====
+  function init() {
+    buildMapSelect();
+    buildTurretButtons();
+    elMapSelect.value = String(state.mapIdx);
+    resetMap();
+    syncSelectedUI();
+    syncUI();
+    requestAnimationFrame(loop);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

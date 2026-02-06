@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Bignbot TD — Campaign Neon</title>
+
   <style>
     :root{
       --bg0:#050611; --bg1:#070a18;
@@ -12,9 +13,9 @@
       --glass: rgba(10,14,34,0.72);
       --glass2: rgba(10,14,34,0.50);
       --line: rgba(255,255,255,0.16);
-      --glowC: 0 0 18px rgba(40,240,255,0.24), 0 0 40px rgba(255,59,212,0.18);
+      --glowC: 0 0 18px rgba(40,240,255,0.22), 0 0 44px rgba(255,59,212,0.16);
     }
-    *{box-sizing:border-box}
+    *{ box-sizing:border-box; }
     body{
       margin:0; min-height:100vh;
       display:grid; place-items:center;
@@ -25,31 +26,36 @@
         radial-gradient(900px 520px at 15% 80%, rgba(40,240,255,0.12), transparent 60%),
         radial-gradient(900px 520px at 85% 70%, rgba(112,255,107,0.10), transparent 60%),
         linear-gradient(180deg, var(--bg1), var(--bg0));
-      overflow:hidden;
+      overflow-x:hidden;
     }
-    .game-wrap{
-      width:min(1240px, 98vw);
-      padding:12px;
+
+    /* FRAME: everything (canvas + HUD) is anchored to this box */
+    .frame{
+      width:min(1280px, 98vw);
+      margin:12px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,0.18);
+      box-shadow: 0 18px 70px rgba(0,0,0,0.58), var(--glowC);
       position:relative;
+      overflow:hidden;  /* critical: HUD can’t drift outside */
     }
+
+    /* Canvas fills the frame width; height is controlled via JS to preserve aspect */
     canvas{
       width:100%;
       height:auto;
-      border-radius:18px;
-      border:1px solid var(--line);
+      display:block;
       background:
         radial-gradient(900px 520px at 50% 30%, rgba(40,240,255,0.08), transparent 60%),
         linear-gradient(180deg, #060a16 0%, #050712 100%);
-      box-shadow: 0 18px 70px rgba(0,0,0,0.58), var(--glowC);
-      display:block;
-      cursor:crosshair;
+      cursor: crosshair;
     }
 
-    /* Scanlines */
+    /* Scanlines overlay */
     .scanlines{
       pointer-events:none;
-      position:absolute; inset:12px;
-      border-radius:18px;
+      position:absolute; inset:0;
       background: repeating-linear-gradient(
         to bottom,
         rgba(255,255,255,0.03) 0px,
@@ -61,29 +67,47 @@
       opacity:0.32;
     }
 
-    /* HUD */
+    /* HUD overlay */
     .hud{
-      position:absolute; left:12px; right:12px; top:12px; bottom:12px;
+      position:absolute; inset:0;
       pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
     }
+
     .hud-top{
-      display:flex; justify-content:space-between; align-items:flex-start;
-      gap:12px;
+      pointer-events:none;
       padding:12px;
+      display:flex;
+      gap:12px;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      align-items:flex-start;
     }
-    .hud-box{
+
+    .hud-bottom{
+      pointer-events:none;
+      padding:12px;
+      display:flex;
+      gap:12px;
+      align-items:stretch;
+      flex-wrap:wrap; /* critical: prevents layout “breaking” on small widths */
+    }
+
+    .panel{
       pointer-events:auto;
       background: linear-gradient(180deg, var(--glass), var(--glass2));
       border:1px solid var(--line);
       border-radius:16px;
       padding:10px 12px;
+      backdrop-filter: blur(10px);
       box-shadow: var(--glowC);
-      backdrop-filter: blur(8px);
-      min-width: 220px;
     }
+
     .brand{
       font-weight:900; letter-spacing:0.5px;
-      text-shadow: 0 0 18px rgba(40,240,255,0.30), 0 0 26px rgba(255,59,212,0.18);
+      text-shadow: 0 0 18px rgba(40,240,255,0.28), 0 0 26px rgba(255,59,212,0.16);
     }
     .row{display:flex; justify-content:space-between; gap:10px; margin-top:6px; font-size:13px;}
     .big{font-size:18px; font-weight:900;}
@@ -94,31 +118,19 @@
       border:1px solid rgba(255,255,255,0.18);
       background: rgba(0,0,0,0.32);
       font-size:12px;
+      white-space:nowrap;
     }
 
-    /* Bottom build bar */
-    .hud-bottom{
-      position:absolute; left:0; right:0; bottom:0;
-      padding:12px;
-      display:flex; gap:12px; align-items:stretch;
-      pointer-events:none;
-    }
-    .build-bar, .side-panel{
-      pointer-events:auto;
-      background: linear-gradient(180deg, var(--glass), var(--glass2));
-      border:1px solid var(--line);
-      border-radius:18px;
-      box-shadow: var(--glowC);
-      backdrop-filter: blur(10px);
-    }
+    /* Build bar (bottom-left) */
     .build-bar{
-      flex:1;
-      padding:10px;
+      flex: 1 1 620px;
+      min-width: 320px;
       display:flex;
       gap:10px;
-      align-items:stretch;
+      padding:10px;
       overflow:auto;
     }
+
     .card{
       min-width: 220px;
       border-radius:16px;
@@ -149,15 +161,18 @@
       white-space:nowrap;
     }
 
-    .side-panel{
-      width: 340px;
+    /* Side panel (bottom-right) */
+    .side{
+      flex: 0 1 360px;
+      min-width: 320px;
       padding:10px;
       display:flex;
       flex-direction:column;
       gap:10px;
     }
+
     .btnrow{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-    button, select{
+    button{
       width:100%;
       padding:10px 12px;
       border-radius:14px;
@@ -169,20 +184,23 @@
       transition: transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
       outline:none;
     }
-    button:hover, select:hover{
+    button:hover{
       background: rgba(255,255,255,0.10);
       border-color: rgba(40,240,255,0.55);
       box-shadow: 0 0 14px rgba(40,240,255,0.18), 0 0 18px rgba(255,59,212,0.10);
     }
     button:active{ transform: translateY(1px); }
     button:disabled{ opacity:0.45; cursor:not-allowed; }
+
     .seg{display:flex; gap:8px;}
     .seg button{ flex:1; }
     .seg .on{ border-color: rgba(255,59,212,0.85); box-shadow: 0 0 0 2px rgba(255,59,212,0.14) inset; }
+
     .danger{
       border-color: rgba(255,95,119,0.65) !important;
       box-shadow: 0 0 0 2px rgba(255,95,119,0.14) inset, 0 0 18px rgba(255,95,119,0.14);
     }
+
     .holdbar{
       height:8px; border-radius:999px;
       background: rgba(255,255,255,0.10);
@@ -195,6 +213,7 @@
       transition: width 0.05s linear;
       box-shadow: 0 0 16px rgba(255,59,212,0.25);
     }
+
     .msg{
       font-size:13px; line-height:1.25;
       color:var(--muted);
@@ -203,26 +222,27 @@
     .ok{color:var(--lime)} .bad{color:var(--red)} .warn{color:var(--yel)}
   </style>
 </head>
+
 <body>
-  <div class="game-wrap">
-    <canvas id="game" width="980" height="560"></canvas>
+  <div class="frame" id="frame">
+    <canvas id="game"></canvas>
     <div class="scanlines"></div>
 
     <div class="hud">
       <div class="hud-top">
-        <div class="hud-box">
+        <div class="panel" style="min-width:240px">
           <div class="brand">Bignbot TD <span class="kbd">CAMPAIGN</span></div>
           <div class="row"><div class="muted">Map</div><div class="big" id="mapName"></div></div>
           <div class="row"><div class="muted">Wave</div><div class="big" id="waveText"></div></div>
         </div>
 
-        <div class="hud-box" style="min-width:260px">
+        <div class="panel" style="min-width:260px">
           <div class="row"><div class="muted">Cash</div><div class="big" id="cash"></div></div>
           <div class="row"><div class="muted">Lives</div><div class="big" id="lives"></div></div>
           <div class="row"><div class="muted">Next wave</div><div class="big" id="nextWave"></div></div>
         </div>
 
-        <div class="hud-box" style="min-width:300px">
+        <div class="panel" style="min-width:300px">
           <div class="muted" style="font-size:12px;margin-bottom:8px;">Controls</div>
           <div class="btnrow">
             <button id="pauseBtn">Pause</button>
@@ -240,11 +260,11 @@
       </div>
 
       <div class="hud-bottom">
-        <div class="build-bar" id="buildBar"></div>
+        <div class="panel build-bar" id="buildBar"></div>
 
-        <div class="side-panel">
+        <div class="panel side">
           <div class="muted" style="font-size:12px;">Selected turret</div>
-          <div class="hud-box" style="box-shadow:none" id="selectedBox">
+          <div class="panel" style="box-shadow:none" id="selectedBox">
             <div class="muted">None</div>
           </div>
 
@@ -268,11 +288,45 @@
 
 <script>
 (() => {
+  // ---------- Canvas setup (crisp + accurate clicks) ----------
+  const frame = document.getElementById("frame");
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
 
-  // HUD elements
+  // Logical game resolution (we render to this coordinate system)
+  const LOGICAL_W = 980;
+  const LOGICAL_H = 560;
+
+  function resizeCanvas() {
+    const rect = frame.getBoundingClientRect();
+    const cssW = Math.max(320, rect.width);
+    const cssH = cssW * (LOGICAL_H / LOGICAL_W); // preserve aspect
+
+    // set CSS size
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+
+    // set pixel size for crisp rendering
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+
+    // map logical coords to actual pixels
+    ctx.setTransform(canvas.width / LOGICAL_W, 0, 0, canvas.height / LOGICAL_H, 0, 0);
+  }
+
+  window.addEventListener("resize", resizeCanvas, {passive:true});
+  resizeCanvas();
+
+  function getMouse(evt) {
+    const r = canvas.getBoundingClientRect();
+    // Convert screen -> logical coords
+    const x = (evt.clientX - r.left) * (LOGICAL_W / r.width);
+    const y = (evt.clientY - r.top)  * (LOGICAL_H / r.height);
+    return {x,y};
+  }
+
+  // ---------- HUD elements ----------
   const elMapName = document.getElementById("mapName");
   const elWaveText = document.getElementById("waveText");
   const elCash = document.getElementById("cash");
@@ -285,46 +339,22 @@
   const rangeBtn = document.getElementById("rangeBtn");
   const upgradeBtn = document.getElementById("upgradeBtn");
   const sellBtn = document.getElementById("sellBtn");
-
   const s1 = document.getElementById("s1");
   const s2 = document.getElementById("s2");
   const s3 = document.getElementById("s3");
   const s4 = document.getElementById("s4");
-
   const restartHoldBtn = document.getElementById("restartHold");
   const holdFill = document.getElementById("holdFill");
 
-  // helpers
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx, ay-by);
-  const PATH_WIDTH = 50;
 
   function setMsg(html, tone="") {
-    if (!html) { elMsg.innerHTML = ""; return; }
+    if (!html) { elMsg.innerHTML=""; return; }
     elMsg.innerHTML = `<span class="${tone}">${html}</span>`;
   }
 
-  function linePointDistance(px,py, ax,ay, bx,by) {
-    const vx = bx-ax, vy = by-ay;
-    const wx = px-ax, wy = py-ay;
-    const c1 = vx*wx + vy*wy;
-    if (c1 <= 0) return Math.hypot(px-ax, py-ay);
-    const c2 = vx*vx + vy*vy;
-    if (c2 <= c1) return Math.hypot(px-bx, py-by);
-    const t = c1 / c2;
-    const projx = ax + t*vx, projy = ay + t*vy;
-    return Math.hypot(px-projx, py-projy);
-  }
-
-  function getMousePos(evt) {
-    const r = canvas.getBoundingClientRect();
-    return {
-      x: (evt.clientX - r.left) * (canvas.width / r.width),
-      y: (evt.clientY - r.top) * (canvas.height / r.height),
-    };
-  }
-
-  // Campaign maps (no user selection)
+  // ---------- Campaign Maps ----------
   const MAPS = [
     {
       key:"training",
@@ -346,7 +376,7 @@
     }
   ];
 
-  // Turrets
+  // ---------- Turrets ----------
   const TURRET_TYPES = {
     basic: { name:"Basic", desc:"Balanced.", cost:60, range:145, damage:14, cooldown:0.52, projSpeed:460, pierce:1, splash:0, color:"#28f0ff" },
     rapid: { name:"Rapid", desc:"Fast shots.", cost:90, range:120, damage:7,  cooldown:0.16, projSpeed:560, pierce:1, splash:0, color:"#70ff6b" },
@@ -355,6 +385,7 @@
   };
 
   let nextId = 1;
+  const PATH_WIDTH = 50;
 
   const state = {
     mapIdx: 0,
@@ -385,8 +416,8 @@
     selectedTurretType: "basic",
     selectedTurretId: null,
 
-    // Auto wave delay (30s)
-    autoTimer: 0,     // counts down between waves
+    // Auto wave delay
+    autoTimer: 0,
     autoDelay: 30,
 
     // restart hold
@@ -403,6 +434,7 @@
     for (let i=1;i<=25;i++){
       const isBoss = (i % 5 === 0);
       const tier = i;
+
       const countBase = Math.round(10 + tier*1.2);
       const hpBase = 42 + tier*10;
       const speedBase = 55 + tier*1.2;
@@ -431,6 +463,18 @@
       waves.push({count,hp,speed,reward,boss:isBoss,armored:isBoss?true:armored,fast:isBoss?false:fast});
     }
     return waves;
+  }
+
+  function linePointDistance(px,py, ax,ay, bx,by) {
+    const vx = bx-ax, vy = by-ay;
+    const wx = px-ax, wy = py-ay;
+    const c1 = vx*wx + vy*wy;
+    if (c1 <= 0) return Math.hypot(px-ax, py-ay);
+    const c2 = vx*vx + vy*vy;
+    if (c2 <= c1) return Math.hypot(px-bx, py-by);
+    const t = c1 / c2;
+    const projx = ax + t*vx, projy = ay + t*vy;
+    return Math.hypot(px-projx, py-projy);
   }
 
   function pointOnPath(px,py){
@@ -477,16 +521,20 @@
       angle:0,
       cooldown:0,
       level:1,
+
       baseRange:def.range,
       baseDamage:def.damage,
       baseCooldown:def.cooldown,
       baseProjSpeed:def.projSpeed,
+
       splash:def.splash,
       pierce:def.pierce,
+
       range:def.range,
       damage:def.damage,
       fireCd:def.cooldown,
       projSpeed:def.projSpeed,
+
       value:def.cost,
     };
     applyUpgrade(t);
@@ -532,7 +580,6 @@
     pauseBtn.textContent = state.paused ? "Resume" : "Pause";
     rangeBtn.textContent = `Range: ${state.showRanges ? "ON" : "OFF"}`;
 
-    // speed highlight
     [s1,s2,s3,s4].forEach(b=>b.classList.remove("on"));
     ({1:s1,2:s2,3:s3,4:s4}[state.speed]).classList.add("on");
   }
@@ -592,13 +639,6 @@
     state.waveGap = clamp(0.60 - state.waveIdx*0.014, 0.18, 0.60);
 
     setMsg(`Wave <b>${state.waveIdx+1}</b> started.`, "ok");
-    syncHUD();
-  }
-
-  function resetCampaign(){
-    state.mapIdx = 0;
-    loadMap(0, false);
-    setMsg("Campaign started. Place turrets. Waves auto-start.", "ok");
   }
 
   function loadMap(idx, carry){
@@ -626,12 +666,11 @@
       state.cash = MAPS[idx].startingCash;
       state.lives = MAPS[idx].startingLives;
     } else {
-      // small “map arrival bonus”
       state.cash += 65;
       state.lives = Math.min(state.lives + 2, 30);
     }
 
-    state.autoTimer = state.autoDelay; // first wave starts after 30s
+    state.autoTimer = state.autoDelay;
     buildBuildBar();
     syncSelectedUI();
     syncHUD();
@@ -646,13 +685,17 @@
       state.victory = true;
       setMsg(`<b class="ok">CAMPAIGN VICTORY!</b> You cleared all maps.`, "");
     }
-    syncHUD();
   }
 
-  // placement + selection
+  function resetCampaign(){
+    loadMap(0, false);
+    setMsg("Campaign restarted. Place turrets. Waves auto-start.", "ok");
+  }
+
+  // ---------- Input ----------
   canvas.addEventListener("click",(evt)=>{
     if (state.gameOver || state.victory) return;
-    const {x,y} = getMousePos(evt);
+    const {x,y} = getMouse(evt);
 
     // select turret
     const hit = turretAt(x,y);
@@ -677,7 +720,7 @@
     syncHUD();
   });
 
-  // buttons
+  // Buttons
   pauseBtn.addEventListener("click", ()=>{ state.paused = !state.paused; syncHUD(); });
   rangeBtn.addEventListener("click", ()=>{ state.showRanges = !state.showRanges; syncHUD(); });
 
@@ -712,22 +755,16 @@
     syncSelectedUI(); syncHUD();
   });
 
-  // Restart hold
-  function setHoldUI(){
-    const pct = clamp(state.holdT/state.holdNeed,0,1);
-    holdFill.style.width = `${Math.round(pct*100)}%`;
-  }
-  function cancelHold(){
-    state.holdActive=false; state.holdT=0; setHoldUI();
-  }
+  // Restart hold logic
+  function cancelHold(){ state.holdActive=false; state.holdT=0; holdFill.style.width="0%"; }
   restartHoldBtn.addEventListener("mousedown", ()=>{
     state.holdActive=true; state.holdT=0;
     setMsg("Holding… keep holding to restart campaign.", "warn");
   });
-  window.addEventListener("mouseup", ()=>{ if (state.holdActive) { cancelHold(); } });
+  window.addEventListener("mouseup", ()=>{ if (state.holdActive) cancelHold(); });
   restartHoldBtn.addEventListener("mouseleave", ()=>{ if (state.holdActive) cancelHold(); });
 
-  // Combat
+  // ---------- Combat ----------
   function findBestTarget(t){
     let best=null, bestScore=-Infinity;
     for (const e of state.enemies){
@@ -755,14 +792,12 @@
       state.waveIdx++;
 
       if (state.waveIdx >= state.waves.length){
-        // map cleared -> next map
         setMsg(`<b class="ok">All 25 waves cleared!</b>`, "");
         advanceMap();
       } else {
-        state.autoTimer = state.autoDelay; // 30s until next wave
+        state.autoTimer = state.autoDelay;
         setMsg(`Wave cleared. Next wave in <b>${state.autoDelay}s</b>.`, "ok");
       }
-      syncHUD();
     }
   }
 
@@ -791,7 +826,7 @@
       state.gameOver = true;
       state.inWave = false;
       setMsg(`<b class="bad">GAME OVER.</b> Hold restart to retry.`, "");
-      syncHUD(); syncSelectedUI();
+      syncSelectedUI();
     }
   }
 
@@ -833,7 +868,7 @@
       const px0=p.x, py0=p.y;
       p.x += p.vx*dt; p.y += p.vy*dt;
 
-      if (p.x < -60 || p.x > W+60 || p.y < -60 || p.y > H+60){ p.alive=false; continue; }
+      if (p.x < -60 || p.x > LOGICAL_W+60 || p.y < -60 || p.y > LOGICAL_H+60){ p.alive=false; continue; }
 
       for (const e of state.enemies){
         if (p.pierce <= 0) break;
@@ -878,7 +913,6 @@
         }
       }
 
-      // trail
       if (Math.random()<0.85){
         addParticle(px0,py0,(p.vx*-0.03),(p.vy*-0.03),0.10,"rgba(255,255,255,0.75)");
       }
@@ -899,18 +933,19 @@
     state.flashes = state.flashes.filter(f=>f.life>0);
   }
 
-  // Drawing
+  // ---------- Drawing ----------
   function drawNeonGrid(t){
     const step=42;
     const ox=(t*18)%step, oy=(t*12)%step;
     ctx.globalAlpha=0.12; ctx.lineWidth=1;
-    for (let x=-step;x<=W+step;x+=step){
+
+    for (let x=-step;x<=LOGICAL_W+step;x+=step){
       ctx.strokeStyle="rgba(40,240,255,0.35)";
-      ctx.beginPath(); ctx.moveTo(x+ox,0); ctx.lineTo(x+ox,H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+ox,0); ctx.lineTo(x+ox,LOGICAL_H); ctx.stroke();
     }
-    for (let y=-step;y<=H+step;y+=step){
+    for (let y=-step;y<=LOGICAL_H+step;y+=step){
       ctx.strokeStyle="rgba(255,59,212,0.25)";
-      ctx.beginPath(); ctx.moveTo(0,y+oy); ctx.lineTo(W,y+oy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,y+oy); ctx.lineTo(LOGICAL_W,y+oy); ctx.stroke();
     }
     ctx.globalAlpha=1;
   }
@@ -929,12 +964,6 @@
     ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y);
     for (let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
     ctx.stroke();
-
-    const s=path[0], e=path[path.length-1];
-    ctx.fillStyle="rgba(112,255,107,0.14)";
-    ctx.beginPath(); ctx.arc(s.x,s.y,16,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle="rgba(255,95,119,0.18)";
-    ctx.beginPath(); ctx.arc(e.x,e.y,18,0,Math.PI*2); ctx.fill();
   }
 
   function drawParticles(){
@@ -967,7 +996,7 @@
     for (const e of state.enemies){
       ctx.shadowColor = e.boss ? "rgba(255,230,109,0.85)" : "rgba(40,240,255,0.75)";
       ctx.shadowBlur = e.boss ? 18 : 12;
-      ctx.fillStyle = e.boss ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.86)";
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
       ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
       ctx.shadowBlur=0;
 
@@ -1003,7 +1032,6 @@
     ctx.save();
     ctx.translate(t.x,t.y);
 
-    // base hex
     const baseR=t.r+2;
     ctx.shadowColor=c; ctx.shadowBlur=14;
     ctx.fillStyle="rgba(10,14,34,0.92)";
@@ -1017,18 +1045,15 @@
       if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha=0.92;
-    ctx.stroke();
-    ctx.globalAlpha=1;
-
+    ctx.fill(); ctx.globalAlpha=0.92; ctx.stroke(); ctx.globalAlpha=1;
     ctx.shadowBlur=0;
+
     ctx.strokeStyle="rgba(255,255,255,0.22)";
     ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.stroke();
 
-    // body
     ctx.rotate(t.angle);
+
     const bodyRect=(w,h,a)=>{ ctx.fillStyle=`rgba(255,255,255,${a})`; ctx.fillRect(-w/2,-h/2,w,h); };
 
     ctx.fillStyle="rgba(0,0,0,0.35)";
@@ -1055,14 +1080,6 @@
       ctx.fillStyle=c; ctx.fillRect(6,-1,10,2);
     }
 
-    ctx.rotate(-t.angle);
-    ctx.shadowBlur=10;
-    for (let i=0;i<t.level;i++){
-      ctx.fillStyle=c; ctx.globalAlpha=0.9;
-      ctx.beginPath(); ctx.arc(-12 + i*12, 20, 3.2, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha=1;
-
     ctx.restore();
   }
 
@@ -1082,11 +1099,11 @@
     ctx.fillStyle="rgba(255,255,255,0.75)";
     ctx.font="12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     const status = state.gameOver ? "GAME OVER" : (state.victory ? "VICTORY" : (state.paused ? "PAUSED" : "RUN"));
-    ctx.fillText(`MAP ${state.mapIdx+1}/${MAPS.length}  |  ENEMIES ${state.enemies.length}  |  SPEED ${state.speed}x  |  ${status}`, 14, 18);
+    ctx.fillText(`MAP ${state.mapIdx+1}/${MAPS.length} | ENEMIES ${state.enemies.length} | SPEED ${state.speed}x | ${status}`, 14, 18);
   }
 
   function draw(t){
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0,0,LOGICAL_W,LOGICAL_H);
     drawNeonGrid(t);
     drawPath();
     drawParticles();
@@ -1097,7 +1114,7 @@
     drawHUDText(t);
   }
 
-  // Auto wave timer tick (starts waves automatically)
+  // ---------- Auto wave timer ----------
   function autoWaveTick(dt){
     if (state.gameOver || state.victory) return;
     if (state.inWave) return;
@@ -1110,7 +1127,7 @@
     }
   }
 
-  // Restart hold tick
+  // ---------- Restart hold tick ----------
   function holdTick(dt){
     if (!state.holdActive) return;
     state.holdT += dt;
@@ -1124,7 +1141,7 @@
     }
   }
 
-  // Loop
+  // ---------- Loop ----------
   let last = performance.now();
   let timeAcc = 0;
 
@@ -1144,23 +1161,18 @@
   function loop(now){
     const rawDt = Math.min(0.033, (now-last)/1000);
     last = now;
+    timeAcc += rawDt;
 
     const dt = rawDt * state.speed;
-    timeAcc += rawDt;
 
     update(dt);
     draw(timeAcc);
-
     requestAnimationFrame(loop);
   }
 
-  // init
+  // ---------- Init ----------
   function init(){
-    state.cash = MAPS[0].startingCash;
-    state.lives = MAPS[0].startingLives;
-    state.waves = generateWaves(MAPS[0].key);
-    state.autoTimer = state.autoDelay;
-
+    loadMap(0, false);
     buildBuildBar();
     syncSelectedUI();
     syncHUD();

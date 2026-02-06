@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Bignbot TD — Campaign Neon</title>
-
   <style>
     :root{
       --bg0:#050611; --bg1:#070a18;
@@ -29,7 +28,6 @@
       overflow-x:hidden;
     }
 
-    /* FRAME: everything (canvas + HUD) is anchored to this box */
     .frame{
       width:min(1280px, 98vw);
       margin:12px;
@@ -37,74 +35,33 @@
       border:1px solid var(--line);
       background: rgba(0,0,0,0.18);
       box-shadow: 0 18px 70px rgba(0,0,0,0.58), var(--glowC);
-      position:relative;
-      overflow:hidden;  /* critical: HUD can’t drift outside */
+      overflow:hidden;
     }
 
-    /* Canvas fills the frame width; height is controlled via JS to preserve aspect */
-    canvas{
-      width:100%;
-      height:auto;
-      display:block;
-      background:
-        radial-gradient(900px 520px at 50% 30%, rgba(40,240,255,0.08), transparent 60%),
-        linear-gradient(180deg, #060a16 0%, #050712 100%);
-      cursor: crosshair;
-    }
-
-    /* Scanlines overlay */
-    .scanlines{
-      pointer-events:none;
-      position:absolute; inset:0;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(255,255,255,0.03) 0px,
-        rgba(255,255,255,0.03) 1px,
-        rgba(0,0,0,0) 3px,
-        rgba(0,0,0,0) 6px
-      );
-      mix-blend-mode: overlay;
-      opacity:0.32;
-    }
-
-    /* HUD overlay */
-    .hud{
-      position:absolute; inset:0;
-      pointer-events:none;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-    }
-
-    .hud-top{
-      pointer-events:none;
-      padding:12px;
+    .topbar, .bottombar{
       display:flex;
       gap:12px;
-      justify-content:space-between;
       flex-wrap:wrap;
-      align-items:flex-start;
-    }
-
-    .hud-bottom{
-      pointer-events:none;
       padding:12px;
-      display:flex;
-      gap:12px;
       align-items:stretch;
-      flex-wrap:wrap; /* critical: prevents layout “breaking” on small widths */
+      justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,0.10);
+      background: linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.10));
+    }
+    .bottombar{
+      border-top:1px solid rgba(255,255,255,0.10);
+      border-bottom:none;
     }
 
     .panel{
-      pointer-events:auto;
       background: linear-gradient(180deg, var(--glass), var(--glass2));
       border:1px solid var(--line);
       border-radius:16px;
       padding:10px 12px;
       backdrop-filter: blur(10px);
       box-shadow: var(--glowC);
+      min-width: 240px;
     }
-
     .brand{
       font-weight:900; letter-spacing:0.5px;
       text-shadow: 0 0 18px rgba(40,240,255,0.28), 0 0 26px rgba(255,59,212,0.16);
@@ -121,59 +78,36 @@
       white-space:nowrap;
     }
 
-    /* Build bar (bottom-left) */
-    .build-bar{
-      flex: 1 1 620px;
-      min-width: 320px;
-      display:flex;
-      gap:10px;
-      padding:10px;
-      overflow:auto;
+    .canvasWrap{
+      position:relative;
+      padding:0;
     }
-
-    .card{
-      min-width: 220px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,0.16);
-      background: rgba(255,255,255,0.06);
-      padding:10px;
-      cursor:pointer;
-      transition: transform .06s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    }
-    .card:hover{
-      background: rgba(255,255,255,0.10);
-      border-color: rgba(40,240,255,0.55);
-      box-shadow: 0 0 16px rgba(40,240,255,0.18), 0 0 18px rgba(255,59,212,0.10);
-    }
-    .card:active{ transform: translateY(1px); }
-    .card.selected{
-      border-color: rgba(255,59,212,0.85);
-      box-shadow: 0 0 0 2px rgba(255,59,212,0.14) inset, 0 0 18px rgba(40,240,255,0.12);
-    }
-    .card h4{margin:0 0 6px 0; font-size:14px; font-weight:900; display:flex; justify-content:space-between; gap:10px;}
-    .card .stat{font-size:12px; color:var(--muted); line-height:1.25;}
-    .chip{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:2px 8px; border-radius:999px;
-      border:1px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.30);
-      font-size:12px;
-      white-space:nowrap;
-    }
-
-    /* Side panel (bottom-right) */
-    .side{
-      flex: 0 1 360px;
-      min-width: 320px;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .btnrow{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-    button{
+    canvas{
       width:100%;
+      height:auto;
+      display:block;
+      background:
+        radial-gradient(900px 520px at 50% 30%, rgba(40,240,255,0.08), transparent 60%),
+        linear-gradient(180deg, #060a16 0%, #050712 100%);
+    }
+    .scanlines{
+      pointer-events:none;
+      position:absolute; inset:0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.03) 0px,
+        rgba(255,255,255,0.03) 1px,
+        rgba(0,0,0,0) 3px,
+        rgba(0,0,0,0) 6px
+      );
+      mix-blend-mode: overlay;
+      opacity:0.30;
+    }
+
+    .seg{display:flex; gap:8px; margin-top:8px;}
+    .seg button{ flex:1; }
+
+    button{
       padding:10px 12px;
       border-radius:14px;
       border:1px solid rgba(255,255,255,0.18);
@@ -191,15 +125,74 @@
     }
     button:active{ transform: translateY(1px); }
     button:disabled{ opacity:0.45; cursor:not-allowed; }
-
-    .seg{display:flex; gap:8px;}
-    .seg button{ flex:1; }
-    .seg .on{ border-color: rgba(255,59,212,0.85); box-shadow: 0 0 0 2px rgba(255,59,212,0.14) inset; }
+    .on{ border-color: rgba(255,59,212,0.85) !important; box-shadow: 0 0 0 2px rgba(255,59,212,0.14) inset; }
 
     .danger{
       border-color: rgba(255,95,119,0.65) !important;
       box-shadow: 0 0 0 2px rgba(255,95,119,0.14) inset, 0 0 18px rgba(255,95,119,0.14);
     }
+
+    /* Turret build cards */
+    .buildbar{
+      flex: 1 1 720px;
+      min-width: 320px;
+      display:flex;
+      gap:10px;
+      overflow:auto;
+      padding:2px;
+    }
+    .card{
+      min-width: 240px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      padding:10px;
+      cursor:pointer;
+      transition: transform .06s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      user-select:none;
+      position:relative;
+    }
+    .card:hover{
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(40,240,255,0.55);
+      box-shadow: 0 0 16px rgba(40,240,255,0.18), 0 0 18px rgba(255,59,212,0.10);
+    }
+    .card:active{ transform: translateY(1px); }
+    .card.selected{
+      border-color: rgba(255,59,212,0.85);
+      box-shadow: 0 0 0 2px rgba(255,59,212,0.14) inset, 0 0 18px rgba(40,240,255,0.12);
+    }
+    .card.locked{
+      opacity:0.55;
+      cursor:not-allowed;
+      filter:saturate(0.8);
+    }
+    .card h4{margin:0 0 6px 0; font-size:14px; font-weight:900; display:flex; justify-content:space-between; gap:10px;}
+    .card .stat{font-size:12px; color:var(--muted); line-height:1.25;}
+    .chip{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.30);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .side{
+      flex: 0 1 380px;
+      min-width: 320px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .btnrow{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+
+    .msg{
+      font-size:13px; line-height:1.25;
+      color:var(--muted);
+      min-height: 34px;
+    }
+    .ok{color:var(--lime)} .bad{color:var(--red)} .warn{color:var(--yel)}
 
     .holdbar{
       height:8px; border-radius:999px;
@@ -213,74 +206,74 @@
       transition: width 0.05s linear;
       box-shadow: 0 0 16px rgba(255,59,212,0.25);
     }
-
-    .msg{
-      font-size:13px; line-height:1.25;
-      color:var(--muted);
-      min-height: 34px;
-    }
-    .ok{color:var(--lime)} .bad{color:var(--red)} .warn{color:var(--yel)}
   </style>
 </head>
 
 <body>
-  <div class="frame" id="frame">
-    <canvas id="game"></canvas>
-    <div class="scanlines"></div>
-
-    <div class="hud">
-      <div class="hud-top">
-        <div class="panel" style="min-width:240px">
-          <div class="brand">Bignbot TD <span class="kbd">CAMPAIGN</span></div>
-          <div class="row"><div class="muted">Map</div><div class="big" id="mapName"></div></div>
-          <div class="row"><div class="muted">Wave</div><div class="big" id="waveText"></div></div>
-        </div>
-
-        <div class="panel" style="min-width:260px">
-          <div class="row"><div class="muted">Cash</div><div class="big" id="cash"></div></div>
-          <div class="row"><div class="muted">Lives</div><div class="big" id="lives"></div></div>
-          <div class="row"><div class="muted">Next wave</div><div class="big" id="nextWave"></div></div>
-        </div>
-
-        <div class="panel" style="min-width:300px">
-          <div class="muted" style="font-size:12px;margin-bottom:8px;">Controls</div>
-          <div class="btnrow">
-            <button id="pauseBtn">Pause</button>
-            <button id="rangeBtn">Range: ON</button>
-          </div>
-          <div style="height:8px"></div>
-          <div class="muted" style="font-size:12px;margin-bottom:6px;">Speed</div>
-          <div class="seg">
-            <button id="s1">1×</button>
-            <button id="s2">2×</button>
-            <button id="s3">3×</button>
-            <button id="s4">4×</button>
-          </div>
-        </div>
+  <div class="frame">
+    <!-- TOP UI (not overlay) -->
+    <div class="topbar">
+      <div class="panel">
+        <div class="brand">Bignbot TD <span class="kbd">CAMPAIGN</span></div>
+        <div class="row"><div class="muted">Map</div><div class="big" id="mapName"></div></div>
+        <div class="row"><div class="muted">Wave</div><div class="big" id="waveText"></div></div>
       </div>
 
-      <div class="hud-bottom">
-        <div class="panel build-bar" id="buildBar"></div>
+      <div class="panel">
+        <div class="row"><div class="muted">Cash</div><div class="big" id="cash"></div></div>
+        <div class="row"><div class="muted">Lives</div><div class="big" id="lives"></div></div>
+        <div class="row"><div class="muted">Next wave</div><div class="big" id="nextWave"></div></div>
+      </div>
 
-        <div class="panel side">
-          <div class="muted" style="font-size:12px;">Selected turret</div>
-          <div class="panel" style="box-shadow:none" id="selectedBox">
-            <div class="muted">None</div>
-          </div>
+      <div class="panel" style="min-width:320px">
+        <div class="muted" style="font-size:12px;margin-bottom:6px;">Controls</div>
+        <div class="btnrow">
+          <button id="startWaveBtn">Start Wave</button>
+          <button id="pauseBtn">Pause</button>
+        </div>
+        <div class="btnrow" style="margin-top:8px">
+          <button id="rangeBtn">Range: ON</button>
+          <button id="dummyBtn" disabled>Campaign Only</button>
+        </div>
 
-          <div class="btnrow">
-            <button id="upgradeBtn" disabled>Upgrade</button>
-            <button id="sellBtn" disabled>Sell</button>
-          </div>
+        <div class="muted" style="font-size:12px;margin-top:10px;margin-bottom:6px;">Speed</div>
+        <div class="seg">
+          <button id="s1">1×</button>
+          <button id="s2">2×</button>
+          <button id="s3">3×</button>
+          <button id="s4">4×</button>
+        </div>
+      </div>
+    </div>
 
-          <div class="msg" id="msg"></div>
+    <!-- CANVAS -->
+    <div class="canvasWrap">
+      <canvas id="game"></canvas>
+      <div class="scanlines"></div>
+    </div>
 
-          <button id="restartHold" class="danger">HOLD TO RESTART (1.2s)</button>
-          <div class="holdbar"><div id="holdFill"></div></div>
+    <!-- BOTTOM UI (not overlay) -->
+    <div class="bottombar">
+      <div class="panel buildbar" id="buildBar"></div>
 
-          <div class="muted" style="font-size:12px;margin-top:4px;">
-            Waves auto-start <b>30s</b> after clear. Beat all maps to win.
-          </div>
+      <div class="panel side">
+        <div class="muted" style="font-size:12px;">Selected turret</div>
+        <div class="panel" style="box-shadow:none" id="selectedBox">
+          <div class="muted">None (click a turret)</div>
+        </div>
+
+        <div class="btnrow">
+          <button id="upgradeBtn" disabled>Upgrade</button>
+          <button id="sellBtn" disabled>Sell</button>
+        </div>
+
+        <div class="msg" id="msg"></div>
+
+        <button id="restartHold" class="danger">HOLD TO RESTART (1.2s)</button>
+        <div class="holdbar"><div id="holdFill"></div></div>
+
+        <div class="muted" style="font-size:12px;">
+          Wave 1 manual. After that: auto-start 30s after clear.
         </div>
       </div>
     </div>
@@ -289,41 +282,35 @@
 <script>
 (() => {
   // ---------- Canvas setup (crisp + accurate clicks) ----------
-  const frame = document.getElementById("frame");
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
 
-  // Logical game resolution (we render to this coordinate system)
   const LOGICAL_W = 980;
   const LOGICAL_H = 560;
 
   function resizeCanvas() {
-    const rect = frame.getBoundingClientRect();
-    const cssW = Math.max(320, rect.width);
-    const cssH = cssW * (LOGICAL_H / LOGICAL_W); // preserve aspect
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const cssW = rect.width;
+    const cssH = cssW * (LOGICAL_H / LOGICAL_W);
 
-    // set CSS size
     canvas.style.width = cssW + "px";
     canvas.style.height = cssH + "px";
 
-    // set pixel size for crisp rendering
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
 
-    // map logical coords to actual pixels
     ctx.setTransform(canvas.width / LOGICAL_W, 0, 0, canvas.height / LOGICAL_H, 0, 0);
   }
-
   window.addEventListener("resize", resizeCanvas, {passive:true});
   resizeCanvas();
 
   function getMouse(evt) {
     const r = canvas.getBoundingClientRect();
-    // Convert screen -> logical coords
-    const x = (evt.clientX - r.left) * (LOGICAL_W / r.width);
-    const y = (evt.clientY - r.top)  * (LOGICAL_H / r.height);
-    return {x,y};
+    return {
+      x: (evt.clientX - r.left) * (LOGICAL_W / r.width),
+      y: (evt.clientY - r.top)  * (LOGICAL_H / r.height),
+    };
   }
 
   // ---------- HUD elements ----------
@@ -333,16 +320,21 @@
   const elLives = document.getElementById("lives");
   const elNextWave = document.getElementById("nextWave");
   const elMsg = document.getElementById("msg");
+
   const buildBar = document.getElementById("buildBar");
   const selectedBox = document.getElementById("selectedBox");
+
+  const startWaveBtn = document.getElementById("startWaveBtn");
   const pauseBtn = document.getElementById("pauseBtn");
   const rangeBtn = document.getElementById("rangeBtn");
   const upgradeBtn = document.getElementById("upgradeBtn");
   const sellBtn = document.getElementById("sellBtn");
+
   const s1 = document.getElementById("s1");
   const s2 = document.getElementById("s2");
   const s3 = document.getElementById("s3");
   const s4 = document.getElementById("s4");
+
   const restartHoldBtn = document.getElementById("restartHold");
   const holdFill = document.getElementById("holdFill");
 
@@ -376,12 +368,24 @@
     }
   ];
 
-  // ---------- Turrets ----------
+  // ---------- Turrets (with 3 new types) ----------
+  // NOTE: visuals upgrade per level in drawTurret()
   const TURRET_TYPES = {
-    basic: { name:"Basic", desc:"Balanced.", cost:60, range:145, damage:14, cooldown:0.52, projSpeed:460, pierce:1, splash:0, color:"#28f0ff" },
-    rapid: { name:"Rapid", desc:"Fast shots.", cost:90, range:120, damage:7,  cooldown:0.16, projSpeed:560, pierce:1, splash:0, color:"#70ff6b" },
-    sniper:{ name:"Sniper",desc:"Long range.", cost:135,range:260, damage:52, cooldown:1.25, projSpeed:780, pierce:1, splash:0, color:"#ff3bd4" },
-    splash:{ name:"Splash",desc:"AOE mortar.", cost:120,range:165, damage:20, cooldown:0.82, projSpeed:380, pierce:1, splash:58, color:"#ffe66d" },
+    basic: { name:"Basic",  desc:"Balanced.",     cost:60,  range:145, damage:14, cooldown:0.52, projSpeed:460, pierce:1, splash:0,  slow:0,   color:"#28f0ff", unlock: () => true },
+    rapid: { name:"Rapid",  desc:"Fast shots.",   cost:90,  range:120, damage:7,  cooldown:0.16, projSpeed:560, pierce:1, splash:0,  slow:0,   color:"#70ff6b", unlock: () => true },
+    sniper:{ name:"Sniper", desc:"Long range.",   cost:135, range:260, damage:52, cooldown:1.25, projSpeed:780, pierce:1, splash:0,  slow:0,   color:"#ff3bd4", unlock: () => true },
+    splash:{ name:"Splash", desc:"AOE mortar.",   cost:120, range:165, damage:20, cooldown:0.82, projSpeed:380, pierce:1, splash:58, slow:0,   color:"#ffe66d", unlock: () => true },
+
+    // NEW: unlocked later
+    cannon:{ name:"Cannon", desc:"Piercing slug.", cost:160, range:175, damage:28, cooldown:0.70, projSpeed:520, pierce:3, splash:0,  slow:0,   color:"#a8b0ff",
+      unlock: (st)=> st.mapIdx >= 1
+    },
+    frost: { name:"Frost",  desc:"Slows enemies.", cost:145, range:155, damage:10, cooldown:0.28, projSpeed:520, pierce:1, splash:0,  slow:0.45,color:"#7fe8ff",
+      unlock: (st)=> st.mapIdx >= 2
+    },
+    laser: { name:"Laser",  desc:"Hitscan beam.",  cost:190, range:230, damage:18, cooldown:0.18, projSpeed:9999,pierce:1, splash:0,  slow:0,   color:"#ff63ff",
+      unlock: (st)=> st.mapIdx >= 2 && st.waveIdx >= 9 // after Wave 10 unlock condition is met (0-based idx)
+    },
   };
 
   let nextId = 1;
@@ -402,6 +406,7 @@
     projectiles: [],
     particles: [],
     flashes: [],
+    beams: [],
 
     cash: 0,
     lives: 0,
@@ -416,8 +421,9 @@
     selectedTurretType: "basic",
     selectedTurretId: null,
 
-    // Auto wave delay
-    autoTimer: 0,
+    // Auto wave: wave1 manual, then auto
+    autoEnabled: false,
+    autoTimer: 30,
     autoDelay: 30,
 
     // restart hold
@@ -488,7 +494,7 @@
 
   function turretAt(px,py){
     for (const t of state.turrets){
-      if (dist(px,py,t.x,t.y) <= t.r+8) return t;
+      if (dist(px,py,t.x,t.y) <= t.r+10) return t;
     }
     return null;
   }
@@ -503,6 +509,9 @@
       hp: wave.hp,
       maxHp: wave.hp,
       speed: wave.fast ? wave.speed*1.15 : wave.speed,
+      baseSpeed: wave.fast ? wave.speed*1.15 : wave.speed,
+      slowMul: 1,
+      slowT: 0,
       reward: wave.reward,
       armored: !!wave.armored,
       boss: !!wave.boss,
@@ -529,6 +538,7 @@
 
       splash:def.splash,
       pierce:def.pierce,
+      slow:def.slow || 0,
 
       range:def.range,
       damage:def.damage,
@@ -541,8 +551,8 @@
     return t;
   }
 
-  function makeProjectile(x,y,vx,vy,dmg,splash,pierce,color){
-    return {x,y,vx,vy,dmg,splash,pierce,color,alive:true,hitIds:new Set(),life:2.8};
+  function makeProjectile(x,y,vx,vy,dmg,splash,pierce,color, slow=0){
+    return {x,y,vx,vy,dmg,splash,pierce,color,slow,alive:true,hitIds:new Set(),life:2.8};
   }
 
   function addParticle(x,y,vx,vy,life,color){
@@ -553,6 +563,7 @@
     const base = TURRET_TYPES[t.type].cost;
     return Math.round(base * (t.level===1 ? 0.75 : 1.10));
   }
+
   function applyUpgrade(t){
     const lvl=t.level;
     const dmgMult = 1 + 0.50*(lvl-1);
@@ -561,7 +572,11 @@
     t.damage = t.baseDamage * dmgMult;
     t.range  = t.baseRange  * rangeMult;
     t.fireCd = t.baseCooldown * cdMult;
-    t.projSpeed = t.baseProjSpeed;
+
+    // Upgrade-specific feel:
+    if (t.type === "laser") t.damage = t.baseDamage * (1 + 0.35*(lvl-1));
+    if (t.type === "frost") t.slow = 0.45 + 0.10*(lvl-1); // stronger slow with upgrades
+    if (t.type === "cannon") t.pierce = 3 + (lvl-1);      // more pierce
   }
 
   function syncHUD(){
@@ -575,13 +590,14 @@
     if (state.gameOver) elNextWave.textContent = "—";
     else if (state.victory) elNextWave.textContent = "DONE";
     else if (state.inWave) elNextWave.textContent = "IN WAVE";
+    else if (!state.autoEnabled && state.waveIdx===0) elNextWave.textContent = "MANUAL";
     else elNextWave.textContent = `${Math.ceil(state.autoTimer)}s`;
 
     pauseBtn.textContent = state.paused ? "Resume" : "Pause";
     rangeBtn.textContent = `Range: ${state.showRanges ? "ON" : "OFF"}`;
 
-    [s1,s2,s3,s4].forEach(b=>b.classList.remove("on"));
-    ({1:s1,2:s2,3:s3,4:s4}[state.speed]).classList.add("on");
+    startWaveBtn.disabled = state.gameOver || state.victory || state.inWave || state.waveIdx>=state.waves.length || !(state.waveIdx===0 && !state.autoEnabled);
+    startWaveBtn.textContent = (state.waveIdx===0 && !state.autoEnabled) ? "Start Wave 1" : "Auto Waves";
   }
 
   function syncSelectedUI(){
@@ -598,7 +614,10 @@
         <div>
           <div style="font-weight:900">${def.name} <span class="muted">Lv ${t.level}/3</span></div>
           <div class="muted" style="font-size:12px;line-height:1.25">
-            DMG ${t.damage.toFixed(1)} • RNG ${Math.round(t.range)} • CD ${t.fireCd.toFixed(2)}${t.splash?` • AOE ${t.splash}`:""}
+            DMG ${t.damage.toFixed(1)} • RNG ${Math.round(t.range)} • CD ${t.fireCd.toFixed(2)}
+            ${t.splash?` • AOE ${t.splash}`:""}
+            ${t.slow?` • SLOW ${Math.round(t.slow*100)}%`:""}
+            ${t.pierce>1?` • PIERCE ${t.pierce}`:""}
           </div>
         </div>
         <div class="kbd">Upg: ${t.level>=3 ? "MAX" : `$${upgradeCost(t)}`}</div>
@@ -607,26 +626,50 @@
     sellBtn.disabled = state.gameOver || state.victory;
   }
 
+  function unlockTextFor(key){
+    if (key==="cannon") return "Unlock: Map 2";
+    if (key==="frost") return "Unlock: Map 3";
+    if (key==="laser") return "Unlock: Map 3 Wave 10";
+    return "";
+  }
+
   function buildBuildBar(){
     buildBar.innerHTML = "";
     Object.entries(TURRET_TYPES).forEach(([key,def])=>{
+      const unlocked = def.unlock(state);
       const div = document.createElement("div");
-      div.className = "card" + (state.selectedTurretType===key ? " selected" : "");
+      div.className = "card" +
+        (state.selectedTurretType===key ? " selected" : "") +
+        (!unlocked ? " locked" : "");
+
       div.innerHTML = `
         <h4>
           <span>${def.name}</span>
           <span class="chip">$${def.cost}</span>
         </h4>
-        <div class="stat">DMG ${def.damage} • RNG ${def.range} • CD ${def.cooldown.toFixed(2)}${def.splash?` • AOE ${def.splash}`:""}</div>
+        <div class="stat">DMG ${def.damage} • RNG ${def.range} • CD ${def.cooldown.toFixed(2)}${def.splash?` • AOE ${def.splash}`:""}${def.slow?` • SLOW ${Math.round((def.slow||0.45)*100)}%`:""}${def.pierce>1?` • PIERCE ${def.pierce}`:""}</div>
         <div class="stat">${def.desc}</div>
+        ${unlocked ? "" : `<div class="stat" style="margin-top:8px"><span class="kbd">${unlockTextFor(key)}</span></div>`}
       `;
+
       div.addEventListener("click", ()=>{
+        if (!unlocked){
+          setMsg(`Locked: <b>${def.name}</b>. ${unlockTextFor(key)}.`, "warn");
+          return;
+        }
         state.selectedTurretType = key;
         buildBuildBar();
         setMsg(`Selected <b>${def.name}</b>. Click the field to place.`, "");
       });
+
       buildBar.appendChild(div);
     });
+
+    // If currently selected becomes locked (rare), fall back to basic
+    if (!TURRET_TYPES[state.selectedTurretType].unlock(state)){
+      state.selectedTurretType = "basic";
+      buildBuildBar();
+    }
   }
 
   function startWave(){
@@ -645,6 +688,7 @@
     state.mapIdx = idx;
     state.path = MAPS[idx].path;
     state.waves = generateWaves(MAPS[idx].key);
+
     state.waveIdx = 0;
     state.inWave = false;
     state.spawnTimer = 0;
@@ -655,6 +699,7 @@
     state.projectiles = [];
     state.particles = [];
     state.flashes = [];
+    state.beams = [];
 
     state.gameOver = false;
     state.victory = false;
@@ -662,15 +707,18 @@
 
     state.selectedTurretId = null;
 
+    // wave1 manual each map, then auto
+    state.autoEnabled = false;
+    state.autoTimer = state.autoDelay;
+
     if (!carry){
       state.cash = MAPS[idx].startingCash;
       state.lives = MAPS[idx].startingLives;
     } else {
-      state.cash += 65;
+      state.cash += 80;
       state.lives = Math.min(state.lives + 2, 30);
     }
 
-    state.autoTimer = state.autoDelay;
     buildBuildBar();
     syncSelectedUI();
     syncHUD();
@@ -689,7 +737,7 @@
 
   function resetCampaign(){
     loadMap(0, false);
-    setMsg("Campaign restarted. Place turrets. Waves auto-start.", "ok");
+    setMsg("Campaign restarted. Start Wave 1 when ready.", "ok");
   }
 
   // ---------- Input ----------
@@ -712,6 +760,7 @@
       if (dist(x,y,t.x,t.y) < (t.r + 18)){ setMsg("Too close to another turret.", "bad"); return; }
     }
     const def = TURRET_TYPES[state.selectedTurretType];
+    if (!def.unlock(state)){ setMsg("That turret is still locked.", "warn"); return; }
     if (state.cash < def.cost){ setMsg("Not enough cash.", "bad"); return; }
 
     state.cash -= def.cost;
@@ -721,6 +770,11 @@
   });
 
   // Buttons
+  startWaveBtn.addEventListener("click", ()=>{
+    // Only Wave 1 manual
+    if (state.waveIdx===0 && !state.autoEnabled) startWave();
+  });
+
   pauseBtn.addEventListener("click", ()=>{ state.paused = !state.paused; syncHUD(); });
   rangeBtn.addEventListener("click", ()=>{ state.showRanges = !state.showRanges; syncHUD(); });
 
@@ -739,7 +793,7 @@
     state.cash -= cost;
     t.level++; t.value += cost;
     applyUpgrade(t);
-    setMsg(`Upgraded <b>${TURRET_TYPES[t.type].name}</b> to Lv ${t.level}.`, "ok");
+    setMsg(`Upgraded <b>${TURRET_TYPES[t.type].name}</b> to Lv ${t.level} (new look).`, "ok");
     syncSelectedUI(); syncHUD();
   });
 
@@ -770,7 +824,7 @@
     for (const e of state.enemies){
       const d = dist(t.x,t.y,e.x,e.y);
       if (d > t.range) continue;
-      const score = e.pathIdx*10000 - d;
+      const score = e.pathIdx*10000 - d - (e.hp*0.01);
       if (score>bestScore){ bestScore=score; best=e; }
     }
     return best;
@@ -787,16 +841,27 @@
       state.spawnTimer = state.waveGap;
     }
 
+    // wave ends when all spawned and no enemies alive
     if (state.spawned >= wave.count && state.enemies.length === 0){
       state.inWave = false;
       state.waveIdx++;
+
+      // unlock checks may change now
+      buildBuildBar();
+
+      // After wave 1 completes, enable auto waves
+      if (state.waveIdx >= 1) state.autoEnabled = true;
 
       if (state.waveIdx >= state.waves.length){
         setMsg(`<b class="ok">All 25 waves cleared!</b>`, "");
         advanceMap();
       } else {
-        state.autoTimer = state.autoDelay;
-        setMsg(`Wave cleared. Next wave in <b>${state.autoDelay}s</b>.`, "ok");
+        if (state.autoEnabled){
+          state.autoTimer = state.autoDelay;
+          setMsg(`Wave cleared. Next wave in <b>${state.autoDelay}s</b>.`, "ok");
+        } else {
+          setMsg(`Wave cleared. Start next when ready.`, "ok");
+        }
       }
     }
   }
@@ -804,9 +869,20 @@
   function moveEnemies(dt){
     const path = state.path;
     for (const e of state.enemies){
+      // slow decay
+      if (e.slowT > 0){
+        e.slowT -= dt;
+        if (e.slowT <= 0){
+          e.slowMul = 1;
+          e.slowT = 0;
+        }
+      }
+      const speed = e.baseSpeed * e.slowMul;
+
       const a = path[e.pathIdx];
       const b = path[e.pathIdx+1];
       if (!b){
+        // leaked through
         state.lives -= 1;
         e.alive = false;
         continue;
@@ -814,7 +890,7 @@
       const dx=b.x-e.x, dy=b.y-e.y;
       const d=Math.hypot(dx,dy);
       if (d < 0.001){ e.pathIdx++; continue; }
-      const step=e.speed*dt;
+      const step=speed*dt;
       const nx=dx/d, ny=dy/d;
       if (step>=d){ e.x=b.x; e.y=b.y; e.pathIdx++; }
       else { e.x += nx*step; e.y += ny*step; }
@@ -841,9 +917,38 @@
       const dx=target.x-t.x, dy=target.y-t.y;
       t.angle = Math.atan2(dy,dx);
 
+      const color = TURRET_TYPES[t.type].color;
+
+      // LASER: hitscan (no projectile travel)
+      if (t.type === "laser"){
+        // beam effect
+        state.beams.push({x1:t.x,y1:t.y,x2:target.x,y2:target.y,life:0.08,color});
+
+        // damage + particles
+        const dmg = target.armored ? t.damage*0.85 : t.damage;
+        target.hp -= dmg;
+
+        for (let i=0;i<6;i++){
+          const ang=Math.random()*Math.PI*2;
+          const sp=120+Math.random()*140;
+          addParticle(target.x,target.y,Math.cos(ang)*sp,Math.sin(ang)*sp,0.16+Math.random()*0.10,"rgba(255,99,255,0.9)");
+        }
+
+        if (target.hp<=0){
+          state.cash += target.reward + (target.boss ? 50 : 0);
+          for (let i=0;i<14;i++){
+            const ang=Math.random()*Math.PI*2, sp=120+Math.random()*220;
+            addParticle(target.x,target.y,Math.cos(ang)*sp,Math.sin(ang)*sp,0.26+Math.random()*0.18,"rgba(255,230,109,0.95)");
+          }
+        }
+
+        t.cooldown = t.fireCd;
+        continue;
+      }
+
+      // normal projectile turrets
       const d=Math.hypot(dx,dy) || 1;
       const vx=(dx/d)*t.projSpeed, vy=(dy/d)*t.projSpeed;
-      const color = TURRET_TYPES[t.type].color;
 
       state.projectiles.push(makeProjectile(
         t.x + Math.cos(t.angle)*20,
@@ -852,7 +957,8 @@
         t.damage,
         t.splash,
         t.pierce,
-        color
+        color,
+        t.slow || 0
       ));
 
       state.flashes.push({x:t.x,y:t.y,a:t.angle,life:0.09,color});
@@ -878,6 +984,12 @@
           p.hitIds.add(e.id);
           const dmg = e.armored ? p.dmg*0.78 : p.dmg;
           e.hp -= dmg;
+
+          // Frost slow
+          if (p.slow && p.slow > 0){
+            e.slowMul = Math.min(e.slowMul, 1 - p.slow);
+            e.slowT = Math.max(e.slowT, 1.6);
+          }
 
           for (let i=0;i<7;i++){
             const ang=Math.random()*Math.PI*2;
@@ -931,11 +1043,44 @@
 
     for (const f of state.flashes) f.life -= dt;
     state.flashes = state.flashes.filter(f=>f.life>0);
+
+    for (const b of state.beams) b.life -= dt;
+    state.beams = state.beams.filter(b=>b.life>0);
+  }
+
+  // ---------- Auto wave logic ----------
+  function autoWaveTick(dt){
+    if (state.gameOver || state.victory) return;
+    if (state.inWave) return;
+    if (state.waveIdx >= state.waves.length) return;
+
+    // Wave 1 manual only
+    if (!state.autoEnabled && state.waveIdx===0) return;
+
+    state.autoTimer -= dt;
+    if (state.autoTimer <= 0){
+      state.autoTimer = 0;
+      startWave();
+    }
+  }
+
+  // ---------- Restart hold tick ----------
+  function holdTick(dt){
+    if (!state.holdActive) return;
+    state.holdT += dt;
+    const pct = clamp(state.holdT/state.holdNeed,0,1);
+    holdFill.style.width = `${Math.round(pct*100)}%`;
+    if (state.holdT >= state.holdNeed){
+      state.holdActive=false;
+      state.holdT=0;
+      holdFill.style.width="0%";
+      resetCampaign();
+    }
   }
 
   // ---------- Drawing ----------
+  const step=42;
   function drawNeonGrid(t){
-    const step=42;
     const ox=(t*18)%step, oy=(t*12)%step;
     ctx.globalAlpha=0.12; ctx.lineWidth=1;
 
@@ -976,6 +1121,27 @@
     ctx.globalAlpha=1;
   }
 
+  function drawBeams(){
+    for (const b of state.beams){
+      const a=clamp(b.life/0.08,0,1);
+      ctx.globalAlpha=a;
+      ctx.strokeStyle=b.color;
+      ctx.lineWidth=3.5;
+      ctx.beginPath();
+      ctx.moveTo(b.x1,b.y1);
+      ctx.lineTo(b.x2,b.y2);
+      ctx.stroke();
+
+      ctx.strokeStyle="rgba(255,255,255,0.85)";
+      ctx.lineWidth=1.2;
+      ctx.beginPath();
+      ctx.moveTo(b.x1,b.y1);
+      ctx.lineTo(b.x2,b.y2);
+      ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+  }
+
   function drawProjectiles(){
     for (const p of state.projectiles){
       ctx.strokeStyle=p.color;
@@ -994,8 +1160,11 @@
 
   function drawEnemies(){
     for (const e of state.enemies){
-      ctx.shadowColor = e.boss ? "rgba(255,230,109,0.85)" : "rgba(40,240,255,0.75)";
+      // glow changes when slowed
+      const slowGlow = (e.slowT>0) ? "rgba(127,232,255,0.9)" : "rgba(40,240,255,0.75)";
+      ctx.shadowColor = e.boss ? "rgba(255,230,109,0.85)" : slowGlow;
       ctx.shadowBlur = e.boss ? 18 : 12;
+
       ctx.fillStyle = "rgba(255,255,255,0.88)";
       ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
       ctx.shadowBlur=0;
@@ -1004,6 +1173,11 @@
         ctx.strokeStyle="rgba(255,230,109,0.80)";
         ctx.lineWidth=3;
         ctx.beginPath(); ctx.arc(e.x,e.y,e.r+2,0,Math.PI*2); ctx.stroke();
+      }
+      if (e.slowT>0){
+        ctx.strokeStyle="rgba(127,232,255,0.85)";
+        ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(e.x,e.y,e.r+6,0,Math.PI*2); ctx.stroke();
       }
 
       const w=e.boss?60:38, h=7;
@@ -1018,6 +1192,7 @@
     }
   }
 
+  // ---------- Turret Art (changes by level) ----------
   function drawTurret(t){
     const def=TURRET_TYPES[t.type];
     const c=def.color;
@@ -1032,12 +1207,15 @@
     ctx.save();
     ctx.translate(t.x,t.y);
 
-    const baseR=t.r+2;
+    // base platform gets more complex per level
+    const baseR=t.r+2 + (t.level-1)*1.2;
+
     ctx.shadowColor=c; ctx.shadowBlur=14;
     ctx.fillStyle="rgba(10,14,34,0.92)";
     ctx.strokeStyle=c;
     ctx.lineWidth=(state.selectedTurretId===t.id)?4.5:3;
 
+    // hex base
     ctx.beginPath();
     for (let i=0;i<6;i++){
       const a=(Math.PI*2)*(i/6)+Math.PI/6;
@@ -1048,36 +1226,152 @@
     ctx.fill(); ctx.globalAlpha=0.92; ctx.stroke(); ctx.globalAlpha=1;
     ctx.shadowBlur=0;
 
+    // inner ring
     ctx.strokeStyle="rgba(255,255,255,0.22)";
     ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,9+(t.level-1)*1.2,0,Math.PI*2); ctx.stroke();
+
+    // level pips
+    ctx.fillStyle=c;
+    for (let i=0;i<t.level;i++){
+      const a = -Math.PI/2 + i*(Math.PI*2/3);
+      ctx.beginPath();
+      ctx.arc(Math.cos(a)*(baseR-5), Math.sin(a)*(baseR-5), 2.2, 0, Math.PI*2);
+      ctx.fill();
+    }
 
     ctx.rotate(t.angle);
 
+    // turret body + barrels vary by type+level
     const bodyRect=(w,h,a)=>{ ctx.fillStyle=`rgba(255,255,255,${a})`; ctx.fillRect(-w/2,-h/2,w,h); };
 
+    // shadow body
     ctx.fillStyle="rgba(0,0,0,0.35)";
-    ctx.fillRect(-10,-6,20,12);
+    ctx.fillRect(-11,-7,22,14);
 
     if (t.type==="basic"){
-      bodyRect(16,10,0.14);
-      ctx.fillStyle="rgba(255,255,255,0.80)"; ctx.fillRect(4,-2,18,4);
+      bodyRect(16 + t.level*2, 10 + t.level*1, 0.14);
+      // barrels increase with level
+      ctx.fillStyle="rgba(255,255,255,0.80)";
+      const barrels = t.level;
+      for (let i=0;i<barrels;i++){
+        const oy = (i - (barrels-1)/2) * 3.6;
+        ctx.fillRect(4, oy-1.5, 18 + t.level*3, 3);
+      }
       ctx.fillStyle=c; ctx.fillRect(14,-1,10,2);
+
     } else if (t.type==="rapid"){
-      bodyRect(18,12,0.12);
+      bodyRect(18 + t.level*2, 12 + t.level*1, 0.12);
       ctx.fillStyle="rgba(255,255,255,0.78)";
-      ctx.fillRect(4,-5,16,3); ctx.fillRect(4,2,16,3);
-      ctx.fillStyle=c; ctx.fillRect(14,-4,8,1.5); ctx.fillRect(14,3,8,1.5);
+      // twin barrels -> quad at lv3
+      const lines = (t.level===1)?2:(t.level===2?3:4);
+      for (let i=0;i<lines;i++){
+        const oy = (i - (lines-1)/2) * 3.0;
+        ctx.fillRect(4, oy-1.2, 16 + t.level*2, 2.4);
+      }
+      // fins appear at lv2+
+      if (t.level>=2){
+        ctx.fillStyle=c;
+        ctx.fillRect(-6,-10,6,4);
+        ctx.fillRect(-6, 6,6,4);
+      }
+
     } else if (t.type==="sniper"){
-      bodyRect(18,10,0.10);
-      ctx.fillStyle="rgba(255,255,255,0.82)"; ctx.fillRect(4,-1.8,28,3.6);
-      ctx.fillStyle=c; ctx.fillRect(-2,-7,10,3);
-      ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=1; ctx.strokeRect(-2,-7,10,3);
+      bodyRect(18 + t.level*2, 10 + t.level*0.5, 0.10);
+      // long barrel grows per level
+      ctx.fillStyle="rgba(255,255,255,0.82)";
+      ctx.fillRect(4,-1.7,30 + t.level*8,3.4);
+      // scope at lv2+
+      if (t.level>=2){
+        ctx.fillStyle=c;
+        ctx.fillRect(0,-10,12,4);
+        ctx.strokeStyle="rgba(255,255,255,0.35)";
+        ctx.strokeRect(0,-10,12,4);
+      }
+      // stabilizer at lv3
+      if (t.level>=3){
+        ctx.fillStyle="rgba(255,255,255,0.18)";
+        ctx.fillRect(-10,-14,8,28);
+      }
+
     } else if (t.type==="splash"){
-      bodyRect(18,12,0.10);
-      ctx.strokeStyle="rgba(255,255,255,0.65)"; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(10,0,9,-Math.PI/2,Math.PI/2); ctx.stroke();
-      ctx.fillStyle=c; ctx.fillRect(6,-1,10,2);
+      bodyRect(18 + t.level*2, 12 + t.level*1, 0.10);
+      // mortar cup grows per level
+      ctx.strokeStyle="rgba(255,255,255,0.70)";
+      ctx.lineWidth=2.2;
+      ctx.beginPath(); ctx.arc(10,0,10 + t.level*2, -Math.PI/2, Math.PI/2); ctx.stroke();
+      ctx.fillStyle=c; ctx.fillRect(6,-1,12 + t.level*2,2);
+      // extra braces at lv2+
+      if (t.level>=2){
+        ctx.fillStyle="rgba(255,255,255,0.16)";
+        ctx.fillRect(-6,-12,6,6);
+        ctx.fillRect(-6, 6,6,6);
+      }
+
+    } else if (t.type==="cannon"){
+      bodyRect(18 + t.level*2, 12 + t.level*1, 0.12);
+      // thick cannon barrel + muzzle
+      ctx.fillStyle="rgba(255,255,255,0.85)";
+      ctx.fillRect(4,-3,24 + t.level*6,6);
+      ctx.fillStyle=c;
+      ctx.fillRect(20 + t.level*5,-4,10,8);
+      // recoil springs at lv2+
+      if (t.level>=2){
+        ctx.strokeStyle="rgba(255,255,255,0.28)";
+        ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(-6,-6); ctx.lineTo(6,-6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(6, 6); ctx.stroke();
+      }
+      // armor plates at lv3
+      if (t.level>=3){
+        ctx.fillStyle="rgba(255,255,255,0.12)";
+        ctx.fillRect(-14,-10,10,20);
+      }
+
+    } else if (t.type==="frost"){
+      bodyRect(18 + t.level*2, 12 + t.level*1, 0.10);
+      // crystal emitter
+      ctx.fillStyle=c;
+      ctx.beginPath();
+      ctx.moveTo(6,0);
+      ctx.lineTo(24 + t.level*4,-7);
+      ctx.lineTo(24 + t.level*4, 7);
+      ctx.closePath();
+      ctx.fill();
+      // coils at lv2+
+      if (t.level>=2){
+        ctx.strokeStyle="rgba(255,255,255,0.35)";
+        ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.stroke();
+      }
+      // crown at lv3
+      if (t.level>=3){
+        ctx.fillStyle="rgba(255,255,255,0.16)";
+        ctx.fillRect(-6,-16,12,6);
+      }
+
+    } else if (t.type==="laser"){
+      bodyRect(18 + t.level*2, 12 + t.level*1, 0.08);
+      // emitter core
+      ctx.fillStyle=c;
+      ctx.beginPath(); ctx.arc(10,0,7 + t.level*1.5,0,Math.PI*2); ctx.fill();
+      // forward prongs (more at higher level)
+      ctx.strokeStyle="rgba(255,255,255,0.55)";
+      ctx.lineWidth=2;
+      const prongs = 2 + (t.level-1);
+      for (let i=0;i<prongs;i++){
+        const oy = (i-(prongs-1)/2)*5.0;
+        ctx.beginPath();
+        ctx.moveTo(16, oy);
+        ctx.lineTo(34 + t.level*4, oy);
+        ctx.stroke();
+      }
+      // side fins at lv2+
+      if (t.level>=2){
+        ctx.fillStyle="rgba(255,255,255,0.14)";
+        ctx.fillRect(-10,-12,8,6);
+        ctx.fillRect(-10, 6,8,6);
+      }
     }
 
     ctx.restore();
@@ -1107,6 +1401,7 @@
     drawNeonGrid(t);
     drawPath();
     drawParticles();
+    drawBeams();
     drawProjectiles();
     drawEnemies();
     for (const turr of state.turrets) drawTurret(turr);
@@ -1114,32 +1409,24 @@
     drawHUDText(t);
   }
 
-  // ---------- Auto wave timer ----------
-  function autoWaveTick(dt){
-    if (state.gameOver || state.victory) return;
-    if (state.inWave) return;
-    if (state.waveIdx >= state.waves.length) return;
-
-    state.autoTimer -= dt;
-    if (state.autoTimer <= 0){
-      state.autoTimer = 0;
-      startWave();
-    }
+  // ---------- Map progression / start rules ----------
+  function startWaveManual(){
+    // only for wave 1 on each map
+    if (state.waveIdx===0 && !state.autoEnabled) startWave();
   }
 
-  // ---------- Restart hold tick ----------
-  function holdTick(dt){
-    if (!state.holdActive) return;
-    state.holdT += dt;
-    const pct = clamp(state.holdT/state.holdNeed,0,1);
-    holdFill.style.width = `${Math.round(pct*100)}%`;
-    if (state.holdT >= state.holdNeed){
-      state.holdActive=false;
-      state.holdT=0;
-      holdFill.style.width="0%";
-      resetCampaign();
-    }
+  // ---------- First-time init ----------
+  function init(){
+    loadMap(0, false);
+    buildBuildBar();
+    syncSelectedUI();
+    syncHUD();
+    setMsg("Wave 1 is manual. Place turrets, then press <b>Start Wave 1</b>.", "ok");
+    requestAnimationFrame(loop);
   }
+
+  // ---------- Other controls ----------
+  startWaveBtn.addEventListener("click", startWaveManual);
 
   // ---------- Loop ----------
   let last = performance.now();
@@ -1155,6 +1442,7 @@
       autoWaveTick(dt);
     }
     holdTick(dt);
+    syncSelectedUI();
     syncHUD();
   }
 
@@ -1164,23 +1452,107 @@
     timeAcc += rawDt;
 
     const dt = rawDt * state.speed;
-
     update(dt);
     draw(timeAcc);
     requestAnimationFrame(loop);
   }
 
-  // ---------- Init ----------
-  function init(){
-    loadMap(0, false);
-    buildBuildBar();
-    syncSelectedUI();
-    syncHUD();
-    setMsg("Campaign online. Waves start automatically. Place turrets now.", "ok");
-    requestAnimationFrame(loop);
+  // ---------- Remaining UI wiring ----------
+  function setSpeed(n){
+    state.speed = n;
+    [s1,s2,s3,s4].forEach(b=>b.classList.remove("on"));
+    ({1:s1,2:s2,3:s3,4:s4}[state.speed]).classList.add("on");
+  }
+  s1.addEventListener("click",()=>setSpeed(1));
+  s2.addEventListener("click",()=>setSpeed(2));
+  s3.addEventListener("click",()=>setSpeed(3));
+  s4.addEventListener("click",()=>setSpeed(4));
+  setSpeed(1);
+
+  pauseBtn.addEventListener("click", ()=>{ state.paused = !state.paused; });
+  rangeBtn.addEventListener("click", ()=>{ state.showRanges = !state.showRanges; });
+
+  // ---------- Restart hold ----------
+  function cancelHold(){ state.holdActive=false; state.holdT=0; holdFill.style.width="0%"; }
+  restartHoldBtn.addEventListener("mousedown", ()=>{
+    state.holdActive=true; state.holdT=0;
+    setMsg("Holding… keep holding to restart campaign.", "warn");
+  });
+  window.addEventListener("mouseup", ()=>{ if (state.holdActive) cancelHold(); });
+  restartHoldBtn.addEventListener("mouseleave", ()=>{ if (state.holdActive) cancelHold(); });
+
+  // ---------- Upgrade / Sell ----------
+  upgradeBtn.addEventListener("click", ()=>{
+    const t = state.turrets.find(tt => tt.id===state.selectedTurretId);
+    if (!t) return;
+    if (t.level>=3){ setMsg("Max level.", "warn"); return; }
+    const cost = upgradeCost(t);
+    if (state.cash < cost){ setMsg("Not enough cash to upgrade.", "bad"); return; }
+    state.cash -= cost;
+    t.level++; t.value += cost;
+    applyUpgrade(t);
+    setMsg(`Upgraded <b>${TURRET_TYPES[t.type].name}</b> to Lv ${t.level} (new look).`, "ok");
+  });
+
+  sellBtn.addEventListener("click", ()=>{
+    const idx = state.turrets.findIndex(tt => tt.id===state.selectedTurretId);
+    if (idx === -1) return;
+    const t = state.turrets[idx];
+    const refund = Math.round(t.value * 0.70);
+    state.cash += refund;
+    state.turrets.splice(idx,1);
+    state.selectedTurretId = null;
+    setMsg(`Sold for $${refund}.`, "ok");
+  });
+
+  // ---------- Placement + Selection ----------
+  canvas.addEventListener("click",(evt)=>{
+    if (state.gameOver || state.victory) return;
+    const {x,y} = getMouse(evt);
+
+    const hit = turretAt(x,y);
+    if (hit){
+      state.selectedTurretId = hit.id;
+      setMsg(`Selected <b>${TURRET_TYPES[hit.type].name}</b>.`, "");
+      return;
+    }
+
+    if (pointOnPath(x,y)){ setMsg("Can't place on the path.", "bad"); return; }
+    for (const t of state.turrets){
+      if (dist(x,y,t.x,t.y) < (t.r + 18)){ setMsg("Too close to another turret.", "bad"); return; }
+    }
+
+    const def = TURRET_TYPES[state.selectedTurretType];
+    if (!def.unlock(state)){ setMsg(`Locked: ${unlockTextFor(state.selectedTurretType)}.`, "warn"); return; }
+    if (state.cash < def.cost){ setMsg("Not enough cash.", "bad"); return; }
+
+    state.cash -= def.cost;
+    state.turrets.push(makeTurret(x,y,state.selectedTurretType));
+    setMsg(`Placed <b>${def.name}</b>.`, "ok");
+  });
+
+  // ---------- Selected UI enable/disable ----------
+  function refreshButtons(){
+    const t = state.turrets.find(tt => tt.id===state.selectedTurretId);
+    if (!t){
+      upgradeBtn.disabled = true;
+      sellBtn.disabled = true;
+      return;
+    }
+    upgradeBtn.disabled = state.gameOver || state.victory || t.level>=3;
+    sellBtn.disabled = state.gameOver || state.victory;
   }
 
+  // patch syncSelectedUI to also refresh buttons
+  const _syncSelectedUI = syncSelectedUI;
+  syncSelectedUI = function(){
+    _syncSelectedUI();
+    refreshButtons();
+  };
+
+  // ---------- Init state ----------
   init();
+
 })();
 </script>
 </body>

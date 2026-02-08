@@ -6,444 +6,395 @@
   <title>Bignbot TD</title>
   <style>
     :root{
-      --bg0:#070912;
-      --bg1:#0a0f22;
-      --panel:#0b1024cc;
-      --panel2:#0b1024e6;
-      --stroke:#ffffff24;
-      --stroke2:#ffffff36;
+      --bg:#0a0d12;
+      --panel:#0e141b;
+      --panel2:#111a23;
+      --stroke:#ffffff22;
       --txt:#eaf1ff;
       --muted:#a9b4d6;
-      --cyan:#00dcff;
-      --violet:#c15bff;
-      --orange:#ff9b3d;
-      --green:#35ff8d;
-      --red:#ff4d6d;
-      --shadow: 0 18px 60px #00000090;
-      --r:18px;
-      --r2:22px;
+
+      /* “war UI” accents (like your reference art) */
+      --gold:#f2c14f;
+      --red:#ff4d4d;
+      --green:#59ff7a;
+      --cyan:#53e6ff;
+
+      --shadow: 0 18px 60px #000000aa;
+      --r:16px;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
       margin:0;
       background:
-        radial-gradient(1100px 700px at 50% 0%, #201037 0%, transparent 55%),
-        radial-gradient(900px 700px at 10% 15%, #0a2a3c 0%, transparent 55%),
-        radial-gradient(900px 700px at 85% 30%, #2b0a24 0%, transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+        radial-gradient(1200px 800px at 50% 10%, #1a2330 0%, transparent 55%),
+        radial-gradient(900px 700px at 25% 15%, #1b2a1f 0%, transparent 60%),
+        radial-gradient(900px 700px at 80% 25%, #2a1b1b 0%, transparent 60%),
+        linear-gradient(180deg, #070a0f, #0a0d12);
       color:var(--txt);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       overflow:hidden;
     }
 
-    /* App frame */
-    .app{
-      position:relative;
-      width:100%;
-      height:100%;
-      padding:14px;
+    /* Frame */
+    .hud{
+      position:fixed;
+      inset:0;
       display:grid;
-      grid-template-columns: 320px minmax(0,1fr) 340px;
-      grid-template-rows: 140px minmax(0,1fr) 210px;
-      gap:14px;
-      max-width: 1700px;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+      padding:12px;
+      max-width: 1800px;
       margin:0 auto;
     }
 
-    /* Panels */
-    .panel{
-      background: linear-gradient(180deg, #0c1430cc, #070b16cc);
-      border:1px solid var(--stroke);
-      border-radius: var(--r2);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      overflow:hidden;
-      position:relative;
-    }
-    .panel::before{
-      content:"";
-      position:absolute; inset:-2px;
-      background: radial-gradient(500px 180px at 30% 0%, #00dcff22, transparent 55%),
-                  radial-gradient(500px 180px at 75% 0%, #c15bff1f, transparent 55%);
-      pointer-events:none;
-      filter: blur(0.2px);
-    }
-    .panel > *{ position:relative; z-index:1; }
-
-    .hdr{
-      grid-column:1 / 2;
-      grid-row:1 / 2;
-      padding:14px 14px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .stats{
-      grid-column:2 / 3;
-      grid-row:1 / 2;
-      padding:14px;
+    /* Top bar (like the reference) */
+    .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-    }
-    .controls{
-      grid-column:3 / 4;
-      grid-row:1 / 2;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+      pointer-events:none; /* only buttons re-enable */
     }
 
-    .viewport{
-      grid-column:1 / 4;
-      grid-row:2 / 3;
-      padding:0;
+    .chipbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:8px 10px;
+      border-radius: var(--r);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, #141c25cc, #0c1219cc);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      pointer-events:auto;
+    }
+
+    .resource{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius: 14px;
+      border:1px solid #ffffff18;
+      background: linear-gradient(180deg, #1a222dcc, #0d131acc);
+      min-width: 110px;
+    }
+    .resource .icon{
+      width:22px;height:22px;border-radius:6px;
+      display:grid;place-items:center;
+      background:#0b0f14;
+      border:1px solid #ffffff22;
+    }
+    .resource .val{
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .resource.gold .val{ color: var(--gold); text-shadow: 0 0 10px #f2c14f33; }
+    .resource.red  .val{ color: var(--red);  text-shadow: 0 0 10px #ff4d4d33; }
+    .resource.green .val{ color: var(--green); text-shadow: 0 0 10px #59ff7a33; }
+
+    .midinfo{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:8px 10px;
+      border-radius: var(--r);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, #141c25cc, #0c1219cc);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      pointer-events:auto;
+    }
+    .midinfo .title{
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .midinfo .sub{
+      color:var(--muted);
+      font-weight:800;
+      font-size:12px;
+    }
+    .midinfo .sep{opacity:.35}
+
+    /* Center playfield */
+    #gameWrap{
+      position:relative;
+      border-radius: 22px;
+      border:1px solid #ffffff20;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      background:
+        radial-gradient(900px 700px at 50% 0%, #53e6ff16, transparent 55%),
+        radial-gradient(900px 700px at 85% 25%, #ff4d4d12, transparent 55%),
+        linear-gradient(180deg, #0b1017, #070a0f);
+    }
+    canvas{
+      position:absolute; left:0; top:0;
+      width:100%; height:100%;
+    }
+
+    /* Bottom build bar (icons like your art) */
+    .bottombar{
       display:flex;
       align-items:stretch;
-      justify-content:stretch;
-      overflow:hidden;
-    }
-
-    .shop{
-      grid-column:1 / 3;
-      grid-row:3 / 4;
-      padding:12px;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .side{
-      grid-column:3 / 4;
-      grid-row:3 / 4;
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .titleRow{
-      display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:10px;
+      gap:12px;
+      pointer-events:none;
     }
-    .logo{
-      font-weight:900;
-      letter-spacing:0.2px;
-      font-size:20px;
+
+    .buildbar{
+      flex:1;
       display:flex;
       align-items:center;
       gap:10px;
+      padding:10px;
+      border-radius: 18px;
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, #151e29dd, #0b1118dd);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow:hidden;
+      pointer-events:auto;
     }
-    .pill{
-      font-size:11px;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid var(--stroke2);
-      background: #0b1024cc;
-      color: var(--muted);
-    }
-    .kv{
-      display:grid;
-      grid-template-columns: 1fr auto;
-      gap:8px 14px;
-      align-items:baseline;
-      padding-top:6px;
-    }
-    .k{color:var(--muted); font-size:12px}
-    .v{font-weight:800; font-size:18px}
 
-    .miniBar{
+    .towerGrid{
       display:flex;
-      align-items:center;
       gap:10px;
-      color:var(--muted);
-      font-weight:700;
-      font-size:12px;
-      letter-spacing:0.2px;
+      overflow:hidden;
+      flex-wrap:nowrap;
     }
-    .miniDot{width:6px;height:6px;border-radius:999px;background:var(--green); box-shadow: 0 0 12px #35ff8d90}
-    .miniSep{opacity:.35}
-    .miniBig{color:var(--txt); font-weight:900}
 
-    .btnRow{display:flex; gap:10px; flex-wrap:wrap;}
-    .btn{
+    .tile{
+      width:90px;
+      height:78px;
+      border-radius: 14px;
+      border:1px solid #ffffff1f;
+      background: linear-gradient(180deg, #202a35, #0f151e);
+      box-shadow: 0 10px 24px #00000066;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:8px;
+      cursor:pointer;
       user-select:none;
+      position:relative;
+    }
+    .tile:hover{ transform: translateY(-1px); border-color:#ffffff4a; }
+    .tile:active{ transform: translateY(0px); }
+    .tile.selected{ outline:2px solid #53e6ff66; border-color:#53e6ff88; }
+    .tile.locked{ opacity:.45; cursor:not-allowed; }
+    .tile .label{
+      font-weight:1000;
+      font-size:12px;
+      letter-spacing:.2px;
+    }
+    .tile .cost{
+      position:absolute;
+      right:8px; bottom:8px;
+      font-weight:1000;
+      font-size:12px;
+      padding:2px 7px;
+      border-radius:999px;
+      border:1px solid #ffffff26;
+      background:#0b0f14cc;
+      color: var(--gold);
+    }
+    .tile .cap{
+      position:absolute;
+      left:8px; bottom:8px;
+      font-weight:900;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid #ffffff20;
+      background:#0b0f14cc;
+      color: #d9e2ff;
+      opacity:.9;
+    }
+
+    .rightbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border-radius: 18px;
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, #151e29dd, #0b1118dd);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      pointer-events:auto;
+    }
+
+    .btn{
       cursor:pointer;
       border-radius: 14px;
       padding:10px 12px;
-      border:1px solid var(--stroke2);
-      background: linear-gradient(180deg, #101a3a, #0a1022);
+      border:1px solid #ffffff28;
+      background: linear-gradient(180deg, #1f2833, #0f151e);
       color:var(--txt);
-      font-weight:800;
-      letter-spacing:0.2px;
+      font-weight:1000;
+      letter-spacing:.2px;
       box-shadow: 0 10px 22px #00000055;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:10px;
-      min-width: 112px;
+      min-width: 110px;
+      user-select:none;
     }
-    .btn:hover{ transform: translateY(-1px); border-color:#ffffff55; }
+    .btn:hover{ transform: translateY(-1px); border-color:#ffffff52; }
     .btn:active{ transform: translateY(0px); }
     .btn[disabled]{opacity:.45; cursor:not-allowed; transform:none;}
-    .btn.cyan{ border-color:#00dcff55; box-shadow: 0 0 0 1px #00dcff22, 0 14px 30px #00dcff10; }
-    .btn.violet{ border-color:#c15bff55; box-shadow: 0 0 0 1px #c15bff22, 0 14px 30px #c15bff10; }
-    .btn.orange{ border-color:#ff9b3d55; box-shadow: 0 0 0 1px #ff9b3d22, 0 14px 30px #ff9b3d10; }
+    .btn.primary{ border-color:#53e6ff55; box-shadow: 0 0 0 1px #53e6ff22, 0 14px 30px #53e6ff10; }
+    .btn.danger{ border-color:#ff4d4d55; box-shadow: 0 0 0 1px #ff4d4d22, 0 14px 30px #ff4d4d10; }
+    .btn.gold{ border-color:#f2c14f55; box-shadow: 0 0 0 1px #f2c14f22, 0 14px 30px #f2c14f10; }
 
-    .seg{
-      display:flex;
-      gap:10px;
-      width:100%;
-    }
-    .seg .btn{flex:1; min-width: 0;}
-    .seg .btn.active{ outline: 2px solid #00dcff66; border-color:#00dcff88; }
-
-    .shopGrid{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:10px;
-      height:100%;
-      overflow:hidden;
-    }
-    .card{
-      border-radius: var(--r);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #0f1630cc, #070b16cc);
-      box-shadow: 0 10px 24px #00000066;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-height: 0;
-      overflow:hidden;
-      cursor:pointer;
-      position:relative;
-    }
-    .card:hover{ border-color:#ffffff55; }
-    .card.locked{ opacity:.42; cursor:not-allowed; }
-    .card.selected{ border-color:#00dcff99; box-shadow: 0 0 0 1px #00dcff33, 0 18px 40px #00dcff12; }
-    .cardTop{
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      font-weight:900;
-    }
-    .price{ font-weight:900; color:#fff; border:1px solid var(--stroke2); padding:3px 8px; border-radius:999px; background:#0b1024cc; }
-    .meta{ color:var(--muted); font-size:12px; line-height:1.2; }
-    .tiny{ color:var(--muted); font-size:11px; }
-
-    .sideBox{
-      border-radius: var(--r);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #0f1630cc, #070b16cc);
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-height: 0;
-      overflow:hidden;
-    }
-    .sideTitle{ font-weight:900; color:#dfe7ff; }
-    .sideLine{ height:1px; background: #ffffff18; }
-
-    .row2{
-      display:flex; gap:10px;
-    }
-    .row2 .btn{ flex:1; }
-
-    .msg{
-      color:#7bffb6;
-      font-weight:800;
+    .mini{
+      color:var(--muted);
       font-size:12px;
-      text-shadow: 0 0 12px #35ff8d40;
-      line-height:1.25;
+      font-weight:800;
+      white-space:nowrap;
     }
-    .warn{ color:#ffd3a6; text-shadow: 0 0 12px #ff9b3d30; }
-    .bad{ color:#ff9cb0; text-shadow: 0 0 12px #ff4d6d30; }
 
-    /* Canvas / scaling */
-    #gameWrap{
-      width:100%;
-      height:100%;
-      position:relative;
-      overflow:hidden;
-      border-radius: var(--r2);
-      border:1px solid var(--stroke);
-      background:
-        radial-gradient(900px 700px at 50% 0%, #00dcff18, transparent 55%),
-        radial-gradient(900px 700px at 82% 30%, #c15bff12, transparent 55%),
-        linear-gradient(180deg, #061024, #040712);
-    }
-    canvas{
-      position:absolute;
-      left:0; top:0;
-      width:100%;
-      height:100%;
-    }
+    /* Small overlay help + toast */
     .toast{
       position:absolute;
       left:14px; bottom:14px;
-      background:#0b1024e0;
-      border:1px solid #00dcff40;
+      background:#0c1118e6;
+      border:1px solid #53e6ff40;
       border-radius:14px;
       padding:10px 12px;
-      font-weight:800;
+      font-weight:900;
       font-size:12px;
       color:var(--txt);
       box-shadow: 0 12px 30px #00000080;
       display:none;
-      max-width: 520px;
+      max-width: 560px;
     }
     .toast.show{display:block;}
-    .toast b{ color:#00dcff; }
+    .toast b{ color:var(--cyan); }
 
     .loading{
       position:absolute; inset:0;
       display:flex; align-items:center; justify-content:center;
       flex-direction:column;
       gap:12px;
-      background: radial-gradient(900px 700px at 50% 0%, #00dcff10, transparent 55%),
-                  linear-gradient(180deg, #050816, #040712);
+      background: linear-gradient(180deg, #0b1017, #070a0f);
       z-index:5;
     }
     .loading .big{
-      font-weight:1000;
-      font-size:20px;
-      letter-spacing:0.3px;
+      font-weight:1100;
+      font-size:18px;
+      letter-spacing:.2px;
     }
     .bar{
       width:min(520px, 80%);
       height:10px;
       border-radius:999px;
       border:1px solid #ffffff22;
-      background:#0b1024cc;
+      background:#0b0f14cc;
       overflow:hidden;
     }
     .bar > i{
       display:block;
       height:100%;
       width:0%;
-      background: linear-gradient(90deg, #00dcff, #c15bff, #ff9b3d);
+      background: linear-gradient(90deg, #53e6ff, #f2c14f, #ff4d4d);
     }
-    .small{ color:var(--muted); font-size:12px; }
 
-    /* Responsive: stack panels on smaller screens (NO SCROLL FOR CORE ACTIONS) */
-    @media (max-width: 1180px){
-      body{ overflow:auto; }
-      .app{
-        height:auto;
-        min-height:100%;
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto minmax(420px, 60vh) auto auto;
-      }
-      .hdr{ grid-column:1; grid-row:1; }
-      .stats{ grid-column:1; grid-row:2; }
-      .controls{ grid-column:1; grid-row:4; }
-      .viewport{ grid-column:1; grid-row:3; }
-      .shop{ grid-column:1; grid-row:5; }
-      .side{ grid-column:1; grid-row:6; }
-      .shopGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    /* Responsive: keep no-scroll; shrink tiles */
+    @media (max-width: 1200px){
+      .tile{ width:78px; height:74px; }
+      .btn{ min-width: 96px; padding:10px 10px; }
+      .resource{ min-width: 96px; }
+      .midinfo .title{ font-size: 14px; }
+    }
+    @media (max-width: 980px){
+      .topbar{ flex-wrap:wrap; }
+      .bottombar{ flex-wrap:wrap; }
+      .buildbar{ order:2; width:100%; }
+      .rightbar{ order:1; width:100%; justify-content:space-between; }
+      .towerGrid{ justify-content:space-between; width:100%; }
+      .tile{ flex:1; min-width: 70px; max-width: 110px; }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="panel hdr">
-      <div class="titleRow">
-        <div class="logo">Bignbot TD <span class="pill">CAMPAIGN</span></div>
-        <div class="miniBar"><span class="miniDot"></span> <span class="miniBig" id="runState">RUN</span></div>
-      </div>
-      <div class="kv">
-        <div class="k">Map</div><div class="v" id="mapName">Training Grounds</div>
-        <div class="k">Wave</div><div class="v"><span id="waveNum">0</span>/<span id="waveMax">25</span></div>
-      </div>
-      <div class="miniBar">
-        <span>MAP <b id="mapIdx">1</b>/<b id="mapTotal">3</b></span>
-        <span class="miniSep">|</span>
-        <span>ENEMIES <b id="enemyCount">0</b></span>
-        <span class="miniSep">|</span>
-        <span>SPEED <b id="speedLabel">1x</b></span>
-      </div>
-    </div>
 
-    <div class="panel stats">
-      <div class="kv" style="width:100%">
-        <div class="k">Cash</div><div class="v" id="cash">$0</div>
-        <div class="k">Lives</div><div class="v" id="lives">20</div>
-        <div class="k">Next wave</div><div class="v" id="nextWave">READY</div>
+  <div class="hud">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="chipbar" title="Resources">
+        <div class="resource gold">
+          <div class="icon">💰</div>
+          <div class="val" id="cash">0</div>
+        </div>
+        <div class="resource red">
+          <div class="icon">❤</div>
+          <div class="val" id="lives">0</div>
+        </div>
+        <div class="resource green">
+          <div class="icon">👾</div>
+          <div class="val" id="enemyCount">0</div>
+        </div>
       </div>
-    </div>
 
-    <div class="panel controls">
-      <div class="sideTitle">Controls</div>
-      <div class="btnRow">
+      <div class="midinfo">
+        <div>
+          <div class="title" id="mapName">Training Grounds</div>
+          <div class="sub">
+            Wave <b id="waveNum">0</b>/<b id="waveMax">25</b>
+            <span class="sep">•</span>
+            Next: <b id="nextWave">READY</b>
+          </div>
+        </div>
+        <div class="sep">|</div>
+        <div class="mini">
+          MAP <b id="mapIdx">1</b>/<b id="mapTotal">3</b>
+          <span class="sep">•</span>
+          SPEED <b id="speedLabel">1x</b>
+          <span class="sep">•</span>
+          <b id="runState">RUN</b>
+        </div>
+      </div>
+
+      <div class="chipbar">
         <button class="btn" id="btnPause">Pause</button>
-        <button class="btn cyan" id="btnRange">Range: ON</button>
-      </div>
-
-      <div class="sideTitle" style="margin-top:4px;">Speed</div>
-      <div class="seg">
-        <button class="btn active" data-spd="1">1×</button>
-        <button class="btn" data-spd="2">2×</button>
-        <button class="btn" data-spd="3">3×</button>
-        <button class="btn violet" data-spd="4">4×</button>
-      </div>
-
-      <div class="sideTitle" style="margin-top:4px;">Waves</div>
-      <div class="btnRow">
-        <button class="btn orange" id="btnStartWave">Start Wave</button>
-        <button class="btn cyan" id="btnSkip" disabled>Skip Timer</button>
-      </div>
-      <div class="tiny">Wave 1 is manual. After that, waves auto-start 30s after the last enemy is cleared — you can skip the timer.</div>
-    </div>
-
-    <div class="panel viewport">
-      <div id="gameWrap">
-        <canvas id="c"></canvas>
-        <div class="loading" id="loading">
-          <div class="big">Loading <span style="color:var(--cyan)">Bignbot TD</span> assets…</div>
-          <div class="bar"><i id="loadBar"></i></div>
-          <div class="small" id="loadText">Preparing sprites</div>
-        </div>
-        <div class="toast" id="toast"></div>
+        <button class="btn primary" id="btnRange">Range: ON</button>
       </div>
     </div>
 
-    <div class="panel shop">
-      <div class="titleRow">
-        <div class="sideTitle">Build</div>
-        <div class="tiny">Click a card, then click on the map to place. Right-click to cancel.</div>
+    <!-- GAME -->
+    <div id="gameWrap">
+      <canvas id="c"></canvas>
+      <div class="loading" id="loading">
+        <div class="big">Loading Bignbot TD assets…</div>
+        <div class="bar"><i id="loadBar"></i></div>
+        <div class="mini" id="loadText">Preparing sprites</div>
       </div>
-      <div class="shopGrid" id="shopGrid"></div>
-      <div class="tiny">Turrets upgrade visually (lvl1→lvl2→lvl3). New turret types unlock as you progress through maps.</div>
+      <div class="toast" id="toast"></div>
     </div>
 
-    <div class="panel side">
-      <div class="sideBox">
-        <div class="sideTitle">Selected turret</div>
-        <div class="miniBar"><span class="pill" id="selName">None</span><span class="miniSep">|</span><span class="pill" id="selLvl">—</span></div>
-        <div class="sideLine"></div>
-
-        <div class="kv" style="margin-top:2px;">
-          <div class="k">DMG</div><div class="v" id="selDmg">—</div>
-          <div class="k">RNG</div><div class="v" id="selRng">—</div>
-          <div class="k">CD</div><div class="v" id="selCd">—</div>
+    <!-- BOTTOM BAR -->
+    <div class="bottombar">
+      <div class="buildbar">
+        <div class="towerGrid" id="towerGrid"></div>
+        <div class="mini" style="margin-left:auto; opacity:.9;">
+          Click a tower, then click the map to place. Right-click cancels.
         </div>
+      </div>
 
-        <div class="row2" style="margin-top:6px;">
-          <button class="btn cyan" id="btnUpgrade" disabled>Upgrade</button>
-          <button class="btn" id="btnSell" disabled>Sell</button>
-        </div>
+      <div class="rightbar">
+        <button class="btn gold" id="btnStartWave">Start Wave</button>
+        <button class="btn primary" id="btnSkip" disabled>Skip Timer</button>
 
-        <div class="msg" id="msg">Place turrets. Beat all maps to win.</div>
+        <button class="btn" id="btnSpd1">1x</button>
+        <button class="btn" id="btnSpd2">2x</button>
+        <button class="btn" id="btnSpd3">3x</button>
+        <button class="btn danger" id="btnSpd4">4x</button>
 
-        <!-- Safer restart (hold) -->
-        <button class="btn orange" id="btnRestart" style="margin-top:auto;">HOLD TO RESTART (1.2s)</button>
-        <div class="tiny">No accidental restarts. Hold the button until it completes.</div>
+        <button class="btn danger" id="btnRestart">HOLD RESTART (1.2s)</button>
       </div>
     </div>
   </div>
@@ -451,35 +402,31 @@
 <script>
 (() => {
   // ============================================================
-  // 0) RESPONSIVE LETTERBOXED RENDERING (stable world coords)
+  // RESPONSIVE LETTERBOX WORLD
   // ============================================================
   const BASE_W = 1600, BASE_H = 900;
 
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d', { alpha:true });
-
   const wrap = document.getElementById('gameWrap');
-  let viewW = 1, viewH = 1, scale = 1, offX = 0, offY = 0;
+
+  let viewW=1, viewH=1, scale=1, offX=0, offY=0;
 
   function resize(){
     const r = wrap.getBoundingClientRect();
     viewW = Math.max(1, Math.floor(r.width));
     viewH = Math.max(1, Math.floor(r.height));
 
-    // Set real pixel size to avoid blur
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width  = Math.floor(viewW * dpr);
     canvas.height = Math.floor(viewH * dpr);
     canvas.style.width = viewW + 'px';
     canvas.style.height = viewH + 'px';
-
-    // Compute letterbox scale in BASE coords
-    const s = Math.min(viewW / BASE_W, viewH / BASE_H);
-    scale = s;
-    offX = (viewW - BASE_W * scale) / 2;
-    offY = (viewH - BASE_H * scale) / 2;
-
     ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    scale = Math.min(viewW/BASE_W, viewH/BASE_H);
+    offX = (viewW - BASE_W*scale)/2;
+    offY = (viewH - BASE_H*scale)/2;
   }
   window.addEventListener('resize', resize);
 
@@ -487,101 +434,90 @@
     const r = canvas.getBoundingClientRect();
     const mx = clientX - r.left;
     const my = clientY - r.top;
-    const wx = (mx - offX) / scale;
-    const wy = (my - offY) / scale;
-    return {x: wx, y: wy};
+    return { x:(mx - offX)/scale, y:(my - offY)/scale };
   }
-  function inWorld(x,y){
-    return x>=0 && y>=0 && x<=BASE_W && y<=BASE_H;
-  }
+  function inWorld(x,y){ return x>=0 && y>=0 && x<=BASE_W && y<=BASE_H; }
 
   // ============================================================
-  // 1) ASSET LOADING (Option B: /assets/*.png)
+  // ASSETS (expects /assets/* from your zip)
   // ============================================================
   const loadingEl = document.getElementById('loading');
   const loadBar = document.getElementById('loadBar');
   const loadText = document.getElementById('loadText');
+  const toastEl = document.getElementById('toast');
 
   const SPR = { turrets:{}, enemies:{}, proj:{}, icons:{} };
 
   const TURRET_TYPES = [
-    { id:"basic",  name:"Basic",  cost:60,  dmg:14,  rng:145, cd:0.52, proj:"bullet", cap:999, unlockMap:1, desc:"Balanced." },
-    { id:"rapid",  name:"Rapid",  cost:90,  dmg:7,   rng:120, cd:0.16, proj:"bullet", cap:999, unlockMap:1, desc:"Fast shots." },
-    { id:"sniper", name:"Sniper", cost:135, dmg:52,  rng:260, cd:1.25, proj:"laser",  cap:6,   unlockMap:1, desc:"Long range. (Power cap)" },
-    { id:"splash", name:"Splash", cost:140, dmg:20,  rng:165, cd:1.25, proj:"shell",  cap:5,   unlockMap:1, desc:"AOE mortar. (Power cap)" },
-    // Unlock later
-    { id:"tesla",  name:"Tesla",  cost:170, dmg:13,  rng:150, cd:0.50, proj:"pulse",  cap:4,   unlockMap:2, desc:"Chains nearby. (Power cap)" },
-    { id:"rail",   name:"Rail",   cost:210, dmg:75,  rng:290, cd:1.55, proj:"laser",  cap:3,   unlockMap:3, desc:"Pierce line. (Power cap)" },
-    { id:"flame",  name:"Flame",  cost:160, dmg:9,   rng:115, cd:0.12, proj:"bullet", cap:4,   unlockMap:3, desc:"Short-range melt. (Power cap)" },
-  ];
+    { id:"basic",  name:"Marine", cost:60,  dmg:14, rng:145, cd:0.52, proj:"bullet", cap:999, unlockMap:1 },
+    { id:"rapid",  name:"Tesla",  cost:90,  dmg:7,  rng:120, cd:0.16, proj:"bullet", cap:999, unlockMap:1 },
+    { id:"sniper", name:"Rail",   cost:135, dmg:52, rng:260, cd:1.25, proj:"laser",  cap:6,   unlockMap:1 },
+    { id:"splash", name:"Mortar", cost:140, dmg:20, rng:165, cd:1.25, proj:"shell",  cap:5,   unlockMap:1 },
 
+    { id:"tesla",  name:"Chain",  cost:170, dmg:13, rng:150, cd:0.50, proj:"pulse",  cap:4,   unlockMap:2 },
+    { id:"rail",   name:"Pierce", cost:210, dmg:75, rng:290, cd:1.55, proj:"laser",  cap:3,   unlockMap:3 },
+    { id:"flame",  name:"Flame",  cost:160, dmg:9,  rng:115, cd:0.12, proj:"bullet", cap:4,   unlockMap:3 },
+  ];
   const ENEMY_KINDS = ["grunt","runner","tank","shield","boss"];
 
   const ASSET_LIST = [];
-  // Turrets (lvl1-3)
   for(const t of TURRET_TYPES){
     for(const lvl of [1,2,3]){
-      ASSET_LIST.push({key:`turret_${t.id}_lvl${lvl}`, url:`assets/turret_${t.id}_lvl${lvl}.png`, bucket:"turrets", id:t.id, lvl});
+      ASSET_LIST.push({url:`assets/turret_${t.id}_lvl${lvl}.png`, kind:"turret", id:t.id, lvl});
     }
   }
-  // Enemies (t1-3)
   for(const k of ENEMY_KINDS){
     for(const tier of [1,2,3]){
-      ASSET_LIST.push({key:`enemy_${k}_t${tier}`, url:`assets/enemy_${k}_t${tier}.png`, bucket:"enemies", id:k, tier});
+      ASSET_LIST.push({url:`assets/enemy_${k}_t${tier}.png`, kind:"enemy", id:k, tier});
     }
   }
-  // Projectiles
   for(const p of ["bullet","laser","pulse","shell"]){
-    ASSET_LIST.push({key:`proj_${p}`, url:`assets/proj_${p}.png`, bucket:"proj", id:p});
-  }
-  // Icons
-  for(const ic of ["cash","life","wave","pause","play","skip"]){
-    ASSET_LIST.push({key:`icon_${ic}`, url:`assets/icon_${ic}.png`, bucket:"icons", id:ic});
+    ASSET_LIST.push({url:`assets/proj_${p}.png`, kind:"proj", id:p});
   }
 
   function loadImage(url){
     return new Promise((resolve,reject)=>{
       const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = () => reject(new Error("Failed to load " + url));
+      im.onload = ()=>resolve(im);
+      im.onerror = ()=>reject(new Error("Missing: "+url));
       im.src = url;
     });
   }
 
-  async function loadAssets(){
-    let done = 0;
-    const total = ASSET_LIST.length;
-    for(const a of ASSET_LIST){
-      loadText.textContent = `Loading ${a.url}`;
-      const pct = Math.floor((done/total)*100);
-      loadBar.style.width = pct + "%";
+  function toast(msg, ms=1300){
+    toastEl.innerHTML = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>toastEl.classList.remove('show'), ms);
+  }
 
+  async function loadAssets(){
+    let done=0, total=ASSET_LIST.length;
+    for(const a of ASSET_LIST){
+      loadText.textContent = a.url;
+      loadBar.style.width = Math.floor((done/total)*100)+"%";
       try{
         const im = await loadImage(a.url);
-        if(a.bucket === "turrets"){
+        if(a.kind==="turret"){
           SPR.turrets[a.id] ??= {};
           SPR.turrets[a.id][a.lvl] = im;
-        }else if(a.bucket === "enemies"){
+        }else if(a.kind==="enemy"){
           SPR.enemies[a.id] ??= {};
           SPR.enemies[a.id][a.tier] = im;
-        }else if(a.bucket === "proj"){
+        }else if(a.kind==="proj"){
           SPR.proj[a.id] = im;
-        }else if(a.bucket === "icons"){
-          SPR.icons[a.id] = im;
         }
       }catch(e){
-        // Keep going; we'll fall back to simple shapes if missing.
         console.warn(e);
       }
       done++;
     }
     loadBar.style.width = "100%";
-    loadText.textContent = "Starting…";
-    setTimeout(()=> loadingEl.style.display="none", 200);
+    loadingEl.style.display = "none";
   }
 
   // ============================================================
-  // 2) GAME DATA: MAPS + PATHS (3 maps; campaign auto-advances)
+  // MAPS (campaign auto-advance)
   // ============================================================
   const MAPS = [
     { name:"Training Grounds", waves:25, path:[
@@ -598,242 +534,261 @@
     ]},
   ];
 
-  // ============================================================
-  // 3) STATE + BALANCE (controlled scaling; not “too easy”)
-  // ============================================================
-  const state = {
-    // campaign
-    mapIndex: 0,
-    wave: 0,
-    wavesPerMap: 25,
-    unlockedMap: 1, // 1-based
-    // economy
-    cash: 220,
-    lives: 22,
-    // entities
-    turrets: [],
-    enemies: [],
-    projectiles: [],
-    // selection
-    buildPick: null, // turretType id
-    selectedTurretId: null,
-    // flow
-    paused: false,
-    showRange: true,
-    speed: 1,
-    inWave: false,
-    nextWaveTimer: 0,   // seconds until wave starts
-    allowSkip: false,
-    firstWaveManual: true,
-    // power caps
-    powerCounts: {}, // id -> count
-  };
-
-  const ui = {
-    runState: document.getElementById('runState'),
-    mapName: document.getElementById('mapName'),
-    waveNum: document.getElementById('waveNum'),
-    waveMax: document.getElementById('waveMax'),
-    mapIdx: document.getElementById('mapIdx'),
-    mapTotal: document.getElementById('mapTotal'),
-    enemyCount: document.getElementById('enemyCount'),
-    speedLabel: document.getElementById('speedLabel'),
-    cash: document.getElementById('cash'),
-    lives: document.getElementById('lives'),
-    nextWave: document.getElementById('nextWave'),
-    btnPause: document.getElementById('btnPause'),
-    btnRange: document.getElementById('btnRange'),
-    btnStartWave: document.getElementById('btnStartWave'),
-    btnSkip: document.getElementById('btnSkip'),
-    shopGrid: document.getElementById('shopGrid'),
-    selName: document.getElementById('selName'),
-    selLvl: document.getElementById('selLvl'),
-    selDmg: document.getElementById('selDmg'),
-    selRng: document.getElementById('selRng'),
-    selCd: document.getElementById('selCd'),
-    btnUpgrade: document.getElementById('btnUpgrade'),
-    btnSell: document.getElementById('btnSell'),
-    msg: document.getElementById('msg'),
-    toast: document.getElementById('toast'),
-    btnRestart: document.getElementById('btnRestart'),
-  };
-
-  function toast(text, ms=1400){
-    ui.toast.innerHTML = text;
-    ui.toast.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=> ui.toast.classList.remove('show'), ms);
+  function pathSegments(path){
+    const segs=[]; let total=0;
+    for(let i=0;i<path.length-1;i++){
+      const a=path[i], b=path[i+1];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const len=Math.hypot(dx,dy);
+      segs.push({a,b,dx,dy,len,acc:total});
+      total += len;
+    }
+    return {segs,total};
+  }
+  function posOnPath(pd, dist){
+    const d=Math.max(0, Math.min(pd.total, dist));
+    for(const s of pd.segs){
+      if(d <= s.acc+s.len){
+        const t=(d-s.acc)/s.len;
+        return {x:s.a.x+s.dx*t, y:s.a.y+s.dy*t, ang:Math.atan2(s.dy,s.dx)};
+      }
+    }
+    const last=pd.segs[pd.segs.length-1];
+    return {x:last.b.x, y:last.b.y, ang:Math.atan2(last.dy,last.dx)};
   }
 
-  // Upgrade math: mild, controlled
+  // ============================================================
+  // BALANCE + WAVES (kept strong)
+  // ============================================================
   function turretStats(typeId, lvl){
     const t = TURRET_TYPES.find(x=>x.id===typeId);
-    const mult = 1 + (lvl-1)*0.22;     // 1.00, 1.22, 1.44
-    const rng = t.rng + (lvl-1)*18;    // modest range bump
+    const mult = 1 + (lvl-1)*0.22;        // mild
+    const rng = t.rng + (lvl-1)*18;
     const dmg = Math.round(t.dmg * mult);
-    const cd  = Math.max(0.06, t.cd * (1 - (lvl-1)*0.08)); // small ROF increase
-    return { dmg, rng, cd };
+    const cd  = Math.max(0.06, t.cd * (1 - (lvl-1)*0.08));
+    return {dmg,rng,cd};
   }
-
-  // Enemy scaling: more than just HP (speed + resist + special)
   function enemyBase(kind){
     switch(kind){
-      case "grunt": return {hp: 60, spd: 55, bounty: 7};
-      case "runner":return {hp: 40, spd: 92, bounty: 8};
-      case "tank":  return {hp: 160, spd: 40, bounty: 14};
-      case "shield":return {hp: 95, spd: 52, bounty: 12, shield: 70}; // shield first
-      case "boss":  return {hp: 520, spd: 34, bounty: 55, boss:true};
-      default:      return {hp: 60, spd: 55, bounty: 7};
+      case "grunt": return {hp:60, spd:55, bounty:7};
+      case "runner":return {hp:40, spd:92, bounty:8};
+      case "tank":  return {hp:160, spd:40, bounty:14};
+      case "shield":return {hp:95, spd:52, bounty:12, shield:70};
+      case "boss":  return {hp:520, spd:34, bounty:55, boss:true};
+      default: return {hp:60, spd:55, bounty:7};
     }
   }
-
   function wavePlan(wave){
-    // wave is 1..25
-    const tier = (wave<=8) ? 1 : (wave<=17) ? 2 : 3;
+    const tier = (wave<=8)?1:(wave<=17)?2:3;
+    let list=[];
+    const add=(kind,n,gap)=>{ for(let i=0;i<n;i++) list.push({kind,tier,delay:i*gap}); };
 
-    // composition increases complexity, not only HP
-    let list = [];
-    const w = wave;
-
-    const add = (kind, n, gap=0.42) => {
-      for(let i=0;i<n;i++){
-        list.push({kind, tier, delay: i*gap});
-      }
-    };
-
-    if(w===1){ add("grunt", 10, 0.55); }
-    else if(w===2){ add("grunt", 8, 0.48); add("runner", 6, 0.62); }
-    else if(w===3){ add("grunt", 12, 0.42); }
-    else if(w===4){ add("runner", 12, 0.38); }
-    else if(w===5){ add("tank", 5, 1.05); add("grunt", 8, 0.45); }
-    else if(w===6){ add("shield", 6, 0.85); add("runner", 10, 0.40); }
-    else if(w===7){ add("tank", 7, 0.95); }
-    else if(w===8){ add("boss", 1, 0.0); add("grunt", 14, 0.35); }
+    if(wave===1) add("grunt",10,0.55);
+    else if(wave===2){ add("grunt",8,0.48); add("runner",6,0.62); }
+    else if(wave===3) add("grunt",12,0.42);
+    else if(wave===4) add("runner",12,0.38);
+    else if(wave===5){ add("tank",5,1.05); add("grunt",8,0.45); }
+    else if(wave===6){ add("shield",6,0.85); add("runner",10,0.40); }
+    else if(wave===7) add("tank",7,0.95);
+    else if(wave===8){ add("boss",1,0.0); add("grunt",14,0.35); }
     else{
-      // mid/late: mixed packs + occasional elites
-      const baseN = 12 + Math.floor(w*0.9);
+      const baseN = 12 + Math.floor(wave*0.9);
       const runners = Math.floor(baseN*0.33);
       const grunts  = Math.floor(baseN*0.40);
       const tanks   = Math.max(2, Math.floor(baseN*0.12));
       const shields = Math.max(2, Math.floor(baseN*0.14));
 
-      add("grunt", grunts, 0.35 - Math.min(0.10, w*0.004));
-      // offset timing for variety
-      list = list.map((e,i)=> ({...e, delay: e.delay + (i%3)*0.06}));
-
-      // inject runners & shields between
-      for(let i=0;i<runners;i++) list.push({kind:"runner", tier, delay: i*0.32 + 0.8});
-      for(let i=0;i<shields;i++) list.push({kind:"shield", tier, delay: i*0.62 + 1.6});
-      for(let i=0;i<tanks;i++) list.push({kind:"tank", tier, delay: i*0.90 + 2.2});
-
-      if(w%5===0) list.push({kind:"boss", tier, delay: 3.2});
+      add("grunt", grunts, 0.35 - Math.min(0.10, wave*0.004));
+      list = list.map((e,i)=> ({...e, delay:e.delay + (i%3)*0.06}));
+      for(let i=0;i<runners;i++) list.push({kind:"runner", tier, delay:i*0.32 + 0.8});
+      for(let i=0;i<shields;i++) list.push({kind:"shield", tier, delay:i*0.62 + 1.6});
+      for(let i=0;i<tanks;i++)   list.push({kind:"tank", tier, delay:i*0.90 + 2.2});
+      if(wave%5===0) list.push({kind:"boss", tier, delay:3.2});
     }
 
-    // sort by delay
     list.sort((a,b)=>a.delay-b.delay);
-
-    // Tier scaling: mild HP increase, small speed bump, shield buff late
     for(const e of list){
       const base = enemyBase(e.kind);
-      const hpMult = 1 + (w-1)*0.08; // controlled
+      const hpMult = 1 + (wave-1)*0.08;
       const tierMult = 1 + (e.tier-1)*0.22;
       e.hp = Math.round(base.hp * hpMult * tierMult);
-      e.spd= base.spd * (1 + (e.tier-1)*0.06);
+      e.spd = base.spd * (1 + (e.tier-1)*0.06);
       e.bounty = Math.round(base.bounty * (1 + (e.tier-1)*0.12));
-      if(base.shield){
-        e.shield = Math.round(base.shield * (1 + (w-1)*0.06));
-      }
+      if(base.shield) e.shield = Math.round(base.shield * (1 + (wave-1)*0.06));
       e.boss = !!base.boss;
     }
-
-    return { tier, enemies:list };
+    return {tier,enemies:list};
   }
 
   // ============================================================
-  // 4) PATH HELPERS
+  // STATE
   // ============================================================
-  function pathSegments(path){
-    const segs = [];
-    let total = 0;
-    for(let i=0;i<path.length-1;i++){
-      const a = path[i], b = path[i+1];
-      const dx = b.x-a.x, dy = b.y-a.y;
-      const len = Math.hypot(dx,dy);
-      segs.push({a,b,dx,dy,len, acc: total});
-      total += len;
-    }
-    return {segs,total};
+  let enemyId=1, turretId=1, projId=1;
+
+  const state = {
+    mapIndex:0,
+    wave:0,
+    cash:220,
+    lives:22,
+    speed:1,
+    paused:false,
+    showRange:true,
+
+    turrets:[],
+    enemies:[],
+    projectiles:[],
+
+    buildPick:null,
+    selectedTurretId:null,
+
+    inWave:false,
+    nextWaveTimer:0,
+    allowSkip:false,
+    spawnQueue:null,
+
+    powerCounts:{},
+    mouseWorld:null,
+  };
+
+  function currentMap(){ return MAPS[state.mapIndex]; }
+
+  // ============================================================
+  // UI ELEMENTS
+  // ============================================================
+  const ui = {
+    cash: document.getElementById('cash'),
+    lives: document.getElementById('lives'),
+    enemyCount: document.getElementById('enemyCount'),
+
+    mapName: document.getElementById('mapName'),
+    waveNum: document.getElementById('waveNum'),
+    waveMax: document.getElementById('waveMax'),
+    nextWave: document.getElementById('nextWave'),
+    mapIdx: document.getElementById('mapIdx'),
+    mapTotal: document.getElementById('mapTotal'),
+    speedLabel: document.getElementById('speedLabel'),
+    runState: document.getElementById('runState'),
+
+    btnPause: document.getElementById('btnPause'),
+    btnRange: document.getElementById('btnRange'),
+    btnStartWave: document.getElementById('btnStartWave'),
+    btnSkip: document.getElementById('btnSkip'),
+
+    btnSpd1: document.getElementById('btnSpd1'),
+    btnSpd2: document.getElementById('btnSpd2'),
+    btnSpd3: document.getElementById('btnSpd3'),
+    btnSpd4: document.getElementById('btnSpd4'),
+
+    btnRestart: document.getElementById('btnRestart'),
+    towerGrid: document.getElementById('towerGrid'),
+  };
+
+  function syncUI(){
+    const m = currentMap();
+    ui.cash.textContent = state.cash;
+    ui.lives.textContent = state.lives;
+    ui.enemyCount.textContent = state.enemies.length;
+
+    ui.mapName.textContent = m.name;
+    ui.waveNum.textContent = state.wave;
+    ui.waveMax.textContent = m.waves;
+    ui.mapIdx.textContent = state.mapIndex+1;
+    ui.mapTotal.textContent = MAPS.length;
+    ui.speedLabel.textContent = state.speed+"x";
+    ui.runState.textContent = state.paused ? "PAUSED" : "RUN";
+
+    if(state.inWave) ui.nextWave.textContent = "IN WAVE";
+    else if(state.wave===0) ui.nextWave.textContent = "READY";
+    else if(state.nextWaveTimer>0) ui.nextWave.textContent = Math.ceil(state.nextWaveTimer)+"s";
+    else ui.nextWave.textContent = "READY";
+
+    // Wave flow: wave 1 manual; after that auto (skip timer allowed)
+    ui.btnStartWave.disabled = state.inWave || (state.wave>=1 && state.wave < m.waves);
+    ui.btnSkip.disabled = !(state.allowSkip && !state.inWave && state.wave>=1 && state.wave<m.waves);
+
+    ui.btnRange.textContent = "Range: " + (state.showRange ? "ON" : "OFF");
+    ui.btnRange.classList.toggle('primary', state.showRange);
   }
 
-  function posOnPath(pathData, dist){
-    const {segs,total} = pathData;
-    const d = Math.max(0, Math.min(total, dist));
-    for(const s of segs){
-      if(d <= s.acc + s.len){
-        const t = (d - s.acc) / s.len;
-        return {x: s.a.x + s.dx*t, y: s.a.y + s.dy*t, ang: Math.atan2(s.dy, s.dx)};
+  // ============================================================
+  // BUILD BAR
+  // ============================================================
+  function rebuildBuildBar(){
+    ui.towerGrid.innerHTML = "";
+    const unlockedMap = state.mapIndex+1;
+
+    for(const t of TURRET_TYPES){
+      const locked = unlockedMap < t.unlockMap;
+      const isSelected = state.buildPick === t.id;
+      const isPower = t.cap < 999;
+      const count = state.powerCounts[t.id] || 0;
+
+      const tile = document.createElement('div');
+      tile.className = "tile" + (locked ? " locked" : "") + (isSelected ? " selected" : "");
+      tile.innerHTML = `
+        <div class="label">${t.name}</div>
+        <div class="cost">$${t.cost}</div>
+        <div class="cap">${isPower ? `${count}/${t.cap}` : "∞"}</div>
+      `;
+      if(!locked){
+        tile.addEventListener('click', ()=>{
+          state.buildPick = (state.buildPick===t.id) ? null : t.id;
+          rebuildBuildBar();
+          toast(state.buildPick ? `Selected <b>${t.name}</b> — click map to place` : "Build canceled");
+        });
       }
+      ui.towerGrid.appendChild(tile);
     }
-    const last = segs[segs.length-1];
-    return {x:last.b.x, y:last.b.y, ang: Math.atan2(last.dy,last.dx)};
   }
 
   // ============================================================
-  // 5) GAME MECHANICS
+  // GAME FLOW
   // ============================================================
-  let enemyIdSeq=1, turretIdSeq=1, projIdSeq=1;
-
-  function currentMap(){
-    return MAPS[state.mapIndex];
-  }
-
   function resetCampaign(){
-    state.mapIndex = 0;
-    state.wave = 0;
-    state.cash = 220;
-    state.lives = 22;
-    state.turrets = [];
-    state.enemies = [];
-    state.projectiles = [];
-    state.buildPick = null;
-    state.selectedTurretId = null;
-    state.paused = false;
-    state.speed = 1;
-    state.inWave = false;
-    state.nextWaveTimer = 0;
-    state.allowSkip = false;
-    state.firstWaveManual = true;
-    state.powerCounts = {};
-    syncUI(true);
-    rebuildShop();
-    toast("Campaign reset. <b>Start Wave</b> when ready.");
+    state.mapIndex=0;
+    state.wave=0;
+    state.cash=220;
+    state.lives=22;
+    state.speed=1;
+    state.paused=false;
+    state.showRange=true;
+    state.turrets=[];
+    state.enemies=[];
+    state.projectiles=[];
+    state.buildPick=null;
+    state.selectedTurretId=null;
+    state.inWave=false;
+    state.nextWaveTimer=0;
+    state.allowSkip=false;
+    state.spawnQueue=null;
+    state.powerCounts={};
+    rebuildBuildBar();
+    syncUI();
+    toast("Ready. <b>Start Wave</b> to begin.");
   }
 
   function beginMap(idx){
-    state.mapIndex = idx;
-    state.wave = 0;
-    state.inWave = false;
-    state.nextWaveTimer = 0;
-    state.allowSkip = false;
-    state.firstWaveManual = true;
-    state.enemies = [];
-    state.projectiles = [];
-    // Keep towers across maps (campaign feel). You can change this later.
-    syncUI(true);
-    rebuildShop();
+    state.mapIndex=idx;
+    state.wave=0;
+    state.inWave=false;
+    state.nextWaveTimer=0;
+    state.allowSkip=false;
+    state.spawnQueue=null;
+    state.enemies=[];
+    state.projectiles=[];
+    rebuildBuildBar();
+    syncUI();
     toast(`Entering <b>${currentMap().name}</b>. Wave 1 is manual.`);
   }
 
   function victory(){
-    toast("<b>VICTORY!</b> You beat the campaign.", 2600);
-    ui.msg.textContent = "Victory. Hold restart to replay.";
-    ui.msg.className = "msg";
+    toast("<b>VICTORY!</b> Campaign cleared.", 2200);
+    state.paused = true;
+    syncUI();
   }
 
   function defeat(){
-    toast("<b>DEFEAT.</b> Hold restart to try again.", 2600);
-    ui.msg.textContent = "Defeat. Hold restart to try again.";
-    ui.msg.className = "msg bad";
+    toast("<b>DEFEAT.</b> Hold restart to try again.", 2200);
     state.paused = true;
     syncUI();
   }
@@ -841,14 +796,11 @@
   function startWave(){
     if(state.inWave) return;
     const m = currentMap();
+
     if(state.wave >= m.waves){
-      // map done -> next map
-      const next = state.mapIndex + 1;
-      if(next >= MAPS.length){
-        victory();
-      }else{
-        beginMap(next);
-      }
+      const next = state.mapIndex+1;
+      if(next >= MAPS.length) victory();
+      else beginMap(next);
       return;
     }
 
@@ -857,74 +809,61 @@
     state.allowSkip = false;
 
     const plan = wavePlan(state.wave);
-    const pData = pathSegments(m.path);
+    const pd = pathSegments(m.path);
+    state.spawnQueue = plan.enemies.map(e=>({ ...e, t:e.delay, pathData:pd }));
 
-    // schedule spawns using a queue
-    state._spawnQueue = plan.enemies.map(e => ({
-      ...e,
-      t: e.delay,
-      pathData: pData,
-    }));
-
-    ui.msg.textContent = `Wave ${state.wave}/${m.waves} in progress.`;
-    ui.msg.className = "msg";
+    toast(`Wave <b>${state.wave}</b> started.`);
     syncUI();
   }
 
   function onWaveEnded(){
     state.inWave = false;
-
     const m = currentMap();
+
     if(state.wave >= m.waves){
-      // Finished map: advance automatically after 2s (feel good)
+      // map complete → advance quickly
       state.nextWaveTimer = 2.0;
       state.allowSkip = false;
-      ui.msg.textContent = `Map cleared! Advancing…`;
-      ui.msg.className = "msg";
+      toast("Map cleared. Advancing…", 1300);
       return;
     }
 
-    // Wave 1 manual only. After wave 1, auto with 30s timer, skippable.
     state.nextWaveTimer = 30.0;
     state.allowSkip = true;
-    ui.msg.textContent = `Wave cleared. Next wave in 30s (or skip).`;
-    ui.msg.className = "msg";
+    toast("Wave cleared. Next wave in <b>30s</b> (or skip).", 1400);
     syncUI();
   }
 
+  // ============================================================
+  // PLACEMENT
+  // ============================================================
   function canPlaceHere(x,y){
-    const m = currentMap();
-    // Disallow placing too close to path
-    const path = m.path;
+    const path = currentMap().path;
     const minDist = 44;
     for(let i=0;i<path.length-1;i++){
       const a=path[i], b=path[i+1];
       const t = ((x-a.x)*(b.x-a.x)+(y-a.y)*(b.y-a.y))/((b.x-a.x)**2+(b.y-a.y)**2);
-      const tt = Math.max(0, Math.min(1, t));
-      const px = a.x + (b.x-a.x)*tt;
-      const py = a.y + (b.y-a.y)*tt;
+      const tt=Math.max(0,Math.min(1,t));
+      const px=a.x+(b.x-a.x)*tt, py=a.y+(b.y-a.y)*tt;
       if(Math.hypot(x-px,y-py) < minDist) return false;
     }
-    // Disallow overlap with other towers
     for(const t of state.turrets){
       if(Math.hypot(x-t.x, y-t.y) < 52) return false;
     }
     return true;
   }
 
-  function placeTurret(typeId, x, y){
-    const tType = TURRET_TYPES.find(t=>t.id===typeId);
-    if(!tType) return;
+  function placeTurret(typeId,x,y){
+    const tt = TURRET_TYPES.find(t=>t.id===typeId);
+    if(!tt) return;
 
-    // power cap enforcement (sniper/splash/tesla/rail/flame are capped; basic/rapid are unlimited)
     state.powerCounts[typeId] ??= 0;
-    const isPower = tType.cap < 999;
-    if(isPower && state.powerCounts[typeId] >= tType.cap){
-      toast(`Cap reached for <b>${tType.name}</b> (${tType.cap}).`);
+    const isPower = tt.cap < 999;
+    if(isPower && state.powerCounts[typeId] >= tt.cap){
+      toast(`Cap reached for <b>${tt.name}</b>.`);
       return;
     }
-
-    if(state.cash < tType.cost){
+    if(state.cash < tt.cost){
       toast("Not enough cash.");
       return;
     }
@@ -933,364 +872,31 @@
       return;
     }
 
-    state.cash -= tType.cost;
+    state.cash -= tt.cost;
 
     const turret = {
-      id: turretIdSeq++,
+      id: turretId++,
       typeId,
       x,y,
-      lvl: 1,
-      cdLeft: 0,
-      rot: 0,
-      // for tesla chain
-      lastTargetId: null,
+      lvl:1,
+      cdLeft:0,
+      rot:0
     };
     state.turrets.push(turret);
     if(isPower) state.powerCounts[typeId]++;
 
-    selectTurret(turret.id);
-    toast(`Placed <b>${tType.name}</b>.`);
+    state.selectedTurretId = turret.id;
     syncUI();
-  }
-
-  function selectTurret(id){
-    state.selectedTurretId = id;
-    syncUI();
-  }
-  function selectedTurret(){
-    return state.turrets.find(t=>t.id===state.selectedTurretId) || null;
-  }
-
-  function sellSelected(){
-    const t = selectedTurret();
-    if(!t) return;
-    const type = TURRET_TYPES.find(x=>x.id===t.typeId);
-    const refund = Math.floor(type.cost * (0.55 + (t.lvl-1)*0.10));
-    state.cash += refund;
-
-    const isPower = type.cap < 999;
-    if(isPower) state.powerCounts[t.typeId] = Math.max(0, (state.powerCounts[t.typeId]||0)-1);
-
-    state.turrets = state.turrets.filter(x=>x.id!==t.id);
-    state.selectedTurretId = null;
-    toast(`Sold for <b>$${refund}</b>.`);
-    syncUI();
-  }
-
-  function upgradeSelected(){
-    const t = selectedTurret();
-    if(!t) return;
-    if(t.lvl >= 3){
-      toast("Max level.");
-      return;
-    }
-    const type = TURRET_TYPES.find(x=>x.id===t.typeId);
-    const cost = Math.floor(type.cost * (0.75 + (t.lvl-1)*0.35));
-    if(state.cash < cost){
-      toast("Not enough cash.");
-      return;
-    }
-    state.cash -= cost;
-    t.lvl++;
-    toast(`Upgraded to <b>Lvl ${t.lvl}</b>.`);
-    syncUI();
+    rebuildBuildBar();
   }
 
   // ============================================================
-  // 6) INPUT
+  // COMBAT
   // ============================================================
-  canvas.addEventListener('contextmenu', (e)=> e.preventDefault());
-
-  canvas.addEventListener('mousedown', (e)=>{
-    const w = screenToWorld(e.clientX, e.clientY);
-    if(!inWorld(w.x,w.y)) return;
-
-    if(e.button === 2){
-      state.buildPick = null;
-      rebuildShop();
-      toast("Build canceled.");
-      return;
-    }
-
-    // click turret selection
-    let hit = null;
-    for(const t of state.turrets){
-      if(Math.hypot(w.x - t.x, w.y - t.y) < 34){
-        hit = t; break;
-      }
-    }
-    if(hit){
-      selectTurret(hit.id);
-      return;
-    }
-
-    // place if buildPick selected
-    if(state.buildPick){
-      placeTurret(state.buildPick, w.x, w.y);
-    }else{
-      // deselect
-      state.selectedTurretId = null;
-      syncUI();
-    }
-  });
-
-  // ============================================================
-  // 7) UI WIRING
-  // ============================================================
-  ui.btnPause.addEventListener('click', ()=>{
-    state.paused = !state.paused;
-    syncUI();
-  });
-  ui.btnRange.addEventListener('click', ()=>{
-    state.showRange = !state.showRange;
-    ui.btnRange.textContent = `Range: ${state.showRange ? "ON" : "OFF"}`;
-    ui.btnRange.classList.toggle('cyan', state.showRange);
-  });
-
-  document.querySelectorAll('[data-spd]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const n = Number(btn.getAttribute('data-spd'));
-      state.speed = n;
-      document.querySelectorAll('[data-spd]').forEach(b=>b.classList.toggle('active', b===btn));
-      syncUI();
-    });
-  });
-
-  ui.btnStartWave.addEventListener('click', ()=>{
-    // only enabled for wave 1 manual, and after map transitions
-    startWave();
-  });
-
-  ui.btnSkip.addEventListener('click', ()=>{
-    if(!state.allowSkip || state.inWave) return;
-    state.nextWaveTimer = 0.01;
-    state.allowSkip = false;
-    toast("Timer skipped.");
-    syncUI();
-  });
-
-  ui.btnSell.addEventListener('click', sellSelected);
-  ui.btnUpgrade.addEventListener('click', upgradeSelected);
-
-  // Safer restart: hold 1.2s
-  let holdTimer=null, holdStart=0;
-  function startHold(){
-    holdStart = performance.now();
-    ui.btnRestart.textContent = "HOLDING…";
-    holdTimer = requestAnimationFrame(function tick(now){
-      const t = (now - holdStart)/1200;
-      ui.btnRestart.textContent = `HOLD TO RESTART (${Math.max(0,(1.2 - (now-holdStart)/1000)).toFixed(1)}s)`;
-      if(t >= 1){
-        ui.btnRestart.textContent = "RESTARTING…";
-        cancelAnimationFrame(holdTimer);
-        holdTimer=null;
-        resetCampaign();
-        return;
-      }
-      holdTimer = requestAnimationFrame(tick);
-    });
-  }
-  function stopHold(){
-    if(holdTimer){
-      cancelAnimationFrame(holdTimer);
-      holdTimer=null;
-      ui.btnRestart.textContent = "HOLD TO RESTART (1.2s)";
-    }
-  }
-  ui.btnRestart.addEventListener('mousedown', startHold);
-  ui.btnRestart.addEventListener('touchstart', (e)=>{ e.preventDefault(); startHold(); }, {passive:false});
-  window.addEventListener('mouseup', stopHold);
-  window.addEventListener('touchend', stopHold);
-
-  // ============================================================
-  // 8) SHOP (cards; unlocks by map)
-  // ============================================================
-  function rebuildShop(){
-    ui.shopGrid.innerHTML = "";
-    const unlockedMap = state.mapIndex + 1;
-
-    for(const t of TURRET_TYPES){
-      const locked = unlockedMap < t.unlockMap;
-      const isSelected = state.buildPick === t.id;
-
-      // cap display for power towers
-      const isPower = t.cap < 999;
-      const count = state.powerCounts[t.id] || 0;
-      const capTxt = isPower ? `CAP ${count}/${t.cap}` : "UNLIMITED";
-
-      const card = document.createElement('div');
-      card.className = "card" + (locked ? " locked" : "") + (isSelected ? " selected" : "");
-      card.innerHTML = `
-        <div class="cardTop">
-          <div>${t.name}</div>
-          <div class="price">$${t.cost}</div>
-        </div>
-        <div class="meta">DMG <b>${t.dmg}</b> • RNG <b>${t.rng}</b> • CD <b>${t.cd.toFixed(2)}</b></div>
-        <div class="tiny">${t.desc}</div>
-        <div class="tiny" style="margin-top:auto; display:flex; justify-content:space-between; gap:8px;">
-          <span>${capTxt}</span>
-          <span>${locked ? "LOCKED" : "READY"}</span>
-        </div>
-      `;
-      if(!locked){
-        card.addEventListener('click', ()=>{
-          state.buildPick = (state.buildPick === t.id) ? null : t.id;
-          rebuildShop();
-          toast(state.buildPick ? `Build: <b>${t.name}</b> (click map to place)` : "Build canceled.");
-        });
-      }
-      ui.shopGrid.appendChild(card);
-    }
-  }
-
-  // ============================================================
-  // 9) UPDATE LOOP
-  // ============================================================
-  let last = performance.now();
-
-  function update(dt){
-    if(state.paused) return;
-    dt *= state.speed;
-
-    // Spawning
-    if(state.inWave && state._spawnQueue){
-      for(const e of state._spawnQueue){
-        e.t -= dt;
-      }
-      // spawn those <=0
-      let spawned = 0;
-      while(state._spawnQueue.length && state._spawnQueue[0].t <= 0){
-        const s = state._spawnQueue.shift();
-        spawnEnemy(s.kind, s.tier, s.hp, s.spd, s.bounty, s.shield||0, s.boss||false, s.pathData);
-        spawned++;
-        if(spawned>40) break; // safety
-      }
-      // keep queue sorted
-      state._spawnQueue.sort((a,b)=>a.t-b.t);
-
-      // check wave end
-      if(state._spawnQueue.length===0 && state.enemies.length===0){
-        state._spawnQueue = null;
-        onWaveEnded();
-      }
-    }
-
-    // Next wave timer
-    if(!state.inWave && state.wave>0){
-      if(state.nextWaveTimer > 0){
-        state.nextWaveTimer -= dt;
-        if(state.nextWaveTimer <= 0){
-          // if map finished, advance
-          const m = currentMap();
-          if(state.wave >= m.waves){
-            const next = state.mapIndex + 1;
-            if(next >= MAPS.length) victory();
-            else beginMap(next);
-          }else{
-            startWave();
-          }
-        }
-      }
-    }
-
-    // Move enemies
-    for(const en of state.enemies){
-      en.dist += en.spd * dt;
-      const p = posOnPath(en.pathData, en.dist);
-      en.x = p.x; en.y = p.y; en.ang = p.ang;
-
-      // reached end
-      if(en.dist >= en.pathData.total){
-        en.dead = true;
-        state.lives = Math.max(0, state.lives - (en.boss ? 3 : 1));
-        if(state.lives <= 0){
-          defeat();
-        }
-      }
-    }
-    state.enemies = state.enemies.filter(e=>!e.dead);
-
-    // Turrets target + fire
-    for(const t of state.turrets){
-      t.cdLeft -= dt;
-      if(t.cdLeft > 0) continue;
-
-      const type = TURRET_TYPES.find(x=>x.id===t.typeId);
-      const st = turretStats(t.typeId, t.lvl);
-
-      // Find target
-      let target = null;
-      let bestScore = -1;
-
-      for(const e of state.enemies){
-        const d = Math.hypot(e.x - t.x, e.y - t.y);
-        if(d > st.rng) continue;
-
-        // score: prefer progress + low hp to encourage “finishing”
-        const progress = e.dist / e.pathData.total;
-        const hpLeft = (e.shield>0 ? e.shield : 0) + e.hp;
-        const score = progress*2.0 + (1/(1+hpLeft))*0.6 + (type.id==="sniper"?0.25:0);
-        if(score > bestScore){
-          bestScore = score;
-          target = e;
-        }
-      }
-
-      if(!target) continue;
-
-      // rotate turret
-      t.rot = Math.atan2(target.y - t.y, target.x - t.x);
-
-      // Fire behavior per turret type
-      if(type.id === "splash"){
-        fireProjectile("shell", t, target, st.dmg, {splash: 68});
-      }else if(type.id === "tesla"){
-        fireProjectile("pulse", t, target, st.dmg, {chain: 2, chainRange: 120});
-      }else if(type.id === "rail"){
-        fireProjectile("laser", t, target, st.dmg, {pierce: 2, lineWidth: 16});
-      }else if(type.id === "flame"){
-        fireProjectile("bullet", t, target, st.dmg, {spray: true});
-      }else if(type.id === "sniper"){
-        fireProjectile("laser", t, target, st.dmg, {pierce: 0});
-      }else{
-        fireProjectile(type.proj, t, target, st.dmg, {});
-      }
-
-      t.cdLeft = st.cd;
-    }
-
-    // Projectiles
-    for(const p of state.projectiles){
-      p.t += dt;
-
-      if(p.kind === "laser"){
-        // instant hit line; short-lived
-        p.life -= dt;
-        if(p.life <= 0) p.dead = true;
-        continue;
-      }
-
-      // move projectile
-      const vx = p.tx - p.x, vy = p.ty - p.y;
-      const dist = Math.hypot(vx,vy);
-      if(dist < 1){
-        impact(p);
-        p.dead = true;
-      }else{
-        const step = Math.min(dist, p.spd * dt);
-        p.x += vx/dist * step;
-        p.y += vy/dist * step;
-      }
-    }
-    state.projectiles = state.projectiles.filter(p=>!p.dead);
-
-    syncUI();
-  }
-
-  function spawnEnemy(kind, tier, hp, spd, bounty, shield, boss, pathData){
+  function spawnEnemy(kind,tier,hp,spd,bounty,shield,boss,pathData){
     const en = {
-      id: enemyIdSeq++,
-      kind, tier,
+      id: enemyId++,
+      kind,tier,
       hp, spd, bounty,
       shield: shield||0,
       boss: !!boss,
@@ -1299,319 +905,347 @@
       pathData,
       dead:false
     };
-    const p = posOnPath(pathData, 0);
+    const p = posOnPath(pathData,0);
     en.x=p.x; en.y=p.y; en.ang=p.ang;
     state.enemies.push(en);
   }
 
-  function dealDamage(enemy, dmg){
-    let left = dmg;
-    if(enemy.shield && enemy.shield > 0){
-      const s = Math.min(enemy.shield, left);
-      enemy.shield -= s;
+  function dealDamage(e,dmg){
+    let left=dmg;
+    if(e.shield>0){
+      const s = Math.min(e.shield,left);
+      e.shield -= s;
       left -= s;
     }
-    if(left > 0){
-      enemy.hp -= left;
-    }
-    if(enemy.hp <= 0){
-      enemy.dead = true;
-      state.cash += enemy.bounty;
+    if(left>0) e.hp -= left;
+    if(e.hp<=0){
+      e.dead=true;
+      state.cash += e.bounty;
     }
   }
 
-  function fireProjectile(kind, turret, target, dmg, opt){
-    const type = TURRET_TYPES.find(x=>x.id===turret.typeId);
-    const muzzleDist = 34;
-    const sx = turret.x + Math.cos(turret.rot) * muzzleDist;
-    const sy = turret.y + Math.sin(turret.rot) * muzzleDist;
+  function fireProjectile(kind,turret,target,dmg,opt){
+    const muzzle=34;
+    const sx = turret.x + Math.cos(turret.rot)*muzzle;
+    const sy = turret.y + Math.sin(turret.rot)*muzzle;
 
-    if(kind === "laser"){
-      // instant line hit + pierce
-      const p = {
-        id: projIdSeq++,
-        kind:"laser",
-        x:sx,y:sy,
-        tx:target.x, ty:target.y,
-        rot: turret.rot,
-        dmg,
-        life: 0.10,
-        pierce: opt.pierce || 0,
-        lineWidth: opt.lineWidth || 10,
-        dead:false,
-        hitIds: new Set()
-      };
-      // Apply immediate hit along line
-      applyLaserHits(p, opt);
+    if(kind==="laser"){
+      const p = { id:projId++, kind:"laser", x:sx,y:sy, tx:target.x,ty:target.y, rot:turret.rot, dmg, life:0.10, pierce:opt.pierce||0, lineWidth:opt.lineWidth||10, dead:false, hitIds:new Set() };
+      applyLaserHits(p);
       state.projectiles.push(p);
       return;
     }
 
-    const proj = {
-      id: projIdSeq++,
+    const p = {
+      id:projId++,
       kind,
       x:sx,y:sy,
       tx:target.x, ty:target.y,
       spd: 820,
       dmg,
-      splash: opt.splash || 0,
-      chain: opt.chain || 0,
-      chainRange: opt.chainRange || 0,
-      pierce: opt.pierce || 0,
-      spray: opt.spray || false,
-      t: 0,
+      splash: opt.splash||0,
+      chain: opt.chain||0,
+      chainRange: opt.chainRange||0,
+      pierce: opt.pierce||0,
+      t:0,
       dead:false,
-      hitIds: new Set()
+      hitIds:new Set()
     };
-    // flame "spray" = slightly randomized target point
-    if(proj.spray){
-      proj.tx += (Math.random()*2-1)*18;
-      proj.ty += (Math.random()*2-1)*18;
-      proj.spd = 900;
-    }
-    state.projectiles.push(proj);
+    state.projectiles.push(p);
   }
 
-  function applyLaserHits(p, opt){
-    // Line segment from (x,y) to (tx,ty)
+  function applyLaserHits(p){
     const ax=p.x, ay=p.y, bx=p.tx, by=p.ty;
     const abx=bx-ax, aby=by-ay;
-    const abLen = Math.hypot(abx,aby) || 1;
+    const abLen=Math.hypot(abx,aby)||1;
+    const width=p.lineWidth||10;
 
-    // hit enemies close to the line (width)
-    const width = (opt.lineWidth || p.lineWidth || 10);
-    const candidates = [];
+    const candidates=[];
     for(const e of state.enemies){
-      // projection
-      const apx = e.x-ax, apy = e.y-ay;
-      const t = (apx*abx + apy*aby) / (abLen*abLen);
+      const apx=e.x-ax, apy=e.y-ay;
+      const t=(apx*abx + apy*aby)/(abLen*abLen);
       if(t<0 || t>1) continue;
-      const px = ax + abx*t, py = ay + aby*t;
-      const d = Math.hypot(e.x-px, e.y-py);
-      if(d <= width){
-        candidates.push({e, t});
-      }
+      const px=ax+abx*t, py=ay+aby*t;
+      if(Math.hypot(e.x-px,e.y-py) <= width) candidates.push({e,t});
     }
     candidates.sort((a,b)=>a.t-b.t);
 
-    // hit main target first by sorting t; allow limited pierce
-    let hits = 0;
-    const maxHits = 1 + (p.pierce||0);
+    let hits=0;
+    const maxHits=1+(p.pierce||0);
     for(const c of candidates){
-      if(hits >= maxHits) break;
+      if(hits>=maxHits) break;
       if(p.hitIds.has(c.e.id)) continue;
       p.hitIds.add(c.e.id);
-      dealDamage(c.e, p.dmg);
+      dealDamage(c.e,p.dmg);
       hits++;
     }
   }
 
   function impact(p){
-    if(p.kind === "shell" && p.splash){
-      // splash damage around impact point
+    if(p.kind==="shell" && p.splash){
       for(const e of state.enemies){
-        const d = Math.hypot(e.x - p.x, e.y - p.y);
-        if(d <= p.splash){
-          const fall = 1 - (d/p.splash);
-          dealDamage(e, Math.round(p.dmg * (0.65 + fall*0.35)));
+        const d=Math.hypot(e.x-p.x, e.y-p.y);
+        if(d<=p.splash){
+          const fall=1-(d/p.splash);
+          dealDamage(e, Math.round(p.dmg*(0.65+fall*0.35)));
         }
       }
       return;
     }
-    if(p.kind === "pulse" && p.chain){
-      // hit primary + chain
-      let hitList = [];
+    if(p.kind==="pulse" && p.chain){
+      // hit closest then chain
+      let best=null, bestD=999;
       for(const e of state.enemies){
-        const d = Math.hypot(e.x - p.x, e.y - p.y);
-        if(d <= 26) hitList.push({e,d});
+        const d=Math.hypot(e.x-p.x,e.y-p.y);
+        if(d<bestD){ bestD=d; best=e; }
       }
-      if(hitList.length){
-        hitList.sort((a,b)=>a.d-b.d);
-        const first = hitList[0].e;
-        dealDamage(first, p.dmg);
-        // chain nearby
-        let chained = 0;
+      if(best && bestD<28){
+        dealDamage(best,p.dmg);
         const near = state.enemies
-          .filter(e => e.id !== first.id && Math.hypot(e.x-first.x, e.y-first.y) <= (p.chainRange||120))
-          .sort((a,b)=> Math.hypot(a.x-first.x,a.y-first.y) - Math.hypot(b.x-first.x,b.y-first.y));
+          .filter(e=>e.id!==best.id && Math.hypot(e.x-best.x,e.y-best.y) <= (p.chainRange||120))
+          .sort((a,b)=>Math.hypot(a.x-best.x,a.y-best.y)-Math.hypot(b.x-best.x,b.y-best.y));
+        let chained=0;
         for(const e of near){
-          if(chained >= p.chain) break;
-          dealDamage(e, Math.round(p.dmg * 0.65));
+          if(chained>=p.chain) break;
+          dealDamage(e, Math.round(p.dmg*0.65));
           chained++;
         }
-        return;
       }
+      return;
     }
-
-    // default single hit: find closest enemy near impact
+    // default hit
     let best=null, bestD=999;
     for(const e of state.enemies){
-      const d = Math.hypot(e.x - p.x, e.y - p.y);
-      if(d < bestD){
-        bestD = d; best = e;
-      }
+      const d=Math.hypot(e.x-p.x,e.y-p.y);
+      if(d<bestD){ bestD=d; best=e; }
     }
-    if(best && bestD < 28){
-      dealDamage(best, p.dmg);
-    }
+    if(best && bestD<28) dealDamage(best,p.dmg);
   }
 
   // ============================================================
-  // 10) RENDERING (new art)
+  // UPDATE LOOP
   // ============================================================
-  function draw(){
-    // background + letterbox
-    ctx.clearRect(0,0,viewW,viewH);
+  let last = performance.now();
 
-    // letterbox frame
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#00000055";
-    // top/bottom bars if any
-    const drawW = BASE_W*scale, drawH = BASE_H*scale;
-    const x0 = offX, y0 = offY;
-    if(offY > 0){
-      ctx.fillRect(0,0,viewW,offY);
-      ctx.fillRect(0,offY+drawH,viewW,viewH-(offY+drawH));
-    }
-    if(offX > 0){
-      ctx.fillRect(0,0,offX,viewH);
-      ctx.fillRect(offX+drawW,0,viewW-(offX+drawW),viewH);
-    }
-    ctx.restore();
+  function update(dt){
+    if(state.paused) return;
+    dt *= state.speed;
 
-    // world transform
-    ctx.save();
-    ctx.translate(offX, offY);
-    ctx.scale(scale, scale);
-
-    // grid
-    ctx.globalAlpha = 0.22;
-    ctx.strokeStyle = "#ffffff1b";
-    ctx.lineWidth = 1;
-    for(let x=0;x<=BASE_W;x+=50){
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,BASE_H); ctx.stroke();
-    }
-    for(let y=0;y<=BASE_H;y+=50){
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(BASE_W,y); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    // path
-    const m = currentMap();
-    drawPath(m.path);
-
-    // ranges
-    if(state.showRange){
-      for(const t of state.turrets){
-        const st = turretStats(t.typeId, t.lvl);
-        const isSel = (t.id === state.selectedTurretId);
-        ctx.globalAlpha = isSel ? 0.22 : 0.12;
-        ctx.fillStyle = isSel ? "#00dcff" : "#00dcff";
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, st.rng, 0, Math.PI*2);
-        ctx.fill();
+    // spawns
+    if(state.inWave && state.spawnQueue){
+      for(const s of state.spawnQueue) s.t -= dt;
+      while(state.spawnQueue.length && state.spawnQueue[0].t <= 0){
+        const s = state.spawnQueue.shift();
+        spawnEnemy(s.kind, s.tier, s.hp, s.spd, s.bounty, s.shield||0, s.boss||false, s.pathData);
       }
-      ctx.globalAlpha = 1;
+      state.spawnQueue.sort((a,b)=>a.t-b.t);
+
+      if(state.spawnQueue.length===0 && state.enemies.length===0){
+        state.spawnQueue=null;
+        onWaveEnded();
+      }
     }
 
-    // turrets
-    for(const t of state.turrets){
-      drawTurret(t);
+    // next wave timer (after wave 1)
+    if(!state.inWave && state.wave>0 && state.nextWaveTimer>0){
+      state.nextWaveTimer -= dt;
+      if(state.nextWaveTimer<=0){
+        const m=currentMap();
+        if(state.wave >= m.waves){
+          const next=state.mapIndex+1;
+          if(next>=MAPS.length) victory();
+          else beginMap(next);
+        }else{
+          startWave();
+        }
+      }
     }
 
-    // enemies
+    // move enemies
     for(const e of state.enemies){
-      drawEnemy(e);
+      e.dist += e.spd*dt;
+      const p = posOnPath(e.pathData, e.dist);
+      e.x=p.x; e.y=p.y; e.ang=p.ang;
+
+      if(e.dist >= e.pathData.total){
+        e.dead=true;
+        state.lives = Math.max(0, state.lives - (e.boss?3:1));
+        if(state.lives<=0) defeat();
+      }
+    }
+    state.enemies = state.enemies.filter(e=>!e.dead);
+
+    // turrets fire
+    for(const t of state.turrets){
+      t.cdLeft -= dt;
+      if(t.cdLeft>0) continue;
+
+      const type = TURRET_TYPES.find(x=>x.id===t.typeId);
+      const st = turretStats(t.typeId, t.lvl);
+
+      let target=null, bestScore=-1;
+      for(const e of state.enemies){
+        const d=Math.hypot(e.x-t.x,e.y-t.y);
+        if(d>st.rng) continue;
+        const progress=e.dist/e.pathData.total;
+        const hpLeft=(e.shield>0?e.shield:0)+e.hp;
+        const score=progress*2.0 + (1/(1+hpLeft))*0.6;
+        if(score>bestScore){ bestScore=score; target=e; }
+      }
+      if(!target) continue;
+
+      t.rot = Math.atan2(target.y-t.y, target.x-t.x);
+
+      if(type.id==="splash") fireProjectile("shell", t, target, st.dmg, {splash:68});
+      else if(type.id==="tesla") fireProjectile("pulse", t, target, st.dmg, {chain:2, chainRange:120});
+      else if(type.id==="rail") fireProjectile("laser", t, target, st.dmg, {pierce:2, lineWidth:16});
+      else if(type.id==="sniper") fireProjectile("laser", t, target, st.dmg, {pierce:0});
+      else fireProjectile(type.proj, t, target, st.dmg, {});
+
+      t.cdLeft = st.cd;
     }
 
     // projectiles
     for(const p of state.projectiles){
-      drawProjectile(p);
+      p.t += dt;
+      if(p.kind==="laser"){
+        p.life -= dt;
+        if(p.life<=0) p.dead=true;
+        continue;
+      }
+      const vx=p.tx-p.x, vy=p.ty-p.y;
+      const dist=Math.hypot(vx,vy);
+      if(dist<1){
+        impact(p);
+        p.dead=true;
+      }else{
+        const step=Math.min(dist, p.spd*dt);
+        p.x += vx/dist*step;
+        p.y += vy/dist*step;
+      }
+    }
+    state.projectiles = state.projectiles.filter(p=>!p.dead);
+
+    syncUI();
+  }
+
+  // ============================================================
+  // RENDER (more “war UI” look; still uses your sprites)
+  // ============================================================
+  function draw(){
+    ctx.clearRect(0,0,viewW,viewH);
+
+    // letterbox bars (if any)
+    ctx.save();
+    ctx.fillStyle="#00000066";
+    const drawW=BASE_W*scale, drawH=BASE_H*scale;
+    if(offY>0){ ctx.fillRect(0,0,viewW,offY); ctx.fillRect(0,offY+drawH,viewW,viewH-(offY+drawH)); }
+    if(offX>0){ ctx.fillRect(0,0,offX,viewH); ctx.fillRect(offX+drawW,0,viewW-(offX+drawW),viewH); }
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(offX,offY);
+    ctx.scale(scale,scale);
+
+    // subtle ground grid (less neon, more “tactical”)
+    ctx.globalAlpha=0.12;
+    ctx.strokeStyle="#ffffff22";
+    ctx.lineWidth=1;
+    for(let x=0;x<=BASE_W;x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,BASE_H); ctx.stroke(); }
+    for(let y=0;y<=BASE_H;y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(BASE_W,y); ctx.stroke(); }
+    ctx.globalAlpha=1;
+
+    drawPath(currentMap().path);
+
+    // ranges
+    if(state.showRange){
+      for(const t of state.turrets){
+        const st=turretStats(t.typeId,t.lvl);
+        const sel=(t.id===state.selectedTurretId);
+        ctx.globalAlpha=sel?0.20:0.10;
+        ctx.fillStyle=sel?"#53e6ff":"#53e6ff";
+        ctx.beginPath(); ctx.arc(t.x,t.y,st.rng,0,Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha=1;
     }
 
+    // turrets
+    for(const t of state.turrets) drawTurret(t);
+
+    // enemies
+    for(const e of state.enemies) drawEnemy(e);
+
+    // projectiles
+    for(const p of state.projectiles) drawProjectile(p);
+
     // selection ring
-    const sel = selectedTurret();
+    const sel = state.turrets.find(t=>t.id===state.selectedTurretId);
     if(sel){
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = "#00dcff";
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(sel.x, sel.y, 36, 0, Math.PI*2); ctx.stroke();
-      ctx.globalAlpha = 0.45;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(sel.x, sel.y, 40, 0, Math.PI*2); ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.strokeStyle="#53e6ff";
+      ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(sel.x,sel.y,36,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=0.4;
+      ctx.strokeStyle="#ffffff";
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(sel.x,sel.y,40,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=1;
     }
 
     // build ghost
-    if(state.buildPick){
-      const ghost = state._mouseWorld;
-      if(ghost && inWorld(ghost.x,ghost.y)){
-        const ok = canPlaceHere(ghost.x, ghost.y);
-        ctx.globalAlpha = ok ? 0.85 : 0.45;
-        drawTurret({typeId: state.buildPick, lvl:1, x:ghost.x, y:ghost.y, rot:0});
-        ctx.globalAlpha = 1;
-      }
+    if(state.buildPick && state.mouseWorld && inWorld(state.mouseWorld.x,state.mouseWorld.y)){
+      ctx.globalAlpha = canPlaceHere(state.mouseWorld.x,state.mouseWorld.y) ? 0.85 : 0.45;
+      drawTurret({typeId:state.buildPick,lvl:1,x:state.mouseWorld.x,y:state.mouseWorld.y,rot:0});
+      ctx.globalAlpha=1;
     }
 
     ctx.restore();
   }
 
   function drawPath(path){
-    // thick glow
     ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
 
-    ctx.strokeStyle = "#00dcff22";
-    ctx.lineWidth = 78;
+    // dirt/track base
+    ctx.strokeStyle="#00000055";
+    ctx.lineWidth=84;
     ctx.beginPath();
     ctx.moveTo(path[0].x,path[0].y);
     for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
     ctx.stroke();
 
-    ctx.strokeStyle = "#00dcff55";
-    ctx.lineWidth = 16;
+    // subtle highlight
+    ctx.strokeStyle="#53e6ff33";
+    ctx.lineWidth=14;
     ctx.beginPath();
     ctx.moveTo(path[0].x,path[0].y);
     for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
     ctx.stroke();
 
-    // inner guide
-    ctx.strokeStyle = "#ffffff22";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(path[0].x,path[0].y);
-    for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
-    ctx.stroke();
+    // start/end markers
+    ctx.shadowBlur=18;
+    ctx.shadowColor="#59ff7a";
+    ctx.fillStyle="#59ff7a";
+    ctx.beginPath(); ctx.arc(path[0].x,path[0].y,14,0,Math.PI*2); ctx.fill();
 
-    // start/end dots
-    ctx.fillStyle = "#35ff8d";
-    ctx.shadowColor = "#35ff8d";
-    ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.arc(path[0].x, path[0].y, 14, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#ff4d6d";
-    ctx.shadowColor = "#ff4d6d";
-    ctx.shadowBlur = 18;
-    const end = path[path.length-1];
-    ctx.beginPath(); ctx.arc(end.x, end.y, 14, 0, Math.PI*2); ctx.fill();
+    const end=path[path.length-1];
+    ctx.shadowColor="#ff4d4d";
+    ctx.fillStyle="#ff4d4d";
+    ctx.beginPath(); ctx.arc(end.x,end.y,14,0,Math.PI*2); ctx.fill();
+
     ctx.restore();
   }
 
   function drawTurret(t){
     const im = (SPR.turrets[t.typeId] && SPR.turrets[t.typeId][t.lvl]) || null;
     ctx.save();
-    ctx.translate(t.x, t.y);
-    // rotate the sprite slightly toward rot (art is mostly forward-facing)
-    const r = t.rot || 0;
-    ctx.rotate(r);
+    ctx.translate(t.x,t.y);
+    ctx.rotate(t.rot||0);
     if(im){
-      const s = 0.62; // sprite scale
+      const s=0.62;
       ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
     }else{
-      // fallback
-      ctx.fillStyle = "#00dcff";
+      ctx.fillStyle="#53e6ff";
       ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
@@ -1620,64 +1254,60 @@
   function drawEnemy(e){
     const im = (SPR.enemies[e.kind] && SPR.enemies[e.kind][e.tier]) || null;
     ctx.save();
-    ctx.translate(e.x, e.y);
+    ctx.translate(e.x,e.y);
     ctx.rotate(e.ang + Math.PI/2);
     if(im){
-      const s = e.boss ? 0.68 : 0.55;
+      const s=e.boss?0.68:0.55;
       ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
     }else{
-      ctx.fillStyle = "#ff4d6d";
+      ctx.fillStyle="#ff4d4d";
       ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
 
-    // hp / shield bars
-    const maxHp = enemyBase(e.kind).hp;
-    const hpPct = Math.max(0, Math.min(1, e.hp / maxHp));
-    const shieldPct = e.shield ? Math.max(0, Math.min(1, e.shield / (enemyBase(e.kind).shield||e.shield))) : 0;
+    // hp/shield bar
+    const base=enemyBase(e.kind);
+    const maxHp=base.hp;
+    const hpPct=Math.max(0,Math.min(1,e.hp/maxHp));
+    const shieldPct=e.shield?Math.max(0,Math.min(1,e.shield/(base.shield||e.shield))):0;
 
-    const w = e.boss ? 64 : 46;
-    const h = 6;
-    const x = e.x - w/2, y = e.y - (e.boss ? 46 : 36);
+    const w=e.boss?64:46, h=6;
+    const x=e.x-w/2, y=e.y-(e.boss?46:36);
 
     ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "#00000080";
-    ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha=0.9;
+    ctx.fillStyle="#00000088";
+    ctx.fillRect(x,y,w,h);
     if(e.shield>0){
-      ctx.fillStyle = "#00dcff";
-      ctx.fillRect(x, y, w*shieldPct, h);
-      ctx.fillStyle = "#ffffff66";
-      ctx.fillRect(x, y, 1, h);
+      ctx.fillStyle="#53e6ff";
+      ctx.fillRect(x,y,w*shieldPct,h);
     }else{
-      ctx.fillStyle = "#ff9b3d";
-      ctx.fillRect(x, y, w*hpPct, h);
+      ctx.fillStyle="#f2c14f";
+      ctx.fillRect(x,y,w*hpPct,h);
     }
     ctx.restore();
   }
 
   function drawProjectile(p){
-    if(p.kind === "laser"){
+    if(p.kind==="laser"){
       ctx.save();
-      ctx.globalAlpha = 0.95;
-      ctx.strokeStyle = "#ff4d6d";
-      ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke();
-      ctx.globalAlpha = 0.35;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke();
+      ctx.globalAlpha=0.9;
+      ctx.strokeStyle="#ff4d4d";
+      ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.tx,p.ty); ctx.stroke();
+      ctx.globalAlpha=0.35;
+      ctx.strokeStyle="#ffffff";
+      ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.tx,p.ty); ctx.stroke();
       ctx.restore();
       return;
     }
-
     const im = SPR.proj[p.kind] || null;
     ctx.save();
-    ctx.translate(p.x, p.y);
-    const ang = Math.atan2(p.ty - p.y, p.tx - p.x);
-    ctx.rotate(ang);
+    ctx.translate(p.x,p.y);
+    ctx.rotate(Math.atan2(p.ty-p.y,p.tx-p.x));
     if(im){
-      const s = 0.7;
+      const s=0.7;
       ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
     }else{
       ctx.fillStyle="#fff";
@@ -1687,80 +1317,93 @@
   }
 
   // ============================================================
-  // 11) UI SYNC
+  // INPUT
   // ============================================================
-  function syncUI(full=false){
-    const m = currentMap();
+  canvas.addEventListener('contextmenu', e=>e.preventDefault());
+  canvas.addEventListener('mousemove', (e)=>{ state.mouseWorld = screenToWorld(e.clientX,e.clientY); });
 
-    ui.mapName.textContent = m.name;
-    ui.waveNum.textContent = String(state.wave);
-    ui.waveMax.textContent = String(m.waves);
-    ui.mapIdx.textContent = String(state.mapIndex+1);
-    ui.mapTotal.textContent = String(MAPS.length);
+  canvas.addEventListener('mousedown', (e)=>{
+    const w = screenToWorld(e.clientX,e.clientY);
+    if(!inWorld(w.x,w.y)) return;
 
-    ui.enemyCount.textContent = String(state.enemies.length);
-    ui.speedLabel.textContent = `${state.speed}x`;
-
-    ui.cash.textContent = `$${state.cash}`;
-    ui.lives.textContent = String(state.lives);
-
-    ui.runState.textContent = state.paused ? "PAUSED" : "RUN";
-
-    if(state.inWave){
-      ui.nextWave.textContent = "IN WAVE";
-    }else if(state.wave === 0){
-      ui.nextWave.textContent = "READY";
-    }else if(state.nextWaveTimer > 0){
-      ui.nextWave.textContent = `${Math.ceil(state.nextWaveTimer)}s`;
-    }else{
-      ui.nextWave.textContent = "READY";
+    if(e.button===2){
+      state.buildPick=null;
+      rebuildBuildBar();
+      toast("Build canceled.");
+      return;
     }
 
-    // Start wave button rules:
-    // - Wave 0: allow manual start (Wave 1)
-    // - After wave ended: disable (auto), but allow skip
-    // - If map finished: start triggers next map (we still show)
-    ui.btnStartWave.disabled = state.inWave || (state.wave >= 1 && state.wave < m.waves);
-    if(state.wave >= m.waves) ui.btnStartWave.disabled = state.inWave; // allow at map end
-    // Skip button
-    ui.btnSkip.disabled = !(state.allowSkip && !state.inWave && state.wave>=1 && state.wave<m.waves);
-
-    // Selected turret
-    const sel = selectedTurret();
-    if(!sel){
-      ui.selName.textContent = "None";
-      ui.selLvl.textContent = "—";
-      ui.selDmg.textContent = "—";
-      ui.selRng.textContent = "—";
-      ui.selCd.textContent = "—";
-      ui.btnUpgrade.disabled = true;
-      ui.btnSell.disabled = true;
-    }else{
-      const type = TURRET_TYPES.find(x=>x.id===sel.typeId);
-      const st = turretStats(sel.typeId, sel.lvl);
-      ui.selName.textContent = type.name;
-      ui.selLvl.textContent = `Lvl ${sel.lvl}`;
-      ui.selDmg.textContent = st.dmg;
-      ui.selRng.textContent = st.rng;
-      ui.selCd.textContent = st.cd.toFixed(2);
-
-      ui.btnUpgrade.disabled = sel.lvl >= 3;
-      ui.btnSell.disabled = false;
+    // select turret
+    let hit=null;
+    for(const t of state.turrets){
+      if(Math.hypot(w.x-t.x,w.y-t.y) < 34){ hit=t; break; }
+    }
+    if(hit){
+      state.selectedTurretId = hit.id;
+      syncUI();
+      return;
     }
 
-    if(full) ui.btnRange.textContent = `Range: ${state.showRange ? "ON" : "OFF"}`;
-  }
+    // place
+    if(state.buildPick){
+      placeTurret(state.buildPick, w.x, w.y);
+      return;
+    }
 
-  // Track mouse for build ghost
-  canvas.addEventListener('mousemove', (e)=>{
-    state._mouseWorld = screenToWorld(e.clientX, e.clientY);
+    state.selectedTurretId=null;
+    syncUI();
   });
 
   // ============================================================
-  // 12) MAIN LOOP
+  // BUTTONS
+  // ============================================================
+  ui.btnPause.addEventListener('click', ()=>{ state.paused=!state.paused; syncUI(); });
+  ui.btnRange.addEventListener('click', ()=>{ state.showRange=!state.showRange; syncUI(); });
+
+  ui.btnStartWave.addEventListener('click', ()=> startWave());
+  ui.btnSkip.addEventListener('click', ()=>{
+    if(!state.allowSkip || state.inWave) return;
+    state.nextWaveTimer = 0.01;
+    state.allowSkip = false;
+    toast("Timer skipped.");
+    syncUI();
+  });
+
+  function setSpeed(n){ state.speed=n; syncUI(); }
+  ui.btnSpd1.addEventListener('click', ()=>setSpeed(1));
+  ui.btnSpd2.addEventListener('click', ()=>setSpeed(2));
+  ui.btnSpd3.addEventListener('click', ()=>setSpeed(3));
+  ui.btnSpd4.addEventListener('click', ()=>setSpeed(4));
+
+  // safer restart hold
+  let holdRAF=null, holdStart=0;
+  function startHold(){
+    holdStart=performance.now();
+    holdRAF=requestAnimationFrame(function tick(now){
+      const left = Math.max(0, 1200-(now-holdStart));
+      ui.btnRestart.textContent = `HOLD RESTART (${(left/1000).toFixed(1)}s)`;
+      if(now-holdStart >= 1200){
+        cancelAnimationFrame(holdRAF); holdRAF=null;
+        ui.btnRestart.textContent="RESTARTING…";
+        resetCampaign();
+        ui.btnRestart.textContent="HOLD RESTART (1.2s)";
+        return;
+      }
+      holdRAF=requestAnimationFrame(tick);
+    });
+  }
+  function stopHold(){
+    if(holdRAF){ cancelAnimationFrame(holdRAF); holdRAF=null; }
+    ui.btnRestart.textContent="HOLD RESTART (1.2s)";
+  }
+  ui.btnRestart.addEventListener('mousedown', startHold);
+  window.addEventListener('mouseup', stopHold);
+
+  // ============================================================
+  // MAIN LOOP
   // ============================================================
   function loop(now){
-    const dt = Math.min(0.033, (now - last)/1000);
+    const dt = Math.min(0.033, (now-last)/1000);
     last = now;
     update(dt);
     draw();
@@ -1768,20 +1411,16 @@
   }
 
   // ============================================================
-  // 13) INIT
+  // INIT
   // ============================================================
   (async function init(){
     resize();
-    rebuildShop();
-    syncUI(true);
+    rebuildBuildBar();
+    syncUI();
     await loadAssets();
-    toast("Assets loaded. <b>Start Wave</b> to begin.");
+    resetCampaign();
     requestAnimationFrame(loop);
   })();
-
-  // Expose a few helpers for quick debug
-  window.__TD = { state, resetCampaign, beginMap, startWave };
-  resetCampaign();
 })();
 </script>
 </body>

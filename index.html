@@ -67,12 +67,15 @@
       box-shadow: 0 -12px 40px rgba(0,0,0,.6);
       padding: 12px 14px;
       display:flex;
+      flex-wrap:wrap;
+      align-content:flex-start;
+      overflow-y:auto;
       gap:12px;
       z-index:10;
     }
-    #leftCol{ width: 360px; min-width:320px; display:flex; flex-direction:column; gap:10px; }
-    #midCol{ flex:1; display:flex; flex-direction:column; gap:10px; }
-    #rightCol{ width: 380px; min-width:340px; display:flex; flex-direction:column; gap:10px; }
+    #leftCol{ flex:1 1 320px; min-width:280px; display:flex; flex-direction:column; gap:10px; }
+    #midCol{ flex:2 1 380px; min-width:300px; display:flex; flex-direction:column; gap:10px; }
+    #rightCol{ flex:1 1 340px; min-width:280px; display:flex; flex-direction:column; gap:10px; }
 
     .panel{
       flex:1;
@@ -152,7 +155,7 @@
       box-shadow: 0 10px 20px rgba(0,0,0,.30), 0 0 16px rgba(106,168,255,.08);
     }
 
-    .cards{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; }
+    .cards{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
     .card{
       border-radius: 16px;
       border:1px solid rgba(120,160,220,.18);
@@ -253,16 +256,18 @@
     }
 
     @media (max-width: 1200px){
-      #leftCol{ width: 320px; }
-      #rightCol{ width: 340px; }
-      .cards{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #leftCol{ flex-basis: 300px; }
+      #rightCol{ flex-basis: 320px; }
+      .cards{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     }
     @media (max-width: 920px){
       :root{ --hudH: 240px; }
       #hud{ flex-direction:column; }
-      #leftCol,#rightCol{ width:auto; min-width:0; }
-      #midCol{ width:auto; }
-      .cards{ grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      #leftCol,#rightCol,#midCol{ width:auto; min-width:0; }
+      .cards{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    }
+    @media (max-height: 760px){
+      :root{ --hudH: 260px; }
     }
   </style>
 </head>
@@ -1247,6 +1252,10 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
 
     // cached terrain
     terrainSeed: 1337,
+
+    // autosave
+    autoSaveT: 0,
+    autoSaveEvery: 12,
   };
 
   // ---------------------------

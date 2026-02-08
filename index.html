@@ -673,28 +673,32 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       {
         name:'Dust Basin',
         ctrl:[
-          {x:0.05,y:0.18},{x:0.14,y:0.14},{x:0.22,y:0.20},{x:0.28,y:0.32},
-          {x:0.20,y:0.46},{x:0.30,y:0.58},{x:0.46,y:0.62},{x:0.58,y:0.48},
-          {x:0.50,y:0.34},{x:0.62,y:0.22},{x:0.78,y:0.28},{x:0.88,y:0.42},
-          {x:0.94,y:0.62}
+          {x:0.05,y:0.12},{x:0.18,y:0.12},{x:0.18,y:0.26},{x:0.10,y:0.26},
+          {x:0.10,y:0.42},{x:0.26,y:0.42},{x:0.26,y:0.20},{x:0.40,y:0.20},
+          {x:0.40,y:0.34},{x:0.32,y:0.34},{x:0.32,y:0.52},{x:0.50,y:0.52},
+          {x:0.50,y:0.28},{x:0.64,y:0.28},{x:0.64,y:0.44},{x:0.56,y:0.44},
+          {x:0.56,y:0.64},{x:0.72,y:0.64},{x:0.72,y:0.36},{x:0.86,y:0.36},
+          {x:0.86,y:0.56},{x:0.95,y:0.56}
         ]
       },
       {
         name:'Switchback',
         ctrl:[
-          {x:0.06,y:0.82},{x:0.18,y:0.74},{x:0.32,y:0.68},{x:0.22,y:0.54},
-          {x:0.12,y:0.40},{x:0.26,y:0.28},{x:0.42,y:0.22},{x:0.58,y:0.30},
-          {x:0.48,y:0.44},{x:0.34,y:0.56},{x:0.46,y:0.70},{x:0.64,y:0.78},
-          {x:0.80,y:0.66},{x:0.92,y:0.52},{x:0.96,y:0.34}
+          {x:0.06,y:0.84},{x:0.24,y:0.84},{x:0.24,y:0.68},{x:0.12,y:0.68},
+          {x:0.12,y:0.52},{x:0.30,y:0.52},{x:0.30,y:0.76},{x:0.46,y:0.76},
+          {x:0.46,y:0.60},{x:0.34,y:0.60},{x:0.34,y:0.40},{x:0.54,y:0.40},
+          {x:0.54,y:0.22},{x:0.70,y:0.22},{x:0.70,y:0.46},{x:0.60,y:0.46},
+          {x:0.60,y:0.66},{x:0.80,y:0.66},{x:0.80,y:0.34},{x:0.94,y:0.34}
         ]
       },
       {
         name:'Broken Yard',
         ctrl:[
-          {x:0.04,y:0.36},{x:0.14,y:0.30},{x:0.26,y:0.38},{x:0.34,y:0.50},
-          {x:0.28,y:0.64},{x:0.42,y:0.74},{x:0.60,y:0.70},{x:0.70,y:0.58},
-          {x:0.62,y:0.44},{x:0.48,y:0.36},{x:0.56,y:0.24},{x:0.72,y:0.18},
-          {x:0.88,y:0.26},{x:0.96,y:0.44}
+          {x:0.04,y:0.40},{x:0.20,y:0.40},{x:0.20,y:0.24},{x:0.34,y:0.24},
+          {x:0.34,y:0.52},{x:0.14,y:0.52},{x:0.14,y:0.68},{x:0.42,y:0.68},
+          {x:0.42,y:0.36},{x:0.58,y:0.36},{x:0.58,y:0.56},{x:0.48,y:0.56},
+          {x:0.48,y:0.78},{x:0.70,y:0.78},{x:0.70,y:0.30},{x:0.84,y:0.30},
+          {x:0.84,y:0.62},{x:0.96,y:0.62}
         ]
       }
     ];
@@ -2094,6 +2098,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       const t = new Turret(type, mouseX, mouseY);
       game.turrets.push(t);
       selectTurret(t);
+      setPlacing(null);
       showToast(`${meta.name} deployed.`, 1.2);
       return;
     }
@@ -2102,6 +2107,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     const t = turretAt(mouseX,mouseY);
     if(t){
       selectTurret(t);
+      tryUpgradeTurret(t);
     } else {
       selectTurret(null);
     }
@@ -2141,6 +2147,26 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
   }
   btnSpeed.addEventListener('click', ()=>setSpeed(game.speedMul===1 ? 2 : 1));
 
+  function tryUpgradeTurret(t, silent=false){
+    if(!t) return false;
+    const m=t.meta();
+    if(t.tier>=TIER_MAX){
+      if(!silent) showToast('Max tier reached.', 1.0);
+      return false;
+    }
+    const cost = m.upgradeCost(t.tier+1);
+    if(game.credits < cost.credits || game.scrap < cost.scrap){
+      if(!silent) showToast('Insufficient resources for upgrade.', 1.2);
+      return false;
+    }
+    game.credits -= cost.credits;
+    game.scrap -= cost.scrap;
+    t.tier++;
+    showToast(`${m.name} upgraded to Tier ${t.tier+1}.`, 1.2);
+    updateRightPanel();
+    return true;
+  }
+
   btnSkip.addEventListener('click', ()=>{
     if(game.skipCD>0) return;
     if(game.waveState==='ACTIVE') return;
@@ -2161,19 +2187,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
 
   btnUpgrade.addEventListener('click', ()=>{
     if(!game.selectedTurret) return;
-    const t=game.selectedTurret;
-    const m=t.meta();
-    if(t.tier>=TIER_MAX) return;
-    const cost = m.upgradeCost(t.tier+1);
-    if(game.credits < cost.credits || game.scrap < cost.scrap){
-      showToast('Insufficient resources for upgrade.', 1.2);
-      return;
-    }
-    game.credits -= cost.credits;
-    game.scrap -= cost.scrap;
-    t.tier++;
-    showToast(`${m.name} upgraded to Tier ${t.tier+1}.`, 1.2);
-    updateRightPanel();
+    tryUpgradeTurret(game.selectedTurret);
   });
 
   btnAbility.addEventListener('click', ()=>{

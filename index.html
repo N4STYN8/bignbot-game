@@ -1302,7 +1302,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     lives: 20,
 
     wave: 1,
-    waveState: 'IDLE', // IDLE | ACTIVE | BETWEEN
+    waveState: 'READY', // READY | ACTIVE | BETWEEN
     betweenTimer: 1.0,
 
     trains: [],
@@ -2204,13 +2204,18 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     return true;
   }
 
-  btnSkip.addEventListener('click', ()=>{
-    if(game.skipCD>0) return;
+    btnSkip.addEventListener('click', ()=>{
     if(game.waveState==='ACTIVE') return;
+    if(game.wave === 1){
+      if(game.waveState !== 'READY') return;
+      startWave();
+      return;
+    }
+    if(game.skipCD>0) return;
     game.skipCD = 10.0;
-    game.waveState='IDLE';
     game.betweenTimer = 0;
-    showToast('Skip engaged — inbound sooner.', 1.0);
+    startWave();
+    showToast('Next wave started.', 1.0);
   });
 
   btnSave.addEventListener('click', ()=>saveGame());
@@ -2507,7 +2512,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
   function hardReset(){
     game.rng.s = 0xC0FFEE ^ 0x1234567;
     game.credits=200; game.scrap=0; game.energy=0; game.lives=20;
-    game.wave=1; game.waveState='IDLE'; game.betweenTimer=1.0;
+    game.wave=1; game.waveState='READY'; game.betweenTimer=0;
     game.turrets=[]; game.trains=[]; game.projectiles=[];
     game.effects.muzzle=[]; game.effects.railLines=[]; game.effects.laserBeams=[];
     game.effects.explosions=[]; game.effects.smokePuffs=[]; game.effects.dust=[];
@@ -2566,14 +2571,19 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       if(toastTimer<=0) toast.style.display='none';
     }
 
-    // skip cooldown
-    game.skipCD = Math.max(0, game.skipCD - dt);
-    if(game.skipCD>0){
-      skipTag.textContent = `${game.skipCD.toFixed(0)}s`;
-      btnSkip.disabled = true;
-    } else {
+    // start/skip button
+    const canStart = (game.waveState !== 'ACTIVE' && game.lives > 0);
+    const btnSkipLabel = btnSkip.querySelector('span');
+    if(game.wave === 1){
+      if(btnSkipLabel) btnSkipLabel.textContent = 'Start Wave';
       skipTag.textContent = 'READY';
-      btnSkip.disabled = (game.waveState==='ACTIVE' || game.lives<=0);
+      btnSkip.disabled = !canStart || game.waveState !== 'READY';
+    } else {
+      game.skipCD = Math.max(0, game.skipCD - dt);
+      if(btnSkipLabel) btnSkipLabel.textContent = 'Skip to Next Wave';
+      skipTag.textContent = (game.skipCD>0 ? `${game.skipCD.toFixed(0)}s` : 'READY');
+      const cooldown = game.skipCD > 0;
+      btnSkip.disabled = cooldown || !canStart;
     }
 
     // smoke effect timer
@@ -2595,12 +2605,10 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     }
 
     // wave state machine
-    if(game.waveState==='IDLE'){
-      startWave();
-    } else if(game.waveState==='BETWEEN'){
+    if(game.waveState==='BETWEEN'){
       game.betweenTimer -= dt;
       if(game.betweenTimer<=0){
-        game.waveState='IDLE';
+        game.waveState='READY';
       }
     }
 
@@ -2911,9 +2919,9 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
   setPlacing(null);
   selectTurret(null);
 
-  // Start in BETWEEN so player can place before wave 1
-  game.waveState='BETWEEN';
-  game.betweenTimer=1.6;
+  // Start in READY so player must click Start Wave
+  game.waveState='READY';
+  game.betweenTimer=0;
 
   // keep UI responsive
   updateRightPanel();
@@ -2929,3 +2937,4 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
 </script>
 </body>
 </html>
+

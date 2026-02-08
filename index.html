@@ -1,2939 +1,921 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-  <title>IRONLINE TD — Single-File Tower Defense</title>
-  <style>
-    :root{
-      --bg0:#1a140c;
-      --bg1:#261c12;
-      --panel:#221b12f0;
-      --panel2:#17110beb;
-      --line:#5a4633;
-      --line2:#7a5d41;
-      --text:#fff1d8;
-      --muted:#e3cfae;
-      --good:#7bffb1;
-      --warn:#ffd36a;
-      --bad:#ff5f6f;
-      --accent:#8fe1ff;
-      --accent2:#ffb55a;
-      --shadow: 0 18px 46px rgba(0,0,0,.65);
-      --glow: 0 0 22px rgba(255,181,90,.35);
-      --glow2: 0 0 22px rgba(143,225,255,.28);
-      --hudH: 188px;
-      --btnH: 40px;
-      --radius: 14px;
-      --font: "Bahnschrift", "Franklin Gothic Medium", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>IRONLINE TD</title>
+<style>
+  :root{
+    --bg:#0e0b08;
+    --hud:#1d140c;
+    --panel:#2a1d12;
+    --panel2:#14100b;
+    --line:#6b4c2d;
+    --text:#ffeccc;
+    --muted:#d2bf9b;
+    --accent:#ffb55a;
+    --accent2:#8fe1ff;
+    --good:#78ffb1;
+    --bad:#ff5f6f;
+    --warn:#ffd36a;
+    --shadow: 0 12px 26px rgba(0,0,0,.55);
+    --glow: 0 0 18px rgba(255,181,90,.35);
+    --glow2: 0 0 18px rgba(143,225,255,.25);
+    --topH: 64px;
+    --dockH: 220px;
+    --font: "Bahnschrift","Franklin Gothic Medium","Trebuchet MS","Segoe UI",Arial,sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0; background:radial-gradient(1200px 700px at 50% -20%, #3a2a18 0%, #1a140c 60%, #090706 100%); color:var(--text); font-family:var(--font); overflow:hidden;}
+  #app{position:fixed; inset:0; display:flex; flex-direction:column;}
+  #topbar{
+    height:var(--topH);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:8px 12px;
+    background:linear-gradient(180deg, rgba(32,22,14,.98), rgba(18,12,8,.98));
+    border-bottom:1px solid rgba(170,125,70,.45);
+    box-shadow: var(--shadow);
+    z-index:10;
+  }
+  .chip{display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; background:linear-gradient(180deg, rgba(64,44,26,.98), rgba(26,18,12,.98)); border:1px solid rgba(185,140,80,.55); box-shadow: var(--glow);}
+  .chip .k{color:var(--muted); font-size:11px; letter-spacing:.12em; text-transform:uppercase;}
+  .chip .v{font-weight:800; font-size:16px; font-family:var(--mono);}
+  .chip .icon{width:18px; height:18px; display:inline-block; margin-right:2px;}
 
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% -20%, #3a2a18 0%, #1a140c 58%, #0b0906 100%); color:var(--text); font-family:var(--font); overflow:hidden; }
-    #wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
-    #topbar{
-      position:absolute; top:12px; left:12px; right:12px;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-      z-index:20;
-    }
-    .chipRow{ display:flex; gap:10px; align-items:center; pointer-events:auto; }
-    .chip{
-      background:linear-gradient(180deg, rgba(52,38,24,.96), rgba(26,18,12,.98));
-      border:1px solid rgba(150,115,70,.55);
-      border-bottom-color: rgba(190,140,80,.65);
-      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,220,170,.30);
-      border-radius: 12px;
-      padding: 8px 12px;
-      display:flex; gap:10px; align-items:center;
-      min-height: 36px;
-      user-select:none;
-    }
-    .chip .k{ color:var(--muted); font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
-    .chip .v{ font-family:var(--mono); font-size:13px; }
-    .chip .sep{ width:1px; height:18px; background:rgba(255,255,255,.08); margin:0 2px; }
-    .chip strong{ color:#fff; font-weight:650; }
-    .chip .dot{ width:8px; height:8px; border-radius:999px; background:var(--good); box-shadow:0 0 12px rgba(57,229,138,.45); }
-    .chip .dot.warn{ background:var(--warn); box-shadow:0 0 12px rgba(255,204,102,.35); }
-    .chip .dot.bad{ background:var(--bad); box-shadow:0 0 12px rgba(255,92,122,.35); }
+  #playfield{flex:1; position:relative; background:#0e0b08;}
+  #gameCanvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
 
-    #gameCanvas{ display:block; width:100%; height:calc(100% - var(--hudH)); }
-    #hud{
-      height:var(--hudH);
-      background:linear-gradient(180deg, rgba(26,18,12,.20), rgba(22,16,11,.92) 34%, rgba(16,12,8,.99));
-      border-top:1px solid rgba(170,125,70,.32);
-      box-shadow: 0 -12px 40px rgba(0,0,0,.65);
-      padding: 12px 14px;
-      display:flex;
-      flex-wrap:wrap;
-      align-content:flex-start;
-      overflow-y:auto;
-      gap:12px;
-      z-index:10;
-    }
-    #leftCol{ flex:1 1 320px; min-width:280px; display:flex; flex-direction:column; gap:10px; }
-    #midCol{ flex:2 1 380px; min-width:300px; display:flex; flex-direction:column; gap:10px; }
-    #rightCol{ flex:1 1 340px; min-width:280px; display:flex; flex-direction:column; gap:10px; }
+  #dock{
+    height:var(--dockH);
+    display:flex; gap:12px; padding:10px 12px;
+    background:linear-gradient(180deg, rgba(26,18,12,.96), rgba(18,12,8,.99));
+    border-top:1px solid rgba(170,125,70,.45);
+    box-shadow: 0 -12px 26px rgba(0,0,0,.6);
+    z-index:10;
+  }
 
-    .panel{
-      flex:1;
-      background:linear-gradient(180deg, rgba(52,38,24,.94), rgba(24,18,12,.98));
-      border:1px solid rgba(165,120,70,.42);
-      border-radius: 14px;
-      padding: 10px;
-      box-shadow: var(--glow), var(--shadow), inset 0 1px 0 rgba(255,220,170,.22);
-      overflow:hidden;
-      position:relative;
-    }
+  .panel{background:linear-gradient(180deg, rgba(60,40,22,.95), rgba(22,16,10,.98)); border:1px solid rgba(170,125,70,.45); border-radius:12px; padding:10px; box-shadow: var(--shadow), var(--glow);}
+  .panelTitle{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
+  .dockCol{display:flex; flex-direction:column; gap:8px;}
+  #cards{display:grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap:8px;}
+  .card{min-height:120px; padding:8px; border-radius:12px; border:1px solid rgba(170,125,70,.45); background:linear-gradient(180deg, rgba(70,48,28,.98), rgba(26,18,12,.98)); box-shadow: var(--shadow); cursor:pointer; user-select:none; position:relative;}
+  .card.selected{border-color: rgba(255,181,90,.9); box-shadow: var(--shadow), var(--glow);}
+  .card .name{font-weight:800;}
+  .card .desc{font-size:12px; color:var(--muted); margin-top:4px; min-height:34px;}
+  .badge{display:inline-block; padding:3px 8px; border-radius:999px; background:rgba(255,181,90,.16); border:1px solid rgba(255,181,90,.30); font-family:var(--mono); font-size:11px;}
+  .card .hot{position:absolute; top:6px; right:6px; font-size:11px; color:#fff; background:rgba(0,0,0,.35); padding:2px 6px; border-radius:8px;}
 
-    .panelTitle{
-      display:flex; align-items:center; justify-content:space-between;
-      padding: 2px 6px 10px 6px;
-    }
-    .panelTitle .t{
-      font-size:12px; letter-spacing:.18em; text-transform:uppercase;
-      color: var(--muted);
-    }
-    .panelTitle .sub{
-      font-family:var(--mono);
-      color:#cfe2ff;
-      font-size:12px;
-      opacity:.9;
-    }
+  .btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(185,140,80,.55); background:linear-gradient(180deg, rgba(86,56,30,.98), rgba(28,20,12,.98)); color:var(--text); font-weight:700; letter-spacing:.02em; cursor:pointer; box-shadow: var(--shadow);}
+  .btn:hover{filter:brightness(1.08); border-color: rgba(255,200,140,.7);}
+  .btn.primary{border-color: rgba(255,181,90,.75); box-shadow: var(--shadow), var(--glow);}
+  .btn.ghost{background:linear-gradient(180deg, rgba(50,36,22,.85), rgba(22,16,10,.92));}
+  .btn[disabled]{opacity:.45; cursor:not-allowed; filter:saturate(.4);}
 
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #menus{position:fixed; inset:0; pointer-events:none;}
+  .menu{position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); pointer-events:auto;}
+  .menu.active{display:flex;}
+  .menuBox{width:min(720px, 92vw); background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:14px; padding:16px; box-shadow: var(--shadow), var(--glow);}
+  .menuBox h2{margin:0 0 8px 0; font-size:20px;}
+  .menuBox p{color:var(--muted);}
+  .menuGrid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;}
 
-    .btn{
-      height: var(--btnH);
-      padding: 0 12px;
-      border-radius: 12px;
-      border:1px solid rgba(185,140,80,.50);
-      background:linear-gradient(180deg, rgba(70,48,28,.98), rgba(28,20,12,.98));
-      color:var(--text);
-      box-shadow: 0 10px 20px rgba(0,0,0,.50), 0 0 18px rgba(255,181,90,.20);
-      display:inline-flex; align-items:center; justify-content:center;
-      gap:10px;
-      cursor:pointer;
-      user-select:none;
-      transition: transform .08s ease, filter .12s ease, border-color .12s ease;
-      font-weight:650;
-      letter-spacing:.02em;
-    }
-    .btn:hover{ filter:brightness(1.10); border-color: rgba(255,200,140,.65); }
-    .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn[disabled]{ opacity:.45; cursor:not-allowed; filter:saturate(.4); }
-    .btn .tag{
-      font-size:11px; font-family:var(--mono); color:rgba(220,240,255,.85);
-      background: rgba(255,181,90,.16);
-      border:1px solid rgba(255,181,90,.28);
-      padding: 4px 8px;
-      border-radius: 999px;
-    }
-    .btn.primary{
-      border-color: rgba(255,181,90,.70);
-      box-shadow: 0 10px 24px rgba(0,0,0,.50), 0 0 26px rgba(255,181,90,.30);
-      background:linear-gradient(180deg, rgba(88,52,24,.98), rgba(30,20,12,.98));
-    }
-    .btn.primary:hover{ border-color: rgba(255,180,120,.32); }
-    .btn.ghost{
-      background:linear-gradient(180deg, rgba(20,28,40,.55), rgba(10,14,22,.65));
-      box-shadow: 0 8px 18px rgba(0,0,0,.25);
-    }
+  .toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px; border-radius:10px; border:1px solid rgba(185,140,80,.45); background:rgba(0,0,0,.25);}
+  .slider{width:100%;}
 
-    .select{
-      height: var(--btnH);
-      border-radius: 12px;
-      border:1px solid rgba(185,140,80,.50);
-      background:linear-gradient(180deg, rgba(70,48,28,.96), rgba(28,20,12,.96));
-      color:var(--text);
-      padding: 0 12px;
-      outline:none;
-      font-weight:650;
-      cursor:pointer;
-      box-shadow: 0 10px 20px rgba(0,0,0,.45), 0 0 18px rgba(255,181,90,.20);
-    }
+  #helpPanel{position:absolute; right:12px; top:76px; width:280px; background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:12px; padding:10px; display:none; box-shadow: var(--shadow), var(--glow);}
+  #helpPanel.active{display:block;}
 
-    .cards{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
-    .card{
-      border-radius: 14px;
-      border:1px solid rgba(170,125,70,.40);
-      background:linear-gradient(180deg, rgba(60,40,22,.94), rgba(22,16,10,.98));
-      box-shadow: 0 10px 24px rgba(0,0,0,.50);
-      padding: 10px;
-      cursor:pointer;
-      user-select:none;
-      position:relative;
-      overflow:hidden;
-      transition: transform .08s ease, filter .12s ease, border-color .12s ease;
-      min-height: 86px;
-    }
-    .card:hover{ filter:brightness(1.08); border-color: rgba(255,200,140,.55); }
-    .card:active{ transform: translateY(1px) scale(.99); }
-    .card.selected{
-      border-color: rgba(255,181,90,.80);
-      box-shadow: 0 10px 24px rgba(0,0,0,.50), 0 0 22px rgba(255,181,90,.30);
-    }
-    .card .name{ font-weight:800; letter-spacing:.02em; font-size:13px; display:flex; gap:8px; align-items:center; }
-    .card .name .pill{
-      font-size:10px; letter-spacing:.14em; text-transform:uppercase;
-      color:rgba(255,255,255,.82);
-      background: rgba(255,181,90,.18);
-      border:1px solid rgba(255,181,90,.38);
-      padding: 3px 7px;
-      border-radius:999px;
-      font-family:var(--mono);
-    }
-    .card .desc{ margin-top:6px; font-size:11px; color:rgba(180,200,230,.92); line-height:1.25; min-height: 28px; }
-    .card .cost{ margin-top:10px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-    .badge{
-      font-family:var(--mono);
-      font-size:11px;
-      color: rgba(220,240,255,.90);
-      background: rgba(255,181,90,.16);
-      border:1px solid rgba(255,181,90,.24);
-      padding: 4px 7px;
-      border-radius: 999px;
-    }
-    .badge.orange{
-      background: rgba(255,154,60,.10);
-      border-color: rgba(255,154,60,.18);
-    }
-    .badge.green{
-      background: rgba(57,229,138,.10);
-      border-color: rgba(57,229,138,.18);
-    }
-    .badge.red{
-      background: rgba(255,92,122,.10);
-      border-color: rgba(255,92,122,.18);
-    }
+  .split{display:grid; grid-template-columns: 1fr 1fr; gap:8px;}
+  .statRow{display:flex; justify-content:space-between; font-size:13px; color:var(--muted);}
+  .big{font-size:18px; font-weight:900;}
 
-    .infoBox{
-      border-radius: 16px;
-      border:1px solid rgba(170,125,70,.36);
-      background:linear-gradient(180deg, rgba(46,32,20,.86), rgba(22,16,10,.96));
-      padding: 10px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.50);
-      min-height: 72px;
-    }
-    .infoBox .h{ display:flex; justify-content:space-between; align-items:center; }
-    .infoBox .h .label{ color:var(--muted); letter-spacing:.14em; text-transform:uppercase; font-size:11px; }
-    .infoBox .h .val{ font-family:var(--mono); font-size:12px; color:#d7e9ff; }
-    .infoBox .body{ margin-top:8px; font-size:12px; color: rgba(205,220,255,.92); line-height:1.35; }
-
-    .tiny{
-      font-size:11px; color:rgba(170,190,225,.9); font-family:var(--mono);
-    }
-
-    .split{
-      display:flex; gap:10px; align-items:center;
-    }
-    .split > .panel{ flex:1; }
-
-    .hr{ height:1px; background:rgba(255,255,255,.06); margin:8px 0; }
-
-    /* tooltip */
-    #toast{
-      position:absolute;
-      left:50%;
-      top: 66px;
-      transform: translateX(-50%);
-      background:linear-gradient(180deg, rgba(36,28,20,.92), rgba(22,18,12,.96));
-      border:1px solid rgba(140,110,70,.30);
-      border-radius: 999px;
-      padding: 10px 14px;
-      box-shadow: var(--shadow), var(--glow);
-      font-size:12px;
-      color:rgba(230,240,255,.95);
-      display:none;
-      z-index:30;
-      pointer-events:none;
-      max-width:min(980px, calc(100% - 24px));
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    @media (max-width: 1200px){
-      #leftCol{ flex-basis: 300px; }
-      #rightCol{ flex-basis: 320px; }
-      .cards{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-    }
-    @media (max-width: 920px){
-      :root{ --hudH: 240px; }
-      #hud{ flex-direction:column; }
-      #leftCol,#rightCol,#midCol{ width:auto; min-width:0; }
-      .cards{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-    }
-    @media (max-height: 760px){
-      :root{ --hudH: 260px; }
-    }
-  </style>
+  @media (max-width: 1100px){
+    #dock{height:260px;}
+    #cards{grid-template-columns: repeat(3, minmax(0,1fr));}
+  }
+  @media (max-width: 760px){
+    #dock{height:320px; flex-direction:column; overflow:auto;}
+    #cards{grid-template-columns: repeat(2, minmax(0,1fr));}
+  }
+</style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="gameCanvas"></canvas>
-
+<div id="app">
   <div id="topbar">
-    <div class="chipRow">
-      <div class="chip" title="Status">
-        <span class="dot" id="dotState"></span>
-        <span class="k">State</span>
-        <span class="v" id="stateText">RUN</span>
-        <span class="sep"></span>
-        <span class="k">Wave</span>
-        <span class="v"><strong id="waveText">1</strong></span>
-        <span class="sep"></span>
-        <span class="k">Lives</span>
-        <span class="v"><strong id="livesText">20</strong></span>
-      </div>
-      <div class="chip" title="Resources">
-        <span class="k">Credits</span><span class="v" id="creditsText">200</span>
-        <span class="sep"></span>
-        <span class="k">Scrap</span><span class="v" id="scrapText">0</span>
-        <span class="sep"></span>
-        <span class="k">Energy</span><span class="v" id="energyText">0</span>
-      </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="chip"><img class="icon" id="icoCredits"/><span class="k">Credits</span><span class="v" id="creditsText">0</span></div>
+      <div class="chip"><img class="icon" id="icoScrap"/><span class="k">Scrap</span><span class="v" id="scrapText">0</span></div>
+      <div class="chip"><img class="icon" id="icoEnergy"/><span class="k">Energy</span><span class="v" id="energyText">0</span></div>
     </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="chip"><img class="icon" id="icoWave"/><span class="k">Wave</span><span class="v" id="waveText">1</span></div>
+      <div class="chip"><img class="icon" id="icoHeart"/><span class="k">Lives</span><span class="v" id="livesText">20</span></div>
+    </div>
+  </div>
 
-    <div class="chipRow">
-      <div class="chip" title="Controls: Space pause, 1/2 speed, Esc cancel placement.">
-        <span class="k">Speed</span><span class="v" id="speedText">x1</span>
-        <span class="sep"></span>
-        <span class="k">Map</span>
-        <select id="mapSelect" class="select" style="height:32px; padding:0 10px;">
-          <option value="0">Dust Basin</option>
-          <option value="1">Switchback</option>
-          <option value="2">Broken Yard</option>
-        </select>
+  <div id="playfield">
+    <canvas id="gameCanvas"></canvas>
+    <div id="helpPanel">
+      <div class="panelTitle">How To Play</div>
+      <div style="font-size:13px; color:var(--muted); line-height:1.4;">
+        1-5: Select turret<br/>
+        Click: Place turret<br/>
+        U: Upgrade &nbsp; X: Sell<br/>
+        Space: Start Wave<br/>
+        P: Pause/Resume<br/>
+        Esc: Cancel placement
       </div>
     </div>
   </div>
 
-  <div id="toast"></div>
-
-  <div id="hud">
-    <div id="leftCol">
-      <div class="panel">
-        <div class="panelTitle">
-          <div class="t">Ops</div>
-          <div class="sub" id="opSub">IRONLINE DEFENSE GRID</div>
-        </div>
-        <div class="row">
-          <button class="btn" id="btnPause"><span>Pause</span><span class="tag">SPACE</span></button>
-          <button class="btn ghost" id="btnSpeed"><span>Speed x1</span><span class="tag">1/2</span></button>
-          <button class="btn primary" id="btnSkip"><span>Skip to Next Wave</span><span class="tag" id="skipTag">READY</span></button>
-        </div>
-        <div class="hr"></div>
-        <div class="row">
-          <button class="btn" id="btnSave"><span>Save</span><span class="tag">LOCAL</span></button>
-          <button class="btn ghost" id="btnLoad"><span>Load</span><span class="tag">LOCAL</span></button>
-          <button class="btn ghost" id="btnReset"><span>Reset</span><span class="tag">CTRL</span></button>
-        </div>
-        <div class="hr"></div>
-        <div class="infoBox">
-          <div class="h">
-            <div class="label">Placement</div>
-            <div class="val" id="placeVal">None</div>
-          </div>
-          <div class="body" id="placeHint">
-            Select a turret card, then click the field to deploy. You cannot place on or near the track. Hover a placed turret to see range and DPS.
-          </div>
-        </div>
-      </div>
+  <div id="dock">
+    <div class="panel dockCol" style="flex:2; min-width:340px;">
+      <div class="panelTitle">Turrets</div>
+      <div id="cards"></div>
     </div>
 
-    <div id="midCol">
-      <div class="panel">
-        <div class="panelTitle">
-          <div class="t">Turrets</div>
-          <div class="sub" id="capText">Power Cap: 0/8</div>
-        </div>
-        <div class="cards" id="turretCards"></div>
+    <div class="panel dockCol" style="flex:1; min-width:260px;">
+      <div class="panelTitle">Selected Turret</div>
+      <div id="selName" class="big">None</div>
+      <div id="selStats" style="font-size:12px; color:var(--muted); min-height:48px;">Click a turret to see stats.</div>
+      <div class="split">
+        <button class="btn primary" id="btnUpgrade" disabled>Upgrade (U)</button>
+        <button class="btn ghost" id="btnSell" disabled>Sell (X)</button>
       </div>
+      <div class="statRow"><span>Level</span><span id="selLvl">-</span></div>
+      <div class="statRow"><span>DPS</span><span id="selDps">-</span></div>
+      <div class="statRow"><span>Range</span><span id="selRange">-</span></div>
     </div>
 
-    <div id="rightCol">
-      <div class="panel">
-        <div class="panelTitle">
-          <div class="t">Selected / Upgrades</div>
-          <div class="sub" id="selSub">—</div>
-        </div>
-        <div class="split">
-          <div class="infoBox" style="flex:1.1">
-            <div class="h">
-              <div class="label">Stats</div>
-              <div class="val" id="statsVal">—</div>
-            </div>
-            <div class="body" id="statsBody">
-              Hover a turret or an enemy segment for details.
-            </div>
-          </div>
-          <div class="infoBox" style="flex:.9">
-            <div class="h">
-              <div class="label">Upgrade</div>
-              <div class="val" id="tierVal">—</div>
-            </div>
-            <div class="body" id="tierBody">
-              Click a turret to select it, then upgrade. Upgrades cost Credits + Scrap.
-            </div>
-          </div>
-        </div>
-        <div class="hr"></div>
-        <div class="row">
-          <button class="btn primary" id="btnUpgrade" disabled><span>Upgrade Tier</span><span class="tag" id="upTag">—</span></button>
-          <button class="btn ghost" id="btnAbility" disabled><span>Ability</span><span class="tag" id="abTag">—</span></button>
-        </div>
-        <div class="hr"></div>
-        <div class="tiny" id="tipLine">
-          Tip: Boss waves (every 5) deploy smoke screens: turret accuracy drops temporarily.
-        </div>
+    <div class="panel dockCol" style="flex:1; min-width:260px;">
+      <div class="panelTitle">Wave Controls</div>
+      <button class="btn primary" id="btnStart">Start Wave (Space)</button>
+      <button class="btn" id="btnSkip">Send Next Early</button>
+      <div class="split">
+        <button class="btn ghost" id="btnPause">Pause (P)</button>
+        <button class="btn ghost" id="btnSpeed">Speed x1</button>
+      </div>
+      <div class="split">
+        <select id="mapSelect" class="btn" style="appearance:none;"></select>
+        <button class="btn ghost" id="btnHelp">Help</button>
       </div>
     </div>
   </div>
 </div>
 
+<div id="menus">
+  <div class="menu active" id="menuMain">
+    <div class="menuBox">
+      <h2>IRONLINE TD</h2>
+      <p>Gritty sci-fi tower defense. Stop the train.</p>
+      <div class="menuGrid">
+        <button class="btn primary" id="btnPlay">Play</button>
+        <button class="btn" id="btnSettingsMain">Settings</button>
+        <button class="btn" id="btnCredits">Credits</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="menuPause">
+    <div class="menuBox">
+      <h2>Paused</h2>
+      <div class="menuGrid">
+        <button class="btn primary" id="btnResume">Resume</button>
+        <button class="btn" id="btnRestart">Restart</button>
+        <button class="btn" id="btnSettingsPause">Settings</button>
+        <button class="btn" id="btnQuit">Quit to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="menuSettings">
+    <div class="menuBox">
+      <h2>Settings</h2>
+      <div class="toggle"><span>Master Volume</span><input id="volMaster" type="range" min="0" max="100" value="70" class="slider"/></div>
+      <div class="toggle"><span>SFX Volume</span><input id="volSfx" type="range" min="0" max="100" value="70" class="slider"/></div>
+      <div class="toggle"><span>Screen Shake</span><input id="toggleShake" type="checkbox"/></div>
+      <div class="toggle"><span>Damage Numbers</span><input id="toggleDmg" type="checkbox" checked/></div>
+      <div class="toggle"><span>Performance Mode</span><input id="togglePerf" type="checkbox"/></div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button class="btn primary" id="btnCloseSettings">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="menuGameOver">
+    <div class="menuBox">
+      <h2>Game Over</h2>
+      <p>Your base was destroyed.</p>
+      <div class="menuGrid">
+        <button class="btn primary" id="btnRetry">Retry</button>
+        <button class="btn" id="btnQuit2">Quit to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="menuVictory">
+    <div class="menuBox">
+      <h2>Victory</h2>
+      <p>You defeated all scheduled waves.</p>
+      <div class="toggle"><span>Endless Mode</span><input id="toggleEndless" type="checkbox"/></div>
+      <div class="menuGrid" style="margin-top:10px;">
+        <button class="btn primary" id="btnContinue">Continue</button>
+        <button class="btn" id="btnQuit3">Quit to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu" id="menuPerk">
+    <div class="menuBox">
+      <h2>Choose a Perk</h2>
+      <div id="perkGrid" class="menuGrid"></div>
+    </div>
+  </div>
+</div>
+
 <script>
-/*
-IRONLINE TD — Controls & Tips
-- Click a turret card, then click the map to place it. Esc cancels placement.
-- Hover turrets to see range + DPS; click turrets to select and upgrade.
-- Space: Pause/Resume. Keys 1 and 2: Speed x1 / x2.
-- Skip to Next Wave has a cooldown. Boss waves (every 5) deploy smoke: accuracy drops.
-
-Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
-*/
-
 (() => {
   'use strict';
 
-  // ---------------------------
-  // Utilities
-  // ---------------------------
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const lerp = (a,b,t)=>a+(b-a)*t;
-  const dist2 = (ax,ay,bx,by)=>{ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; };
-  const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
-  const rand = (seedObj)=>{ // xorshift32 deterministic RNG
-    let x = seedObj.s|0;
-    x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
-    seedObj.s = x|0;
-    return ((x>>>0) / 4294967296);
-  };
-  const hash2 = (x,y)=>{ // stable hash for terrain
-    let h = (x|0)*374761393 + (y|0)*668265263;
-    h = (h ^ (h >>> 13)) * 1274126177;
-    return (h ^ (h >>> 16)) >>> 0;
-  };
-
-  function pointSegDist(px,py, ax,ay, bx,by){
-    const vx = bx-ax, vy = by-ay;
-    const wx = px-ax, wy = py-ay;
-    const c1 = vx*wx + vy*wy;
-    if(c1 <= 0) return Math.hypot(px-ax, py-ay);
-    const c2 = vx*vx + vy*vy;
-    if(c2 <= c1) return Math.hypot(px-bx, py-by);
-    const t = c1 / c2;
-    const ix = ax + t*vx, iy = ay + t*vy;
-    return Math.hypot(px-ix, py-iy);
-  }
-
-  function polylineDistance(px,py, pts){
-    let d = Infinity;
-    for(let i=0;i<pts.length-1;i++){
-      const a=pts[i], b=pts[i+1];
-      d = Math.min(d, pointSegDist(px,py,a.x,a.y,b.x,b.y));
+  const manifest = {
+    ui: {
+      panelTop: 'assets/ui/panel_top.png',
+      panelBottom: 'assets/ui/panel_bottom.png',
+      cardFrame: 'assets/ui/card_frame.png',
+      btnPrimary: 'assets/ui/button_primary.png',
+      btnSecondary: 'assets/ui/button_secondary.png'
+    },
+    icons: {
+      credits: 'assets/icons/credits.png',
+      scrap: 'assets/icons/scrap.png',
+      energy: 'assets/icons/energy.png',
+      heart: 'assets/icons/heart.png',
+      wave: 'assets/icons/wave.png'
+    },
+    track: {
+      ground: 'assets/track/ground_tile.png',
+      rail: 'assets/track/rail.png',
+      tie: 'assets/track/tie.png'
+    },
+    train: {
+      engine: 'assets/train/engine.png',
+      cars: [
+        'assets/train/car_1.png',
+        'assets/train/car_2.png',
+        'assets/train/car_3.png'
+      ],
+      wreck: 'assets/train/wreck.png'
+    },
+    turrets: {
+      gatling: ['assets/turrets/gatling_lv1.png','assets/turrets/gatling_lv2.png','assets/turrets/gatling_lv3.png','assets/turrets/gatling_lv4.png','assets/turrets/gatling_lv5.png'],
+      laser:   ['assets/turrets/laser_lv1.png','assets/turrets/laser_lv2.png','assets/turrets/laser_lv3.png','assets/turrets/laser_lv4.png','assets/turrets/laser_lv5.png'],
+      tesla:   ['assets/turrets/tesla_lv1.png','assets/turrets/tesla_lv2.png','assets/turrets/tesla_lv3.png','assets/turrets/tesla_lv4.png','assets/turrets/tesla_lv5.png'],
+      cannon:  ['assets/turrets/cannon_lv1.png','assets/turrets/cannon_lv2.png','assets/turrets/cannon_lv3.png','assets/turrets/cannon_lv4.png','assets/turrets/cannon_lv5.png'],
+      slow:    ['assets/turrets/slow_lv1.png','assets/turrets/slow_lv2.png','assets/turrets/slow_lv3.png','assets/turrets/slow_lv4.png','assets/turrets/slow_lv5.png']
+    },
+    vfx: {
+      muzzle: 'assets/vfx/muzzle_orange.png',
+      beam: 'assets/vfx/beam_blue.png',
+      explosion: 'assets/vfx/explosion.png'
     }
-    return d;
+  };
+
+  const images = new Map();
+  function loadImage(src){
+    if(images.has(src)) return images.get(src);
+    const img = new Image();
+    img.loaded = false;
+    img.missing = false;
+    img.onload = () => { img.loaded = true; };
+    img.onerror = () => { img.missing = true; };
+    img.src = src;
+    images.set(src, img);
+    return img;
+  }
+  function imgOrNull(src){
+    if(!src) return null;
+    const img = loadImage(src);
+    if(img.loaded && !img.missing) return img;
+    return null;
   }
 
-  // ---------------------------
-  // Canvas & Layout
-  // ---------------------------
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d', { alpha:false });
+  (function preload(){
+    const flat = [];
+    const push = (v) => { if(Array.isArray(v)) v.forEach(push); else if(typeof v === 'string') flat.push(v); else if(v && typeof v === 'object') Object.values(v).forEach(push); };
+    push(manifest);
+    flat.forEach(loadImage);
+  })();
 
-  let W=0,H=0, hudH=0, dpr=1;
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  let W=0,H=0,dpr=1;
   function resize(){
+    const r = canvas.getBoundingClientRect();
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    const hud = document.getElementById('hud');
-    hudH = hud.getBoundingClientRect().height;
-    const rect = canvas.getBoundingClientRect();
-    W = Math.floor(rect.width);
-    H = Math.floor(rect.height);
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
+    W = Math.floor(r.width); H = Math.floor(r.height);
+    canvas.width = Math.floor(W*dpr); canvas.height = Math.floor(H*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   window.addEventListener('resize', resize, {passive:true});
   resize();
 
-  // ---------------------------
-  // UI Elements
-  // ---------------------------
-  const dotState = document.getElementById('dotState');
-  const stateText = document.getElementById('stateText');
-  const waveText = document.getElementById('waveText');
-  const livesText = document.getElementById('livesText');
   const creditsText = document.getElementById('creditsText');
   const scrapText = document.getElementById('scrapText');
   const energyText = document.getElementById('energyText');
-  const speedText = document.getElementById('speedText');
+  const waveText = document.getElementById('waveText');
+  const livesText = document.getElementById('livesText');
+  document.getElementById('icoCredits').src = manifest.icons.credits;
+  document.getElementById('icoScrap').src = manifest.icons.scrap;
+  document.getElementById('icoEnergy').src = manifest.icons.energy;
+  document.getElementById('icoHeart').src = manifest.icons.heart;
+  document.getElementById('icoWave').src = manifest.icons.wave;
 
+  const cardsEl = document.getElementById('cards');
+  const selName = document.getElementById('selName');
+  const selStats = document.getElementById('selStats');
+  const selLvl = document.getElementById('selLvl');
+  const selDps = document.getElementById('selDps');
+  const selRange = document.getElementById('selRange');
+  const btnUpgrade = document.getElementById('btnUpgrade');
+  const btnSell = document.getElementById('btnSell');
+  const btnStart = document.getElementById('btnStart');
+  const btnSkip = document.getElementById('btnSkip');
   const btnPause = document.getElementById('btnPause');
   const btnSpeed = document.getElementById('btnSpeed');
-  const btnSkip = document.getElementById('btnSkip');
-  const btnSave = document.getElementById('btnSave');
-  const btnLoad = document.getElementById('btnLoad');
-  const btnReset = document.getElementById('btnReset');
-  const btnUpgrade = document.getElementById('btnUpgrade');
-  const btnAbility = document.getElementById('btnAbility');
-
-  const skipTag = document.getElementById('skipTag');
-  const placeVal = document.getElementById('placeVal');
-  const placeHint = document.getElementById('placeHint');
-
-  const selSub = document.getElementById('selSub');
-  const statsVal = document.getElementById('statsVal');
-  const statsBody = document.getElementById('statsBody');
-  const tierVal = document.getElementById('tierVal');
-  const tierBody = document.getElementById('tierBody');
-  const upTag = document.getElementById('upTag');
-  const abTag = document.getElementById('abTag');
-
-  const capText = document.getElementById('capText');
+  const btnHelp = document.getElementById('btnHelp');
+  const helpPanel = document.getElementById('helpPanel');
   const mapSelect = document.getElementById('mapSelect');
 
-  const toast = document.getElementById('toast');
-  let toastTimer = 0;
-  function showToast(msg, seconds=1.6){
-    toast.textContent = msg;
-    toast.style.display = 'block';
-    toastTimer = seconds;
+  const menuMain = document.getElementById('menuMain');
+  const menuPause = document.getElementById('menuPause');
+  const menuSettings = document.getElementById('menuSettings');
+  const menuGameOver = document.getElementById('menuGameOver');
+  const menuVictory = document.getElementById('menuVictory');
+  const menuPerk = document.getElementById('menuPerk');
+  const perkGrid = document.getElementById('perkGrid');
+  const togglePerf = document.getElementById('togglePerf');
+  const toggleDmg = document.getElementById('toggleDmg');
+  const toggleShake = document.getElementById('toggleShake');
+  const toggleEndless = document.getElementById('toggleEndless');
+
+  function showMenu(el){
+    [menuMain,menuPause,menuSettings,menuGameOver,menuVictory,menuPerk].forEach(m=>m.classList.remove('active'));
+    if(el) el.classList.add('active');
   }
 
-  // ---------------------------
-  // Game Data: Turrets
-  // ---------------------------
-  const TurretType = Object.freeze({
-    MG: 'MG',
-    RAIL: 'RAIL',
-    EMP: 'EMP',
-    LASER: 'LASER',
-    MISSILE: 'MISSILE',
-  });
+  const TIER_MAX = 4;
+  const POWER_CAP = 3;
+  const TRACK_SAFE = 30;
+  const TURRET_MIN = 18;
 
-  const DamageType = Object.freeze({
-    KINETIC: 'KIN',
-    ENERGY: 'EN',
-    EMP: 'EMP',
-    EXPLOSIVE: 'EXP',
-  });
+  const TurretType = Object.freeze({ GAT:'gatling', LAS:'laser', TES:'tesla', CAN:'cannon', SLO:'slow' });
 
-  // ---------------------------
-  // Sprites (turrets + trains)
-  // ---------------------------
-  const SPRITES = {
-    turrets: {
-      [TurretType.MG]: [
-        'assets/turret_mg_L1.png',
-        'assets/turret_mg_L2.png',
-        'assets/turret_mg_L3.png',
-        'assets/turret_mg_L4.png',
-        'assets/turret_mg_L5.png',
-      ],
-      [TurretType.RAIL]: [
-        'assets/turret_railgun_L1.png',
-        'assets/turret_railgun_L2.png',
-        'assets/turret_railgun_L3.png',
-        'assets/turret_railgun_L4.png',
-        'assets/turret_railgun_L5.png',
-      ],
-      [TurretType.EMP]: [
-        'assets/turret_emp_L1.png',
-        'assets/turret_emp_L2.png',
-        'assets/turret_emp_L3.png',
-        'assets/turret_emp_L4.png',
-        'assets/turret_emp_L5.png',
-      ],
-      [TurretType.LASER]: [
-        'assets/turret_laser_L1.png',
-        'assets/turret_laser_L2.png',
-        'assets/turret_laser_L3.png',
-        'assets/turret_laser_L4.png',
-        'assets/turret_laser_L5.png',
-      ],
-      [TurretType.MISSILE]: [
-        'assets/turret_missile_L1.png',
-        'assets/turret_missile_L2.png',
-        'assets/turret_missile_L3.png',
-        'assets/turret_missile_L4.png',
-        'assets/turret_missile_L5.png',
-      ],
-    },
-    train: {
-      engine: [
-        'assets/train_engine_L1.png',
-        'assets/train_engine_L2.png',
-        'assets/train_engine_L3.png',
-        'assets/train_engine_L4.png',
-        'assets/train_engine_L5.png',
-      ],
-      car: [
-        'assets/train_car_L1.png',
-        'assets/train_car_L2.png',
-        'assets/train_car_L3.png',
-        'assets/train_car_L4.png',
-        'assets/train_car_L5.png',
-      ],
-      carShield: [
-        'assets/train_car_shield_L1.png',
-        'assets/train_car_shield_L2.png',
-        'assets/train_car_shield_L3.png',
-        'assets/train_car_shield_L4.png',
-        'assets/train_car_shield_L5.png',
-      ],
-    },
-  };
-
-  const spriteCache = new Map();
-  function loadSprite(src){
-    if(spriteCache.has(src)) return spriteCache.get(src);
-    const img = new Image();
-    img.src = src;
-    spriteCache.set(src, img);
-    return img;
-  }
-  function getTierSprite(list, tier){
-    const idx = clamp(tier, 0, list.length-1);
-    return loadSprite(list[idx]);
-  }
-
-  const TIER_COUNT = 5;
-  const TIER_MAX = TIER_COUNT - 1;
-
-  const TURRET_META = {
-    [TurretType.MG]: {
-      name: 'Kinetic MG',
-      desc: 'Fast tracer bursts. Best vs light segments. Pure kinetic.',
-      power:false,
-      baseCost:{credits: 55, scrap:0, energy:0},
+  const TURRETS = [
+    { key:TurretType.GAT, name:'Gatling', desc:'Fast bullets, strong DPS.', hot:'1', power:false,
+      cost:{c:55,s:8},
       tiers:[
-        { dmg: 6,  rof: 13, range: 150, projSpeed: 520, spread: 0.06, crit:0.05 },
-        { dmg: 8,  rof: 16, range: 165, projSpeed: 560, spread: 0.05, crit:0.06 },
-        { dmg: 11, rof: 20, range: 180, projSpeed: 600, spread: 0.045, crit:0.07 },
-        { dmg: 14, rof: 23, range: 195, projSpeed: 640, spread: 0.040, crit:0.09 },
-        { dmg: 18, rof: 26, range: 210, projSpeed: 680, spread: 0.035, crit:0.11 },
+        {dmg:6, rof:12, range:150, proj:520},
+        {dmg:8, rof:14, range:160, proj:560},
+        {dmg:11,rof:16, range:170, proj:600},
+        {dmg:14,rof:19, range:185, proj:640},
+        {dmg:18,rof:22, range:200, proj:680},
       ],
-      dmgType: DamageType.KINETIC,
-      upgradeCost:(tier)=>({credits: 60 + tier*40, scrap: 18 + tier*10, energy:0}),
-      ability:{ name:'Overclock (5s)', costEnergy: 2, desc:'Doubles fire rate for 5 seconds.' }
+      sprite: manifest.turrets.gatling
     },
-    [TurretType.RAIL]: {
-      name: 'Railgun',
-      desc: 'Hyper-velocity spike. Pierces up to 2 segments. High armor punch.',
-      power:true,
-      baseCost:{credits: 130, scrap:0, energy:0},
+    { key:TurretType.LAS, name:'Laser', desc:'Beam, ramps damage.', hot:'2', power:true,
+      cost:{c:140,s:24},
       tiers:[
-        { dmg: 68, rof: 0.65, range: 215, pierce:2, armorPierce: 0.35, acc:0.98 },
-        { dmg: 92, rof: 0.75, range: 235, pierce:2, armorPierce: 0.45, acc:0.985 },
-        { dmg: 128,rof: 0.85, range: 255, pierce:2, armorPierce: 0.55, acc:0.99 },
-        { dmg: 170,rof: 0.95, range: 275, pierce:3, armorPierce: 0.62, acc:0.992 },
-        { dmg: 220,rof: 1.05, range: 295, pierce:3, armorPierce: 0.70, acc:0.995 },
+        {dps:22, range:200},
+        {dps:30, range:215},
+        {dps:40, range:230},
+        {dps:52, range:245},
+        {dps:68, range:265},
       ],
-      dmgType: DamageType.KINETIC,
-      upgradeCost:(tier)=>({credits: 110 + tier*70, scrap: 40 + tier*18, energy:0}),
-      ability:{ name:'Mag Pulse', costEnergy: 4, desc:'Next shot pierces +1 and ignores shields.' }
+      sprite: manifest.turrets.laser
     },
-    [TurretType.EMP]: {
-      name: 'EMP Emitter',
-      desc: 'Ion bolts. Low damage, stuns a segment briefly. Great control.',
-      power:false,
-      baseCost:{credits: 85, scrap:0, energy:0},
+    { key:TurretType.TES, name:'Tesla', desc:'Chains, stuns briefly.', hot:'3', power:true,
+      cost:{c:120,s:20},
       tiers:[
-        { dmg: 10, rof: 1.8, range: 175, projSpeed: 360, stun: 1.0 },
-        { dmg: 14, rof: 2.1, range: 190, projSpeed: 390, stun: 1.2 },
-        { dmg: 18, rof: 2.4, range: 205, projSpeed: 420, stun: 1.35 },
-        { dmg: 22, rof: 2.8, range: 220, projSpeed: 450, stun: 1.5 },
-        { dmg: 27, rof: 3.1, range: 235, projSpeed: 480, stun: 1.7 },
+        {dmg:16, rof:1.2, range:170, chain:2, stun:0.35},
+        {dmg:20, rof:1.3, range:180, chain:3, stun:0.4},
+        {dmg:24, rof:1.45,range:190, chain:3, stun:0.45},
+        {dmg:30, rof:1.6, range:205, chain:4, stun:0.5},
+        {dmg:38, rof:1.75,range:220, chain:4, stun:0.6},
       ],
-      dmgType: DamageType.EMP,
-      upgradeCost:(tier)=>({credits: 85 + tier*55, scrap: 28 + tier*14, energy:0}),
-      ability:{ name:'Arc Net (3s)', costEnergy: 5, desc:'Creates a short EMP field that stuns segments in range.' }
+      sprite: manifest.turrets.tesla
     },
-    [TurretType.LASER]: {
-      name: 'Laser Lance',
-      desc: 'Sustained beam. Damage ramps while locked on target (melts shields).',
-      power:true,
-      baseCost:{credits: 145, scrap:0, energy:0},
+    { key:TurretType.CAN, name:'Cannon', desc:'Splash damage.', hot:'4', power:true,
+      cost:{c:150,s:26},
       tiers:[
-        { dps: 26, range: 210, ramp: 1.9, rampMax: 2.2, lockStick: 0.86 },
-        { dps: 34, range: 230, ramp: 2.1, rampMax: 2.4, lockStick: 0.88 },
-        { dps: 45, range: 250, ramp: 2.3, rampMax: 2.6, lockStick: 0.90 },
-        { dps: 58, range: 270, ramp: 2.5, rampMax: 2.9, lockStick: 0.92 },
-        { dps: 74, range: 290, ramp: 2.8, rampMax: 3.2, lockStick: 0.94 },
+        {dmg:40, rof:0.6, range:190, splash:44, proj:320},
+        {dmg:55, rof:0.65,range:200, splash:50, proj:340},
+        {dmg:72, rof:0.7, range:215, splash:58, proj:360},
+        {dmg:95, rof:0.78,range:230, splash:66, proj:380},
+        {dmg:125,rof:0.86,range:245, splash:76, proj:400},
       ],
-      dmgType: DamageType.ENERGY,
-      upgradeCost:(tier)=>({credits: 120 + tier*75, scrap: 46 + tier*20, energy:0}),
-      ability:{ name:'Searing Focus (4s)', costEnergy: 6, desc:'Beam ramp accelerates massively for 4 seconds.' }
+      sprite: manifest.turrets.cannon
     },
-    [TurretType.MISSILE]: {
-      name: 'Missile Pod',
-      desc: 'Slow guided rockets. Splash damage (AOE). Good vs clustered cars.',
-      power:true,
-      baseCost:{credits: 150, scrap:0, energy:0},
+    { key:TurretType.SLO, name:'Cryo', desc:'Slow + debuff.', hot:'5', power:false,
+      cost:{c:85,s:14},
       tiers:[
-        { dmg: 64, rof: 0.55, range: 230, projSpeed: 240, splash: 46, accel: 460 },
-        { dmg: 84, rof: 0.62, range: 245, projSpeed: 255, splash: 52, accel: 500 },
-        { dmg: 110,rof: 0.70, range: 260, projSpeed: 270, splash: 58, accel: 540 },
-        { dmg: 140,rof: 0.78, range: 275, projSpeed: 290, splash: 64, accel: 590 },
-        { dmg: 175,rof: 0.88, range: 290, projSpeed: 310, splash: 70, accel: 640 },
+        {dmg:8, rof:2.0, range:165, slow:0.25},
+        {dmg:10,rof:2.2, range:175, slow:0.30},
+        {dmg:13,rof:2.4, range:185, slow:0.35},
+        {dmg:16,rof:2.6, range:200, slow:0.40},
+        {dmg:20,rof:2.8, range:215, slow:0.45},
       ],
-      dmgType: DamageType.EXPLOSIVE,
-      upgradeCost:(tier)=>({credits: 130 + tier*85, scrap: 52 + tier*24, energy:0}),
-      ability:{ name:'Barrage (x3)', costEnergy: 7, desc:'Fires 3 missiles instantly (shared cooldown).' }
+      sprite: manifest.turrets.slow
     }
-  };
+  ];
 
-  const POWER_CAP = 8; // combined cap for Rail/Laser/Missile
-  const TRACK_SAFE_RADIUS = 30;
-  const TURRET_MIN_SPACING = 18;
+  const MAPS = [
+    {name:'Dust Basin', pts:[{x:0.05,y:0.15},{x:0.25,y:0.15},{x:0.25,y:0.40},{x:0.10,y:0.40},{x:0.10,y:0.60},{x:0.40,y:0.60},{x:0.40,y:0.25},{x:0.65,y:0.25},{x:0.65,y:0.70},{x:0.90,y:0.70}]},
+    {name:'Switchback', pts:[{x:0.08,y:0.85},{x:0.30,y:0.85},{x:0.30,y:0.60},{x:0.12,y:0.60},{x:0.12,y:0.35},{x:0.42,y:0.35},{x:0.42,y:0.75},{x:0.70,y:0.75},{x:0.70,y:0.45},{x:0.90,y:0.45}]},
+    {name:'Broken Yard', pts:[{x:0.05,y:0.45},{x:0.28,y:0.45},{x:0.28,y:0.20},{x:0.52,y:0.20},{x:0.52,y:0.55},{x:0.20,y:0.55},{x:0.20,y:0.75},{x:0.65,y:0.75},{x:0.65,y:0.35},{x:0.92,y:0.35}]}
+  ];
 
-  // ---------------------------
-  // Game Data: Trains / Waves
-  // ---------------------------
-  const TrainType = Object.freeze({
-    NORMAL:'NORMAL',
-    ARMORED:'ARMORED',
-    SHIELD:'SHIELD',
-    REPAIR:'REPAIR',
-    BOMB:'BOMB',
-    BOSS:'BOSS',
-  });
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by; return dx*dx+dy*dy;};
+  const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 
-  // Segment rendering sizes
-  const SEG = {
-    engineR: 16,
-    carR: 13,
-    gap: 26, // spacing along path
-  };
-
-  // ---------------------------
-  // Maps: Control points -> sampled polyline
-  // ---------------------------
-  function catmullRom(p0,p1,p2,p3,t){
-    const t2=t*t, t3=t2*t;
-    return {
-      x: 0.5*((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
-      y: 0.5*((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
-    };
-  }
-  function sampleSpline(ctrl, step=0.03){
-    // pad endpoints
-    const pts = ctrl.map(p=>({x:p.x,y:p.y}));
-    const pad0 = {x: pts[0].x + (pts[0].x-pts[1].x), y: pts[0].y + (pts[0].y-pts[1].y)};
-    const pad1 = {x: pts[pts.length-1].x + (pts[pts.length-1].x-pts[pts.length-2].x), y: pts[pts.length-1].y + (pts[pts.length-1].y-pts[pts.length-2].y)};
-    const P = [pad0, ...pts, pad1];
-
-    const out=[];
-    for(let i=0;i<P.length-3;i++){
-      const p0=P[i], p1=P[i+1], p2=P[i+2], p3=P[i+3];
-      for(let t=0; t<1; t+=step){
-        out.push(catmullRom(p0,p1,p2,p3,t));
+  class Path{
+    constructor(poly){
+      this.pts = poly;
+      this.len = 0; this.segLen=[];
+      for(let i=0;i<poly.length-1;i++){
+        const a=poly[i], b=poly[i+1];
+        const l=Math.hypot(b.x-a.x,b.y-a.y);
+        this.segLen.push(l); this.len+=l;
       }
+      this.pref=[0]; let s=0; for(const l of this.segLen){s+=l; this.pref.push(s);}
     }
-    out.push({x: pts[pts.length-1].x, y: pts[pts.length-1].y});
-    return out;
-  }
-
-  function buildMaps(){
-    // control points are normalized (0..1) to be scaled to canvas each resize/map load
-    return [
-      {
-        name:'Dust Basin',
-        ctrl:[
-          {x:0.05,y:0.12},{x:0.18,y:0.12},{x:0.18,y:0.26},{x:0.10,y:0.26},
-          {x:0.10,y:0.42},{x:0.26,y:0.42},{x:0.26,y:0.20},{x:0.40,y:0.20},
-          {x:0.40,y:0.34},{x:0.32,y:0.34},{x:0.32,y:0.52},{x:0.50,y:0.52},
-          {x:0.50,y:0.28},{x:0.64,y:0.28},{x:0.64,y:0.44},{x:0.56,y:0.44},
-          {x:0.56,y:0.64},{x:0.72,y:0.64},{x:0.72,y:0.36},{x:0.86,y:0.36},
-          {x:0.86,y:0.56},{x:0.95,y:0.56}
-        ]
-      },
-      {
-        name:'Switchback',
-        ctrl:[
-          {x:0.06,y:0.84},{x:0.24,y:0.84},{x:0.24,y:0.68},{x:0.12,y:0.68},
-          {x:0.12,y:0.52},{x:0.30,y:0.52},{x:0.30,y:0.76},{x:0.46,y:0.76},
-          {x:0.46,y:0.60},{x:0.34,y:0.60},{x:0.34,y:0.40},{x:0.54,y:0.40},
-          {x:0.54,y:0.22},{x:0.70,y:0.22},{x:0.70,y:0.46},{x:0.60,y:0.46},
-          {x:0.60,y:0.66},{x:0.80,y:0.66},{x:0.80,y:0.34},{x:0.94,y:0.34}
-        ]
-      },
-      {
-        name:'Broken Yard',
-        ctrl:[
-          {x:0.04,y:0.40},{x:0.20,y:0.40},{x:0.20,y:0.24},{x:0.34,y:0.24},
-          {x:0.34,y:0.52},{x:0.14,y:0.52},{x:0.14,y:0.68},{x:0.42,y:0.68},
-          {x:0.42,y:0.36},{x:0.58,y:0.36},{x:0.58,y:0.56},{x:0.48,y:0.56},
-          {x:0.48,y:0.78},{x:0.70,y:0.78},{x:0.70,y:0.30},{x:0.84,y:0.30},
-          {x:0.84,y:0.62},{x:0.96,y:0.62}
-        ]
+    getAt(s){
+      s = clamp(s,0,this.len);
+      let i=0; while(i<this.segLen.length && this.pref[i+1]<s) i++;
+      const a=this.pts[i], b=this.pts[i+1];
+      const t=(s-this.pref[i])/(this.segLen[i]||1);
+      const x=a.x+(b.x-a.x)*t; const y=a.y+(b.y-a.y)*t;
+      const ang=Math.atan2(b.y-a.y,b.x-a.x);
+      return {x,y,ang};
+    }
+    distanceToPoint(x,y){
+      let d=1e9;
+      for(let i=0;i<this.pts.length-1;i++){
+        const a=this.pts[i], b=this.pts[i+1];
+        const vx=b.x-a.x, vy=b.y-a.y;
+        const wx=x-a.x, wy=y-a.y;
+        const c1=vx*wx+vy*wy;
+        if(c1<=0){ d=Math.min(d, Math.hypot(x-a.x,y-a.y)); continue; }
+        const c2=vx*vx+vy*vy;
+        if(c2<=c1){ d=Math.min(d, Math.hypot(x-b.x,y-b.y)); continue; }
+        const t=c1/c2; const px=a.x+t*vx, py=a.y+t*vy;
+        d=Math.min(d, Math.hypot(x-px,y-py));
       }
-    ];
-  }
-  const MAPS = buildMaps();
-
-  // ---------------------------
-  // Spatial Hash Grid (segments)
-  // ---------------------------
-  class SpatialGrid {
-    constructor(cellSize){
-      this.cs = cellSize;
-      this.map = new Map();
+      return d;
     }
-    _key(ix,iy){ return (ix<<16) ^ (iy & 0xffff); }
-    clear(){ this.map.clear(); }
+  }
+
+  class SpatialGrid{
+    constructor(cs){this.cs=cs; this.map=new Map();}
+    _key(ix,iy){return (ix<<16) ^ (iy&0xffff);}
+    clear(){this.map.clear();}
     insert(x,y,obj){
-      const cs=this.cs;
-      const ix = Math.floor(x/cs), iy=Math.floor(y/cs);
+      const ix=Math.floor(x/this.cs), iy=Math.floor(y/this.cs);
       const k=this._key(ix,iy);
-      let arr=this.map.get(k);
-      if(!arr){ arr=[]; this.map.set(k,arr); }
-      arr.push(obj);
-      obj._gix=ix; obj._giy=iy;
+      let arr=this.map.get(k); if(!arr){arr=[]; this.map.set(k,arr);} arr.push(obj);
     }
-    queryCircle(x,y,r){
-      const cs=this.cs;
-      const ix0 = Math.floor((x-r)/cs), ix1=Math.floor((x+r)/cs);
-      const iy0 = Math.floor((y-r)/cs), iy1=Math.floor((y+r)/cs);
+    query(x,y,r){
+      const cs=this.cs; const ix0=Math.floor((x-r)/cs), ix1=Math.floor((x+r)/cs);
+      const iy0=Math.floor((y-r)/cs), iy1=Math.floor((y+r)/cs);
       const out=[];
-      for(let iy=iy0; iy<=iy1; iy++){
-        for(let ix=ix0; ix<=ix1; ix++){
-          const k=this._key(ix,iy);
-          const arr=this.map.get(k);
-          if(arr) out.push(...arr);
-        }
+      for(let iy=iy0; iy<=iy1; iy++) for(let ix=ix0; ix<=ix1; ix++){
+        const arr=this.map.get(this._key(ix,iy)); if(arr) out.push(...arr);
       }
       return out;
     }
   }
 
-  // ---------------------------
-  // Core Game Classes
-  // ---------------------------
-  class Path {
-    constructor(poly){
-      this.pts = poly;
-      this.len = 0;
-      this.segLen = [];
-      for(let i=0;i<poly.length-1;i++){
-        const a=poly[i], b=poly[i+1];
-        const l=Math.hypot(b.x-a.x, b.y-a.y);
-        this.segLen.push(l);
-        this.len += l;
-      }
-      // prefix
-      this.prefix=[0];
-      let s=0;
-      for(let l of this.segLen){ s+=l; this.prefix.push(s); }
-    }
-    getAt(s){ // s in [0,len]
-      s = clamp(s, 0, this.len);
-      // find segment via linear scan (poly small); could binary, but fine.
-      let i=0;
-      while(i<this.segLen.length && this.prefix[i+1] < s) i++;
-      const a=this.pts[i], b=this.pts[i+1];
-      const segL=this.segLen[i] || 1;
-      const t = (s - this.prefix[i]) / segL;
-      const x = lerp(a.x,b.x,t), y=lerp(a.y,b.y,t);
-      const dx=b.x-a.x, dy=b.y-a.y;
-      const ang = Math.atan2(dy,dx);
-      return {x,y,ang};
-    }
-    distanceToPoint(x,y){
-      return polylineDistance(x,y,this.pts);
-    }
-  }
+  const game = {
+    credits: 200, scrap: 40, energy: 0,
+    lives: 20, wave: 1, speedMul: 1,
+    waveState: 'READY',
+    betweenT: 0,
+    mapIndex: 0,
+    path: null,
+    trains: [],
+    turrets: [],
+    placing: null,
+    selected: null,
+    paused: false,
+    perf: false,
+    dmgNumbers: true,
+    grid: new SpatialGrid(80),
+    endless: false,
+    perkDmg: 1, perkSlow:1, perkRange:1
+  };
 
-  class Segment {
+  class Segment{
     constructor(train, idx, kind){
-      this.train=train;
-      this.idx=idx;
-      this.kind=kind; // 'engine' | 'car'
-      this.hp=1;
-      this.hpMax=1;
-      this.shield=0;
-      this.shieldMax=0;
-      this.armor=0; // 0..1 reduces kinetic
-      this.stun=0;
-      this.repair=false;
-      this.bomb=false;
-      this.boss=false;
-      this.x=0; this.y=0; this.ang=0;
-      this.radius = (kind==='engine'?SEG.engineR:SEG.carR);
-      this.dead=false;
-      this.smokeHit=0; // visual hit flash
-      this.backOffset = 0; // distance behind engine along path
+      this.train=train; this.idx=idx; this.kind=kind;
+      this.hp=1; this.hpMax=1; this.x=0; this.y=0; this.ang=0;
+      this.dead=false; this.backOffset=idx*26; this.stun=0; this.slow=0;
     }
   }
 
-  class Train {
-    constructor(path, waveCfg, rng){
-      this.path=path;
-      this.waveCfg=waveCfg;
-      this.rng=rng;
-      this.alive=true;
-      this.progress=0; // distance along path for engine
-      this.speed=waveCfg.speed;
-      this.type=waveCfg.type;
+  class Train{
+    constructor(cfg){
+      this.cfg=cfg; this.progress=0; this.alive=true;
       this.segments=[];
-      this.smokeTimer=0;      // boss attack clock
-      this.smokeCooldown=0;
-      this.spawn();
-    }
-    spawn(){
-      const wc=this.waveCfg;
-      const nCars = wc.cars;
-      // Engine
-      const eng = new Segment(this, 0, 'engine');
-      eng.hpMax = wc.engineHP;
-      eng.hp = eng.hpMax;
-      eng.armor = wc.armor;
-      if(wc.shield>0){ eng.shieldMax=wc.shield*1.4; eng.shield=eng.shieldMax; }
-      eng.boss = (wc.type===TrainType.BOSS);
-      eng.radius = wc.type===TrainType.BOSS ? 20 : SEG.engineR;
-      eng.backOffset = 0;
+      const eng = new Segment(this,0,'engine');
+      eng.hpMax = cfg.engineHP; eng.hp = eng.hpMax;
       this.segments.push(eng);
-
-      // Cars
-      for(let i=0;i<nCars;i++){
-        const s = new Segment(this, i+1, 'car');
-        const base = wc.carHP;
-        s.hpMax = base * (1 + 0.06*i);
-        s.hp = s.hpMax;
-        s.armor = wc.armor;
-        if(wc.shield>0){ s.shieldMax=wc.shield; s.shield=s.shieldMax; }
-        // special cars mix
-        if(wc.type===TrainType.REPAIR && i===Math.floor(nCars*0.55)){
-          s.repair=true;
-          s.hpMax *= 1.25;
-          s.hp = s.hpMax;
-        }
-        if(wc.type===TrainType.BOMB && i===Math.floor(nCars*0.45)){
-          s.bomb=true;
-          s.hpMax *= 1.15;
-          s.hp = s.hpMax;
-        }
-        if(wc.type===TrainType.BOSS){
-          // boss gets extra utility cars: repair + bomb chance
-          if(i===Math.floor(nCars*0.35)) s.repair=true;
-          if(i===Math.floor(nCars*0.70)) s.bomb=true;
-          s.hpMax *= 1.25;
-          s.hp = s.hpMax;
-        }
-        s.backOffset = s.idx * SEG.gap;
+      for(let i=0;i<cfg.cars;i++){
+        const s=new Segment(this,i+1,'car');
+        s.hpMax = cfg.carHP*(1+i*0.06); s.hp=s.hpMax;
         this.segments.push(s);
       }
     }
-    update(dt, game){
+    update(dt){
       if(!this.alive) return;
-
-      // update boss smoke attack
-      if(this.waveCfg.type===TrainType.BOSS){
-        this.smokeCooldown = Math.max(0, this.smokeCooldown - dt);
-        if(this.smokeCooldown<=0 && this.smokeTimer<=0){
-          this.smokeTimer = 3.8; // duration of active smoke screen
-          this.smokeCooldown = 10 + rand(this.rng)*3;
-          game.effects.smokeAccPenalty = Math.max(game.effects.smokeAccPenalty, 0.42);
-          game.effects.smokeTime = 4.8;
-          game.spawnSmokePuffs(this.segments[0].x, this.segments[0].y);
-        }
-      }
-      this.smokeTimer = Math.max(0, this.smokeTimer - dt);
-
-      // move engine unless stunned
       const engine=this.segments[0];
-      const speed = (engine.stun>0) ? this.speed*0.15 : this.speed;
-      this.progress += speed * dt;
+      const baseSpeed = engine.stun>0 ? this.cfg.speed*0.2 : this.cfg.speed*(1-engine.slow);
+      let maxGap=0; let aliveIdx=0;
+      for(const s of this.segments){ if(s.dead) continue; const target=aliveIdx*26; maxGap=Math.max(maxGap, s.backOffset-target); aliveIdx++; }
+      const speed = maxGap>0.5 ? 0 : baseSpeed;
+      this.progress += speed*dt;
+      if(this.progress>=game.path.len){ this.alive=false; game.lives--; }
 
-      // if reached end -> damage lives, train removed
-      if(this.progress >= this.path.len){
-        this.alive=false;
-        game.onTrainEscaped(this);
-        return;
+      const catchUp = this.cfg.speed*2.2;
+      aliveIdx=0;
+      for(const s of this.segments){
+        s.stun=Math.max(0, s.stun-dt);
+        s.slow=Math.max(0, s.slow-dt*0.3);
+        if(s.dead) continue;
+        const target=aliveIdx*26;
+        if(s.backOffset>target) s.backOffset=Math.max(target, s.backOffset-catchUp*dt);
+        else s.backOffset=target;
+        const at = game.path.getAt(this.progress - s.backOffset);
+        s.x=at.x; s.y=at.y; s.ang=at.ang;
+        aliveIdx++;
       }
-
-      // place segments along path with offsets (catch-up when cars destroyed)
-      const catchUpSpeed = this.speed * 2.2;
-      let aliveIndex = 0;
-      for(let i=0;i<this.segments.length;i++){
-        const seg=this.segments[i];
-        seg.stun = Math.max(0, seg.stun - dt);
-        seg.smokeHit = Math.max(0, seg.smokeHit - dt*2.0);
-        if(seg.dead) continue;
-
-        const targetBack = aliveIndex * SEG.gap;
-        if(seg.backOffset > targetBack){
-          seg.backOffset = Math.max(targetBack, seg.backOffset - catchUpSpeed * dt);
-        } else {
-          seg.backOffset = targetBack;
-        }
-
-        const at = this.path.getAt(this.progress - seg.backOffset);
-        seg.x = at.x; seg.y = at.y; seg.ang = at.ang;
-        aliveIndex++;
-      }
-
-      // repair cars heal nearby segments
-      for(let i=0;i<this.segments.length;i++){
-        const seg=this.segments[i];
-        if(seg.dead) continue;
-        if(seg.repair && seg.stun<=0){
-          const heal = (this.waveCfg.type===TrainType.BOSS ? 10 : 7) * dt;
-          const rad = 55;
-          for(let j=0;j<this.segments.length;j++){
-            if(i===j) continue;
-            const t=this.segments[j];
-            if(t.dead) continue;
-            if(dist2(seg.x,seg.y,t.x,t.y) <= rad*rad){
-              t.hp = Math.min(t.hpMax, t.hp + heal);
-              // small shield regen on shield trains
-              if(t.shieldMax>0){
-                t.shield = Math.min(t.shieldMax, t.shield + heal*0.55);
-              }
-            }
-          }
-        }
-      }
-
-      // if engine dead -> whole train dies
-      if(engine.dead){
-        this.alive=false;
-        return;
-      }
+      if(engine.dead){ this.alive=false; }
     }
   }
 
-  class Projectile {
-    constructor(kind){
-      this.kind=kind; // 'bullet'|'emp'|'missile'
-      this.x=0; this.y=0;
-      this.vx=0; this.vy=0;
-      this.r=2;
-      this.life=3;
-      this.dmg=0;
-      this.dmgType=DamageType.KINETIC;
-      this.stun=0;
-      this.splash=0;
-      this.pierce=0;
-      this.ignoreShield=false;
-      this.targetId = null; // for missile guidance
-      this.accel=0;
-    }
-  }
-
-  class Turret {
-    constructor(type, x,y){
-      this.type=type;
-      this.x=x; this.y=y;
-      this.tier=0;
-      this.cool=0;
-      this.ang=0;
-      this.selected=false;
-      this.overclock=0;
-      this.focus=0;
-      this.abilityCD=0;
-
-      // laser lock
-      this.lockTarget = null;
-      this.lockTime = 0; // increases while staying on same target
-      this.searing=0;
-
-      // rail special
-      this.magPulse=0;
-    }
-    meta(){ return TURRET_META[this.type]; }
-    stats(){
-      const m=this.meta();
-      return m.tiers[this.tier];
-    }
-    range(){
-      const s=this.stats();
-      return s.range ?? s.range;
-    }
-    isPower(){ return !!this.meta().power; }
-    dpsEstimate(){
-      const m=this.meta();
-      const s=this.stats();
-      if(this.type===TurretType.LASER){
-        // rough mid-ramp DPS (base * ~1.6)
-        return s.dps * 1.6;
-      }
-      if(m.tiers[this.tier].rof){
-        return m.tiers[this.tier].rof * (m.tiers[this.tier].dmg ?? 0);
-      }
-      return 0;
-    }
-    update(dt, game){
-      this.cool = Math.max(0, this.cool - dt);
-      this.abilityCD = Math.max(0, this.abilityCD - dt);
-      this.overclock = Math.max(0, this.overclock - dt);
-      this.searing = Math.max(0, this.searing - dt);
-      this.magPulse = Math.max(0, this.magPulse - dt);
-
-      // Acquire target
-      const range = this.stats().range;
-      const candidates = game.segGrid.queryCircle(this.x,this.y,range);
-      let best=null;
-      let bestScore=1e18;
-
-      // Accuracy penalty from smoke (boss)
-      const globalAccPenalty = game.effects.smokeTime>0 ? game.effects.smokeAccPenalty : 0;
-      const accMul = 1 - globalAccPenalty;
-
-      // prefer closest-to-end (highest progress), but only if within range
-      for(const seg of candidates){
-        if(seg.dead) continue;
-        if(!seg.train.alive) continue;
-        const d2 = dist2(this.x,this.y, seg.x,seg.y);
-        if(d2 > range*range) continue;
-        // heuristic: closer to end => higher progress => lower score
-        const prog = seg.train.progress;
-        const score = (1/(prog+1)) * 5000 + d2;
-        if(score < bestScore){
-          bestScore=score; best=seg;
-        }
-      }
-
-      // Update aim
-      if(best){
-        const targetX = best.x;
-        const targetY = best.y;
-        const desired = Math.atan2(targetY-this.y, targetX-this.x);
-        // smooth aim
-        let da = desired - this.ang;
-        while(da>Math.PI) da-=Math.PI*2;
-        while(da<-Math.PI) da+=Math.PI*2;
-        this.ang += da * clamp(dt*10, 0, 1);
-
-        // Fire logic
-        const m=this.meta();
-        const s=this.stats();
-
-        if(this.type===TurretType.LASER){
-          // stay on target if sticky and still in range
-          if(this.lockTarget && (!this.lockTarget.dead) && this.lockTarget.train.alive){
-            const inR = dist2(this.x,this.y,this.lockTarget.x,this.lockTarget.y) <= range*range;
-            const stick = rand(game.rng) < s.lockStick;
-            if(!inR || !stick){
-              this.lockTarget = best;
-              this.lockTime = 0;
-            }
-          }else{
-            this.lockTarget = best;
-            this.lockTime = 0;
-          }
-
-          if(this.lockTarget){
-            // ramping damage
-            this.lockTime += dt;
-            const ramp = clamp(1 + this.lockTime * s.ramp, 1, s.rampMax);
-            let dps = s.dps * ramp;
-            if(this.searing>0){
-              dps *= 1.65;
-              this.lockTime += dt*0.55;
-            }
-            // apply smoke accuracy as intermittent beam misses
-            const missChance = 1-accMul;
-            const hit = rand(game.rng) > missChance*0.55;
-            if(hit){
-              game.applyDamage(this.lockTarget, dps*dt, DamageType.ENERGY, { source:this });
-              game.effects.laserBeams.push({
-                x1:this.x,y1:this.y,x2:this.lockTarget.x,y2:this.lockTarget.y,
-                t:0.10, ramp
-              });
-            }else{
-              // beam flicker
-              game.effects.laserBeams.push({
-                x1:this.x,y1:this.y,x2:this.lockTarget.x,y2:this.lockTarget.y,
-                t:0.05, ramp:0.8
-              });
-            }
-          }
-          return;
-        }
-
-        // Non-laser turrets use cooldown-based firing
-        let rof = s.rof ?? 1;
-        if(this.overclock>0) rof *= 2;
-
-        if(this.cool<=0){
-          // smoke accuracy affects shot direction / miss
-          const missChance = 1-accMul;
-          const miss = rand(game.rng) < missChance*0.55;
-
-          if(this.type===TurretType.MG){
-            const p = new Projectile('bullet');
-            p.x=this.x; p.y=this.y;
-            const spread = s.spread + (miss?0.14:0);
-            const ang = desired + (rand(game.rng)-0.5)*2*spread;
-            const sp = s.projSpeed;
-            p.vx=Math.cos(ang)*sp;
-            p.vy=Math.sin(ang)*sp;
-            p.life=1.25;
-            p.r=2.2;
-            p.dmg=s.dmg * (rand(game.rng)<s.crit ? 1.6 : 1);
-            p.dmgType=DamageType.KINETIC;
-            game.projectiles.push(p);
-            // muzzle flash
-            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*10,y:this.y+Math.sin(this.ang)*10,a:this.ang,t:0.07});
-          }
-          else if(this.type===TurretType.EMP){
-            const p = new Projectile('emp');
-            p.x=this.x; p.y=this.y;
-            const ang = desired + (rand(game.rng)-0.5)*2*(miss?0.20:0.06);
-            const sp=s.projSpeed;
-            p.vx=Math.cos(ang)*sp;
-            p.vy=Math.sin(ang)*sp;
-            p.life=1.6;
-            p.r=3.6;
-            p.dmg=s.dmg;
-            p.dmgType=DamageType.EMP;
-            p.stun=s.stun;
-            game.projectiles.push(p);
-            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*9,y:this.y+Math.sin(this.ang)*9,a:this.ang,t:0.08, emp:true});
-          }
-          else if(this.type===TurretType.MISSILE){
-            const p = new Projectile('missile');
-            p.x=this.x; p.y=this.y;
-            const ang = desired + (rand(game.rng)-0.5)*2*(miss?0.10:0.03);
-            const sp=s.projSpeed;
-            p.vx=Math.cos(ang)*sp;
-            p.vy=Math.sin(ang)*sp;
-            p.life=4.2;
-            p.r=4.8;
-            p.dmg=s.dmg;
-            p.dmgType=DamageType.EXPLOSIVE;
-            p.splash=s.splash;
-            p.accel=s.accel;
-            p.targetId = best; // reference object directly (single-file runtime)
-            game.projectiles.push(p);
-            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*12,y:this.y+Math.sin(this.ang)*12,a:this.ang,t:0.10, rocket:true});
-          }
-          else if(this.type===TurretType.RAIL){
-            // hitscan line with pierce
-            const pierce = (this.magPulse>0 ? (s.pierce+1) : s.pierce);
-            const ignoreShield = this.magPulse>0;
-            this.magPulse = 0;
-
-            // small scatter if smoke
-            const scatter = miss ? 0.12 : (1-s.acc)*0.05;
-            const shotAng = desired + (rand(game.rng)-0.5)*2*scatter;
-            const dx=Math.cos(shotAng), dy=Math.sin(shotAng);
-            const maxR = s.range;
-
-            // Find segments near the ray by sampling candidates in range
-            const rayHits=[];
-            const inRange = game.segGrid.queryCircle(this.x,this.y,maxR);
-            for(const seg of inRange){
-              if(seg.dead || !seg.train.alive) continue;
-              const vx = seg.x - this.x;
-              const vy = seg.y - this.y;
-              const tproj = vx*dx + vy*dy;
-              if(tproj < 0 || tproj > maxR) continue;
-              const px = this.x + dx*tproj;
-              const py = this.y + dy*tproj;
-              const d = Math.hypot(seg.x-px, seg.y-py);
-              const hitR = seg.radius + 4;
-              if(d <= hitR){
-                rayHits.push({seg, tproj});
-              }
-            }
-            rayHits.sort((a,b)=>a.tproj-b.tproj);
-
-            let hits=0;
-            for(let i=0;i<rayHits.length && hits<pierce;i++){
-              const seg=rayHits[i].seg;
-              if(seg.dead) continue;
-              // armorPierce reduces armor effectiveness
-              const armorPierce = s.armorPierce ?? 0;
-              game.applyDamage(seg, s.dmg, DamageType.KINETIC, { armorPierce, ignoreShield, source:this });
-              hits++;
-            }
-
-            // visuals
-            const x2 = this.x + dx*maxR;
-            const y2 = this.y + dy*maxR;
-            game.effects.railLines.push({x1:this.x,y1:this.y,x2,y2,t:0.12});
-            game.effects.muzzle.push({x:this.x+dx*10,y:this.y+dy*10,a:shotAng,t:0.09, rail:true});
-          }
-
-          this.cool = 1 / Math.max(0.01, rof);
-        }
-      } else {
-        // no target: relax laser lock
-        if(this.type===TurretType.LASER){
-          this.lockTarget = null;
-          this.lockTime = 0;
-        }
-      }
-    }
-  }
-
-  // ---------------------------
-  // Game State
-  // ---------------------------
-  const game = {
-    // deterministic RNG seed
-    rng: { s: 0xC0FFEE ^ 0x1234567 },
-    paused:false,
-    speedMul:1,
-    fixedStep: 1/60,
-    acc: 0,
-
-    mapIndex: 0,
-    path: null,
-    pathPoly: null,
-
-    credits: 200,
-    scrap: 0,
-    energy: 0,
-    lives: 20,
-
-    wave: 1,
-    waveState: 'READY', // READY | ACTIVE | BETWEEN
-    betweenTimer: 1.0,
-
-    trains: [],
-    turrets: [],
-    projectiles: [],
-    effects: {
-      muzzle: [],
-      railLines: [],
-      laserBeams: [],
-      explosions: [],
-      smokePuffs: [],
-      smokeTime: 0,
-      smokeAccPenalty: 0,
-      dust: [],
-    },
-
-    // selection / placement
-    placing: null, // turret type or null
-    hoverTurret: null,
-    hoverSeg: null,
-    selectedTurret: null,
-
-    // spatial grid for segments
-    segGrid: new SpatialGrid(64),
-
-    // skip wave
-    skipCD: 0,
-    skipReady: true,
-
-    // cached terrain
-    terrainSeed: 1337,
-
-    // autosave
-    autoSaveT: 0,
-    autoSaveEvery: 12,
-  };
-
-  // ---------------------------
-  // Wave Builder
-  // ---------------------------
-  function waveConfig(wave, rng){
-    const boss = (wave % 5 === 0);
-    const baseSpeed = 48 + wave*2.4;
-    const cars = clamp(3 + Math.floor(wave*0.7), 3, 18) + (boss?6:0);
-    const armor = clamp(0.04 + wave*0.012 + (boss?0.08:0), 0.02, 0.48);
-
-    // train type rotation
-    let type = TrainType.NORMAL;
-    if(boss){
-      type = TrainType.BOSS;
-    } else {
-      const r = rand(rng);
-      if(wave>=3 && r<0.26) type = TrainType.ARMORED;
-      else if(wave>=4 && r<0.50) type = TrainType.SHIELD;
-      else if(wave>=6 && r<0.68) type = TrainType.REPAIR;
-      else if(wave>=7 && r<0.82) type = TrainType.BOMB;
-      else type = TrainType.NORMAL;
-    }
-
-    const shield = (type===TrainType.SHIELD || type===TrainType.BOSS) ? (22 + wave*5.5) : 0;
-
-    const engineHP = (boss ? 900 : 260) + wave*65 + (type===TrainType.ARMORED? 90:0) + (type===TrainType.SHIELD? 70:0);
-    const carHP = (boss ? 180 : 90) + wave*20 + (type===TrainType.ARMORED? 28:0);
-
-    return {
-      wave,
-      type,
-      speed: baseSpeed * (boss?0.9:1.0),
-      cars,
-      armor: armor + (type===TrainType.ARMORED? 0.12:0),
-      shield,
-      engineHP,
-      carHP,
-      // wave rewards
-      waveEnergy: 2 + Math.floor(wave/2) + (boss?4:0),
-    };
+  function waveConfig(w){
+    const speed = 48 + w*2.2;
+    const cars = clamp(3 + Math.floor(w*0.7), 3, 16);
+    const engineHP = 220 + w*60;
+    const carHP = 90 + w*22;
+    return { speed, cars, engineHP, carHP };
   }
 
   function startWave(){
-    const cfg = waveConfig(game.wave, game.rng);
-    const t = new Train(game.path, cfg, game.rng);
-    // spawn progress slightly negative so engine appears from off-map
+    const cfg = waveConfig(game.wave);
+    const t = new Train(cfg);
     t.progress = -70;
     game.trains.push(t);
     game.waveState = 'ACTIVE';
-    showToast(`Wave ${game.wave}: ${cfg.type.replace('_',' ')} train inbound.`, 1.7);
   }
 
   function endWave(){
-    const cfg = waveConfig(game.wave, game.rng);
-    // Reward energy for completing wave
-    game.energy += cfg.waveEnergy;
-    game.waveState = 'BETWEEN';
-    game.betweenTimer = 2.0;
+    game.energy += 2 + Math.floor(game.wave/2);
     game.wave++;
-    showToast(`Wave clear. +${cfg.waveEnergy} Energy`, 1.4);
+    if(game.wave>12 && !game.endless){ showMenu(menuVictory); return; }
+    game.waveState = 'PERK';
+    openPerkMenu();
   }
 
-  // ---------------------------
-  // Damage & Rewards
-  // ---------------------------
-  game.applyDamage = function(seg, amount, dmgType, opts={}){
-    if(seg.dead) return;
-
-    const ignoreShield = !!opts.ignoreShield;
-    const armorPierce = opts.armorPierce ?? 0;
-
-    // segment resistances by train type
-    const ttype = seg.train.waveCfg.type;
-
-    // smoke hit flash
-    seg.smokeHit = 0.12;
-
-    let dmg = amount;
-
-    // shield logic
-    if(seg.shieldMax>0 && seg.shield>0 && !ignoreShield){
-      // energy best vs shields, kinetic weaker
-      const mult = (dmgType===DamageType.ENERGY || dmgType===DamageType.EMP) ? 1.05 : 0.78;
-      const take = Math.min(seg.shield, dmg*mult);
-      seg.shield -= take;
-      dmg -= take / mult;
-      if(dmg <= 0){
-        return;
-      }
+  class Turret{
+    constructor(type,x,y){
+      this.type=type; this.x=x; this.y=y; this.level=0; this.cool=0; this.ang=0;
     }
-
-    // armor reduces kinetic, less effect on energy/explosive
-    if(dmgType===DamageType.KINETIC){
-      const armor = seg.armor;
-      const effectiveArmor = clamp(armor * (1 - armorPierce), 0, 0.85);
-      dmg *= (1 - effectiveArmor);
-      // armored train further reduces kinetic
-      if(ttype===TrainType.ARMORED || ttype===TrainType.BOSS){
-        dmg *= 0.82;
-      }
-    } else if(dmgType===DamageType.EXPLOSIVE){
-      // explosive is decent vs cars, a bit weaker vs boss engine
-      if(seg.kind==='engine' && ttype===TrainType.BOSS) dmg *= 0.86;
-    } else if(dmgType===DamageType.EMP){
-      // EMP does low hull damage but disrupts shield a bit better
-      dmg *= 0.72;
-    } else if(dmgType===DamageType.ENERGY){
-      // energy is stable, slight bonus vs shield trains
-      if(ttype===TrainType.SHIELD || ttype===TrainType.BOSS) dmg *= 1.05;
-    }
-
-    seg.hp -= dmg;
-
-    if(seg.hp <= 0){
-      seg.dead = true;
-      seg.hp = 0;
-
-      // rewards per segment
-      const baseC = seg.kind==='engine' ? 28 : 10;
-      const baseS = seg.kind==='engine' ? 8 : 4;
-      const w = seg.train.waveCfg.wave;
-      const mult = 1 + w*0.06 + (seg.train.waveCfg.type===TrainType.BOSS?0.30:0);
-
-      game.credits += Math.floor(baseC * mult);
-      game.scrap   += Math.floor(baseS * mult);
-
-      // bomb car death explosion
-      if(seg.bomb){
-        const radius = 76;
-        game.effects.explosions.push({x:seg.x,y:seg.y,r:radius,t:0.65, orange:true});
-        // damage nearby turrets
-        for(const tur of game.turrets){
-          const d = dist(tur.x,tur.y,seg.x,seg.y);
-          if(d <= radius){
-            // "damages nearby turrets" -> temporary disable / jam
-            tur.cool = Math.max(tur.cool, 0.8 + (radius-d)/radius * 0.9);
-            tur.overclock = Math.max(0, tur.overclock - 1.0);
-          }
-        }
-        showToast('Bomb car detonated — turrets jammed!', 1.2);
-      }
-
-      // if engine dead -> kill train
-      if(seg.kind==='engine'){
-        seg.train.alive = false;
-        // extra reward for killing engine
-        game.credits += Math.floor(24 * mult);
-        game.scrap += Math.floor(12 * mult);
-      }
-    }
-  };
-
-  game.onTrainEscaped = function(train){
-    // lose lives based on cars remaining
-    const aliveSeg = train.segments.filter(s=>!s.dead).length;
-    const loss = clamp(Math.floor(aliveSeg/2), 2, 10);
-    game.lives -= loss;
-    showToast(`Train breached perimeter. -${loss} Lives`, 1.5);
-    if(game.lives<=0){
-      game.lives=0;
-      game.paused=true;
-      showToast('DEFENSE FAILED — Load or Reset', 3.0);
-    }
-  };
-
-  // ---------------------------
-  // Visual Effects Helpers
-  // ---------------------------
-  game.spawnSmokePuffs = function(x,y){
-    for(let i=0;i<18;i++){
-      game.effects.smokePuffs.push({
-        x: x + (rand(game.rng)-0.5)*60,
-        y: y + (rand(game.rng)-0.5)*40,
-        vx: (rand(game.rng)-0.5)*15,
-        vy: -10 - rand(game.rng)*18,
-        r: 12 + rand(game.rng)*18,
-        t: 1.0 + rand(game.rng)*0.8,
-      });
-    }
-    // also add dust wave
-    for(let i=0;i<16;i++){
-      game.effects.dust.push({
-        x: x + (rand(game.rng)-0.5)*90,
-        y: y + (rand(game.rng)-0.5)*60,
-        vx: (rand(game.rng)-0.5)*20,
-        vy: (rand(game.rng)-0.5)*20,
-        r: 8 + rand(game.rng)*14,
-        t: 0.9 + rand(game.rng)*0.5,
-        c: 0.25 + rand(game.rng)*0.25,
-      });
-    }
-  };
-
-  // ---------------------------
-  // Map Building
-  // ---------------------------
-  function buildPathForMap(mapIndex){
-    const m = MAPS[mapIndex];
-    // scale control points to canvas
-    const margin = 40;
-    const ctrl = m.ctrl.map(p=>({
-      x: margin + p.x*(W - margin*2),
-      y: margin + p.y*(H - margin*2),
-    }));
-    const poly = sampleSpline(ctrl, 0.03);
-    game.pathPoly = poly;
-    game.path = new Path(poly);
-
-    // change terrain seed per map
-    game.terrainSeed = 1337 + mapIndex*917;
+    meta(){ return TURRETS.find(t=>t.key===this.type); }
+    stats(){ return this.meta().tiers[this.level]; }
   }
 
-  // ---------------------------
-  // Rendering: Terrain + Track
-  // ---------------------------
-  function terrainColorAt(x,y){
-    // gritty dirt/rock, deterministic
-    const sx = Math.floor(x/22), sy=Math.floor(y/22);
-    const h = hash2(sx ^ game.terrainSeed, sy + (game.terrainSeed*3));
-    const r = ((h & 255)/255);
-    const r2 = (((h>>>8)&255)/255);
-    // mix browns/greys
-    const base = 0.12 + r*0.12;
-    const rock = 0.08 + r2*0.16;
-    return { base, rock, r, r2 };
+  function turretCost(t){
+    const base = t.meta().cost;
+    return { c: Math.round(base.c * (0.75 + t.level*0.35)), s: Math.round(base.s * (0.75 + t.level*0.35)) };
   }
 
-  function drawTerrain(){
-    // fast tiled noise blocks
-    const tile=22;
-    for(let y=0; y<H; y+=tile){
-      for(let x=0; x<W; x+=tile){
-        const t = terrainColorAt(x,y);
-        const g = 12 + t.base*120;
-        const b = 14 + t.rock*80;
-        const r = 14 + t.base*110 + t.rock*40;
-        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
-        ctx.fillRect(x,y,tile+1,tile+1);
-
-        // speckles / stones
-        if(((hash2((x/22)|0,(y/22)|0) ^ game.terrainSeed) & 7)===0){
-          ctx.fillStyle = `rgba(220,220,230,0.05)`;
-          ctx.beginPath();
-          ctx.arc(x+6 + (t.r*10), y+7 + (t.r2*10), 2.5 + t.r*2.2, 0, Math.PI*2);
-          ctx.fill();
-        }
-      }
+  const perks = [
+    {id:'dmg', name:'+10% Turret Damage', apply:()=>{ game.perkDmg*=1.1; }},
+    {id:'slow', name:'+10% Slow Strength', apply:()=>{ game.perkSlow*=1.1; }},
+    {id:'credits', name:'+80 Credits', apply:()=>{ game.credits+=80; }},
+    {id:'scrap', name:'+30 Scrap', apply:()=>{ game.scrap+=30; }},
+    {id:'range', name:'+8% Range', apply:()=>{ game.perkRange*=1.08; }}
+  ];
+  function openPerkMenu(){
+    perkGrid.innerHTML='';
+    const picks = [];
+    while(picks.length<3){
+      const p=perks[Math.floor(Math.random()*perks.length)];
+      if(!picks.includes(p)) picks.push(p);
     }
-
-    // vignette
-    const grd = ctx.createRadialGradient(W*0.5, H*0.45, Math.min(W,H)*0.15, W*0.5, H*0.5, Math.max(W,H)*0.72);
-    grd.addColorStop(0,'rgba(0,0,0,0)');
-    grd.addColorStop(1,'rgba(0,0,0,0.55)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0,0,W,H);
+    picks.forEach(p=>{
+      const b=document.createElement('button');
+      b.className='btn primary';
+      b.textContent=p.name;
+      b.onclick=()=>{ p.apply(); showMenu(null); game.waveState='READY'; };
+      perkGrid.appendChild(b);
+    });
+    showMenu(menuPerk);
   }
 
-  function drawTrack(){
-    const pts = game.pathPoly;
-    if(!pts) return;
-
-    // track bed
-    ctx.lineCap='round';
-    ctx.lineJoin='round';
-
-    // underlay (dust)
-    ctx.strokeStyle='rgba(10,7,5,0.48)';
-    ctx.lineWidth=38;
-    ctx.beginPath();
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      if(i===0) ctx.moveTo(p.x,p.y);
-      else ctx.lineTo(p.x,p.y);
-    }
-    ctx.stroke();
-
-    // ballast
-    ctx.strokeStyle='rgba(30,20,16,0.62)';
-    ctx.lineWidth=30;
-    ctx.beginPath();
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      if(i===0) ctx.moveTo(p.x,p.y);
-      else ctx.lineTo(p.x,p.y);
-    }
-    ctx.stroke();
-
-    // rails (two parallel lines)
-    function railOffset(ix){
-      // approximate normal using neighbor direction
-      const p=pts[ix];
-      const p0=pts[Math.max(0,ix-1)];
-      const p1=pts[Math.min(pts.length-1,ix+1)];
-      const dx=p1.x-p0.x, dy=p1.y-p0.y;
-      const l=Math.hypot(dx,dy)||1;
-      const nx = -dy/l, ny=dx/l;
-      return {nx,ny};
-    }
-
-    const railSep = 10;
-    ctx.strokeStyle='rgba(160,170,190,0.40)';
-    ctx.lineWidth=3.2;
-    ctx.beginPath();
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      const o=railOffset(i);
-      const x=p.x + o.nx*railSep, y=p.y + o.ny*railSep;
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    }
-    ctx.stroke();
-
-    ctx.beginPath();
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      const o=railOffset(i);
-      const x=p.x - o.nx*railSep, y=p.y - o.ny*railSep;
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    }
-    ctx.stroke();
-
-    // ties
-    const tieEvery = 22;
-    ctx.strokeStyle='rgba(65,45,30,0.55)';
-    ctx.lineWidth=4.6;
-    for(let s=0; s<game.path.len; s+=tieEvery){
-      const at = game.path.getAt(s);
-      const nx = -Math.sin(at.ang), ny = Math.cos(at.ang);
-      const tx1 = at.x + nx*16, ty1 = at.y + ny*16;
-      const tx2 = at.x - nx*16, ty2 = at.y - ny*16;
-      ctx.beginPath();
-      ctx.moveTo(tx1,ty1);
-      ctx.lineTo(tx2,ty2);
-      ctx.stroke();
-    }
-
-    // subtle highlight
-    ctx.strokeStyle='rgba(106,168,255,0.08)';
-    ctx.lineWidth=26;
-    ctx.beginPath();
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      if(i===0) ctx.moveTo(p.x,p.y);
-      else ctx.lineTo(p.x,p.y);
-    }
-    ctx.stroke();
-  }
-
-  // ---------------------------
-  // Rendering: Turrets / Trains / FX / UI overlays
-  // ---------------------------
-  function drawTurret(t){
-    const m=t.meta();
-    const s=t.stats();
-    const tierPct = TIER_MAX > 0 ? (t.tier / TIER_MAX) : 0;
-
-    // base pad
-    ctx.save();
-    ctx.translate(t.x,t.y);
-
-    // shadow
-    ctx.fillStyle='rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(0,6, 13, 9, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    // pad body (metal) - brighten with tier
-    const padBright = 0.95 + tierPct*0.12;
-    ctx.fillStyle=`rgba(22,32,48,${padBright})`;
-    ctx.strokeStyle=`rgba(140,180,240,${0.18 + tierPct*0.18})`;
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.roundRect(-14,-12,28,24,7);
-    ctx.fill(); ctx.stroke();
-
-    // core light by type
-    let core='rgba(106,168,255,0.55)';
-    if(t.type===TurretType.MG) core='rgba(255,154,60,0.48)';
-    if(t.type===TurretType.MISSILE) core='rgba(255,92,122,0.44)';
-    if(t.type===TurretType.EMP) core='rgba(120,255,240,0.42)';
-    if(t.type===TurretType.RAIL) core='rgba(190,210,255,0.40)';
-    if(t.type===TurretType.LASER) core='rgba(106,168,255,0.62)';
-
-    ctx.fillStyle=core;
-    ctx.beginPath();
-    ctx.arc(0,0, 4.5 + t.tier*0.8, 0, Math.PI*2);
-    ctx.fill();
-
-    // tier glow ring
-    if(t.tier >= 2){
-      ctx.strokeStyle = core.replace('0.4', '0.65').replace('0.55','0.75');
-      ctx.lineWidth = 2 + tierPct*1.5;
-      ctx.beginPath();
-      ctx.arc(0,0, 10 + t.tier*1.2, 0, Math.PI*2);
-      ctx.stroke();
-    }
-
-    // turret head (sprite)
-    ctx.rotate(t.ang);
-    const spriteList = SPRITES.turrets[t.type];
-    const img = spriteList ? getTierSprite(spriteList, t.tier) : null;
-    if(img && img.complete && img.naturalWidth > 0){
-      const scale = 0.68 + tierPct*0.10;
-      const w = img.naturalWidth * scale;
-      const h = img.naturalHeight * scale;
-      ctx.drawImage(img, -w/2, -h/2, w, h);
-    } else {
-      // fallback vector shape if sprite not loaded
-      ctx.fillStyle='rgba(15,22,34,0.95)';
-      ctx.strokeStyle='rgba(160,190,240,0.16)';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.roundRect(-6,-9,20,18,7);
-      ctx.fill(); ctx.stroke();
-    }
-
-    // tier marks
-    ctx.resetTransform();
-    ctx.translate(t.x,t.y);
-    ctx.fillStyle='rgba(255,255,255,0.12)';
-    const marks = t.tier + 1;
-    const markW = 6, gap = 3;
-    const totalW = marks*markW + (marks-1)*gap;
-    let x0 = -totalW/2;
-    for(let i=0;i<marks;i++){
-      ctx.fillRect(x0 + i*(markW+gap), 12, markW, 2);
-    }
-
-    // selection ring
-    if(t.selected){
-      ctx.strokeStyle='rgba(255,154,60,0.40)';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.arc(0,0, 18, 0, Math.PI*2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawSegment(seg){
-    const boss = seg.train.waveCfg.type===TrainType.BOSS;
-    const armored = seg.train.waveCfg.type===TrainType.ARMORED;
-    const shielded = seg.shieldMax>0;
-
-    ctx.save();
-    ctx.translate(seg.x, seg.y);
-    ctx.rotate(seg.ang);
-
-    // ground shadow
-    ctx.fillStyle='rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(0, 7, seg.radius*1.1, seg.radius*0.75, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    // sprite
-    const levelIdx = clamp(Math.floor((seg.train.waveCfg.wave-1) / 5), 0, 4);
-    let sprite = null;
-    if(seg.kind==='engine'){
-      sprite = getTierSprite(SPRITES.train.engine, levelIdx);
-    } else {
-      const list = shielded ? SPRITES.train.carShield : SPRITES.train.car;
-      sprite = getTierSprite(list, levelIdx);
-    }
-    if(sprite && sprite.complete && sprite.naturalWidth > 0){
-      const scale = (seg.kind==='engine' ? 0.70 : 0.62) * (boss ? 1.25 : 1.0);
-      const w = sprite.naturalWidth * scale;
-      const h = sprite.naturalHeight * scale;
-      ctx.drawImage(sprite, -w/2, -h/2, w, h);
-    } else {
-      // fallback: simple body if sprite not loaded
-      const metal = armored ? 'rgba(56,54,50,0.98)' : 'rgba(42,40,36,0.98)';
-      const edge = boss ? 'rgba(255,140,70,0.55)' : 'rgba(170,140,100,0.28)';
-      ctx.fillStyle=metal;
-      ctx.strokeStyle=edge;
-      ctx.lineWidth=2;
-      const w = seg.kind==='engine' ? (boss?52:40) : (boss?40:30);
-      const h = seg.kind==='engine' ? (boss?30:24) : (boss?24:20);
-      ctx.beginPath();
-      ctx.roundRect(-w/2, -h/2, w, h, 7);
-      ctx.fill(); ctx.stroke();
-    }
-
-    // role icons (offset to top)
-    const w = seg.kind==='engine' ? (boss?52:40) : (boss?40:30);
-    const h = seg.kind==='engine' ? (boss?30:24) : (boss?24:20);
-    if(seg.repair){
-      ctx.fillStyle='rgba(57,229,138,0.35)';
-      ctx.beginPath(); ctx.arc(0,-h*0.35, 6, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(57,229,138,0.60)';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(-5,-h*0.35); ctx.lineTo(5,-h*0.35);
-      ctx.moveTo(0,-h*0.35-5); ctx.lineTo(0,-h*0.35+5);
-      ctx.stroke();
-    }
-    if(seg.bomb){
-      ctx.fillStyle='rgba(255,92,122,0.30)';
-      ctx.beginPath(); ctx.arc(0,-h*0.35, 6, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(255,92,122,0.60)';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(-4,-h*0.35-4); ctx.lineTo(4,-h*0.35+4);
-      ctx.moveTo(4,-h*0.35-4); ctx.lineTo(-4,-h*0.35+4);
-      ctx.stroke();
-    }
-
-    // shield shimmer
-    if(shielded && seg.shield>0){
-      const t = seg.shield/seg.shieldMax;
-      ctx.strokeStyle=`rgba(106,168,255,${0.15 + 0.25*t})`;
-      ctx.lineWidth=3;
-      ctx.beginPath();
-      ctx.roundRect(-w/2-3, -h/2-3, w+6, h+6, 10);
-      ctx.stroke();
-    }
-
-    // hit flash
-    if(seg.smokeHit>0){
-      ctx.fillStyle=`rgba(255,154,60,${0.25*seg.smokeHit/0.12})`;
-      ctx.beginPath();
-      ctx.roundRect(-w/2, -h/2, w, h, 8);
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  function drawHPBarsForSegment(seg){
-    // draw on top of segment
-    const w = seg.kind==='engine' ? 44 : 34;
-    const x = seg.x - w/2;
-    const y = seg.y - (seg.kind==='engine'?30:26);
-
-    // back
-    ctx.fillStyle='rgba(0,0,0,0.45)';
-    ctx.fillRect(x,y,w,6);
-
-    // hull
-    const hull = seg.hp/seg.hpMax;
-    ctx.fillStyle = hull>0.6 ? 'rgba(57,229,138,0.85)' : hull>0.3 ? 'rgba(255,204,102,0.85)' : 'rgba(255,92,122,0.85)';
-    ctx.fillRect(x,y,w*hull,6);
-
-    // shield bar
-    if(seg.shieldMax>0){
-      const s = seg.shield/seg.shieldMax;
-      ctx.fillStyle='rgba(106,168,255,0.92)';
-      ctx.fillRect(x,y-7, w*s, 4);
-      ctx.fillStyle='rgba(0,0,0,0.35)';
-      ctx.fillRect(x+w*s, y-7, w*(1-s), 4);
-    }
-  }
-
-  function drawProjectiles(){
-    for(const p of game.projectiles){
-      if(p.kind==='bullet'){
-        ctx.strokeStyle='rgba(255,154,60,0.75)';
-        ctx.lineWidth=2;
-        ctx.beginPath();
-        ctx.moveTo(p.x - p.vx*0.008, p.y - p.vy*0.008);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      } else if(p.kind==='emp'){
-        ctx.fillStyle='rgba(120,255,240,0.80)';
-        ctx.beginPath();
-        ctx.arc(p.x,p.y, p.r, 0, Math.PI*2);
-        ctx.fill();
-        ctx.strokeStyle='rgba(120,255,240,0.35)';
-        ctx.lineWidth=2;
-        ctx.beginPath();
-        ctx.arc(p.x,p.y, p.r+4, 0, Math.PI*2);
-        ctx.stroke();
-      } else if(p.kind==='missile'){
-        ctx.save();
-        const a = Math.atan2(p.vy,p.vx);
-        ctx.translate(p.x,p.y);
-        ctx.rotate(a);
-        ctx.fillStyle='rgba(255,92,122,0.85)';
-        ctx.beginPath();
-        ctx.roundRect(-6,-3,12,6,3);
-        ctx.fill();
-        ctx.fillStyle='rgba(255,154,60,0.65)';
-        ctx.beginPath();
-        ctx.arc(-7,0, 3.2, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-
-        // exhaust
-        ctx.strokeStyle='rgba(255,154,60,0.18)';
-        ctx.lineWidth=3;
-        ctx.beginPath();
-        ctx.moveTo(p.x - Math.cos(a)*16, p.y - Math.sin(a)*16);
-        ctx.lineTo(p.x - Math.cos(a)*6, p.y - Math.sin(a)*6);
-        ctx.stroke();
-      }
-    }
-  }
-
-  function drawFX(dt){
-    // muzzle flashes
-    for(const m of game.effects.muzzle){
-      const alpha = m.t / 0.10;
-      ctx.save();
-      ctx.translate(m.x,m.y);
-      ctx.rotate(m.a);
-      let c = 'rgba(255,154,60,'+ (0.55*alpha) +')';
-      if(m.emp) c = 'rgba(120,255,240,'+(0.50*alpha)+')';
-      if(m.rail) c = 'rgba(220,235,255,'+(0.45*alpha)+')';
-      if(m.rocket) c= 'rgba(255,92,122,'+(0.46*alpha)+')';
-      ctx.fillStyle=c;
-      ctx.beginPath();
-      ctx.moveTo(0,0);
-      ctx.lineTo(18,4);
-      ctx.lineTo(18,-4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      m.t -= dt;
-    }
-    game.effects.muzzle = game.effects.muzzle.filter(m=>m.t>0);
-
-    // rail lines
-    for(const r of game.effects.railLines){
-      const a = r.t/0.12;
-      ctx.strokeStyle = `rgba(220,235,255,${0.45*a})`;
-      ctx.lineWidth=2.5;
-      ctx.beginPath();
-      ctx.moveTo(r.x1,r.y1);
-      ctx.lineTo(r.x2,r.y2);
-      ctx.stroke();
-      // shimmer
-      ctx.strokeStyle = `rgba(106,168,255,${0.18*a})`;
-      ctx.lineWidth=7;
-      ctx.beginPath();
-      ctx.moveTo(r.x1,r.y1);
-      ctx.lineTo(r.x2,r.y2);
-      ctx.stroke();
-      r.t -= dt;
-    }
-    game.effects.railLines = game.effects.railLines.filter(r=>r.t>0);
-
-    // laser beams
-    for(const b of game.effects.laserBeams){
-      const a = b.t/0.10;
-      const w = 2.2 + (b.ramp*0.9);
-      ctx.strokeStyle = `rgba(106,168,255,${0.22*a})`;
-      ctx.lineWidth = w*2.5;
-      ctx.beginPath();
-      ctx.moveTo(b.x1,b.y1);
-      ctx.lineTo(b.x2,b.y2);
-      ctx.stroke();
-
-      ctx.strokeStyle = `rgba(200,235,255,${0.30*a})`;
-      ctx.lineWidth = w;
-      ctx.beginPath();
-      ctx.moveTo(b.x1,b.y1);
-      ctx.lineTo(b.x2,b.y2);
-      ctx.stroke();
-
-      // impact sparkle
-      ctx.fillStyle = `rgba(255,154,60,${0.18*a})`;
-      ctx.beginPath();
-      ctx.arc(b.x2,b.y2, 6 + b.ramp*2, 0, Math.PI*2);
-      ctx.fill();
-
-      b.t -= dt;
-    }
-    game.effects.laserBeams = game.effects.laserBeams.filter(b=>b.t>0);
-
-    // explosions
-    for(const e of game.effects.explosions){
-      const a = e.t/0.65;
-      const r = e.r * (1 - a*0.2);
-      ctx.fillStyle = `rgba(255,154,60,${(e.orange?0.24:0.14)*a})`;
-      ctx.beginPath(); ctx.arc(e.x,e.y, r, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = `rgba(255,92,122,${0.30*a})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(e.x,e.y, r*0.72, 0, Math.PI*2); ctx.stroke();
-      e.t -= dt;
-    }
-    game.effects.explosions = game.effects.explosions.filter(e=>e.t>0);
-
-    // smoke puffs
-    for(const s of game.effects.smokePuffs){
-      const a = clamp(s.t,0,1);
-      ctx.fillStyle = `rgba(20,24,30,${0.22*a})`;
-      ctx.beginPath();
-      ctx.arc(s.x,s.y, s.r*(1.1 - a*0.15), 0, Math.PI*2);
-      ctx.fill();
-      s.x += s.vx*dt; s.y += s.vy*dt;
-      s.vx *= (1 - dt*0.4);
-      s.vy *= (1 - dt*0.2);
-      s.t -= dt*0.6;
-      s.r += dt*7;
-    }
-    game.effects.smokePuffs = game.effects.smokePuffs.filter(s=>s.t>0);
-
-    // dust
-    for(const d of game.effects.dust){
-      const a = clamp(d.t,0,1);
-      ctx.fillStyle = `rgba(255,154,60,${d.c*a})`;
-      ctx.beginPath();
-      ctx.arc(d.x,d.y, d.r*(1.2 - a*0.2), 0, Math.PI*2);
-      ctx.fill();
-      d.x += d.vx*dt; d.y += d.vy*dt;
-      d.vx *= (1 - dt*0.5);
-      d.vy *= (1 - dt*0.5);
-      d.t -= dt*0.8;
-      d.r += dt*5;
-    }
-    game.effects.dust = game.effects.dust.filter(d=>d.t>0);
-  }
-
-  function drawPlacementGhost(mx,my, ok){
-    if(!game.placing) return;
-    const type=game.placing;
-    const tmp = new Turret(type, mx,my);
-    tmp.tier=0;
-    ctx.save();
-    ctx.globalAlpha = ok ? 0.85 : 0.55;
-    drawTurret(tmp);
-    // range circle
-    ctx.strokeStyle = ok ? 'rgba(106,168,255,0.28)' : 'rgba(255,92,122,0.28)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(mx,my, tmp.stats().range, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // ---------------------------
-  // Input Handling
-  // ---------------------------
-  let mouseX=0, mouseY=0, mouseIn=true, mouseDown=false;
-  canvas.addEventListener('mousemove', (e)=>{
-    const r = canvas.getBoundingClientRect();
-    mouseX = (e.clientX - r.left);
-    mouseY = (e.clientY - r.top);
+  let mouseX=0, mouseY=0, mouseIn=false;
+  canvas.addEventListener('mousemove', e=>{
+    const r=canvas.getBoundingClientRect();
+    mouseX = (e.clientX - r.left); mouseY = (e.clientY - r.top); mouseIn=true;
   }, {passive:true});
-  canvas.addEventListener('mouseenter', ()=>mouseIn=true, {passive:true});
   canvas.addEventListener('mouseleave', ()=>mouseIn=false, {passive:true});
-  canvas.addEventListener('mousedown', (e)=>{ mouseDown=true; }, {passive:true});
-  window.addEventListener('mouseup', ()=>{ mouseDown=false; }, {passive:true});
 
   function canPlaceAt(x,y){
-    // within bounds
-    if(x<18 || y<18 || x>W-18 || y>H-18) return false;
-    // track exclusion
-    const d = game.path.distanceToPoint(x,y);
-    if(d < TRACK_SAFE_RADIUS) return false;
-    // turret spacing
-    for(const t of game.turrets){
-      if(dist2(x,y,t.x,t.y) < (TURRET_MIN_SPACING*2)*(TURRET_MIN_SPACING*2)) return false;
-    }
+    if(x<18||y<18||x>W-18||y>H-18) return false;
+    if(game.path.distanceToPoint(x,y) < TRACK_SAFE) return false;
+    for(const t of game.turrets){ if(dist2(x,y,t.x,t.y) < (TURRET_MIN*2)*(TURRET_MIN*2)) return false; }
     return true;
   }
 
   function turretAt(x,y){
-    // pick closest within radius
     let best=null, bestD=1e9;
     for(const t of game.turrets){
-      const d = dist2(x,y,t.x,t.y);
-      if(d < 22*22 && d<bestD){ best=t; bestD=d; }
+      const d=dist2(x,y,t.x,t.y); if(d<22*22 && d<bestD){best=t; bestD=d;}
     }
     return best;
   }
 
   canvas.addEventListener('click', ()=>{
-    if(game.paused) return;
-
-    // if placing
+    if(game.paused || menuMain.classList.contains('active')) return;
     if(game.placing){
-      const type = game.placing;
-      const meta = TURRET_META[type];
-      const cost = meta.baseCost;
-
-      // cap power towers
-      if(meta.power){
-        const powerCount = game.turrets.filter(t=>TURRET_META[t.type].power).length;
-        if(powerCount >= POWER_CAP){
-          showToast(`Power cap reached (${POWER_CAP}). Upgrade existing power towers instead.`, 1.8);
-          return;
-        }
-      }
-
-      if(!canPlaceAt(mouseX,mouseY)){
-        showToast('Invalid placement — too close to track/turrets.', 1.2);
-        return;
-      }
-      if(game.credits < cost.credits){
-        showToast('Not enough Credits.', 1.2);
-        return;
-      }
-      // place turret
-      game.credits -= cost.credits;
-      const t = new Turret(type, mouseX, mouseY);
+      const meta = TURRETS.find(t=>t.key===game.placing);
+      const powerCount = game.turrets.filter(t=>TURRETS.find(x=>x.key===t.type).power).length;
+      if(meta.power && powerCount>=POWER_CAP) return;
+      if(!canPlaceAt(mouseX,mouseY)) return;
+      if(game.credits<meta.cost.c || game.scrap<meta.cost.s) return;
+      game.credits-=meta.cost.c; game.scrap-=meta.cost.s;
+      const t = new Turret(game.placing, mouseX, mouseY);
       game.turrets.push(t);
-      selectTurret(t);
-      setPlacing(null);
-      showToast(`${meta.name} deployed.`, 1.2);
+      game.placing=null; selectTurret(t);
       return;
     }
-
-    // else: select turret if clicked
     const t = turretAt(mouseX,mouseY);
-    if(t){
-      selectTurret(t);
-      tryUpgradeTurret(t);
-    } else {
-      selectTurret(null);
-    }
+    if(t){ selectTurret(t); }
+    else selectTurret(null);
   });
-
-  window.addEventListener('keydown', (e)=>{
-    if(e.key === ' '){
-      e.preventDefault();
-      togglePause();
-    } else if(e.key === 'Escape'){
-      if(game.placing){
-        setPlacing(null);
-        showToast('Placement canceled.', 1.0);
-      } else {
-        selectTurret(null);
-      }
-    } else if(e.key === '1'){
-      setSpeed(1);
-    } else if(e.key === '2'){
-      setSpeed(2);
-    }
-  });
-
-  // ---------------------------
-  // UI Wiring
-  // ---------------------------
-  function togglePause(){
-    game.paused = !game.paused;
-    btnPause.textContent = game.paused ? 'Resume' : 'Pause';
-  }
-  btnPause.addEventListener('click', togglePause);
-
-  function setSpeed(mult){
-    game.speedMul = mult;
-    speedText.textContent = `x${mult}`;
-    btnSpeed.innerHTML = `<span>Speed x${mult}</span><span class="tag">1/2</span>`;
-  }
-  btnSpeed.addEventListener('click', ()=>setSpeed(game.speedMul===1 ? 2 : 1));
-
-  function tryUpgradeTurret(t, silent=false){
-    if(!t) return false;
-    const m=t.meta();
-    if(t.tier>=TIER_MAX){
-      if(!silent) showToast('Max tier reached.', 1.0);
-      return false;
-    }
-    const cost = m.upgradeCost(t.tier+1);
-    if(game.credits < cost.credits || game.scrap < cost.scrap){
-      if(!silent) showToast('Insufficient resources for upgrade.', 1.2);
-      return false;
-    }
-    game.credits -= cost.credits;
-    game.scrap -= cost.scrap;
-    t.tier++;
-    showToast(`${m.name} upgraded to Tier ${t.tier+1}.`, 1.2);
-    updateRightPanel();
-    return true;
-  }
-
-    btnSkip.addEventListener('click', ()=>{
-    if(game.waveState==='ACTIVE') return;
-    if(game.wave === 1){
-      if(game.waveState !== 'READY') return;
-      startWave();
-      return;
-    }
-    if(game.skipCD>0) return;
-    game.skipCD = 10.0;
-    game.betweenTimer = 0;
-    startWave();
-    showToast('Next wave started.', 1.0);
-  });
-
-  btnSave.addEventListener('click', ()=>saveGame());
-  btnLoad.addEventListener('click', ()=>loadGame());
-  btnReset.addEventListener('click', ()=>{
-    if(confirm('Reset run?')){
-      localStorage.removeItem('ironline_td_save');
-      hardReset();
-    }
-  });
-
-  btnUpgrade.addEventListener('click', ()=>{
-    if(!game.selectedTurret) return;
-    tryUpgradeTurret(game.selectedTurret);
-  });
-
-  btnAbility.addEventListener('click', ()=>{
-    const t=game.selectedTurret;
-    if(!t) return;
-    const meta=t.meta();
-    const ab = meta.ability;
-    if(!ab) return;
-    if(t.abilityCD>0){
-      showToast('Ability cooling down.', 1.0);
-      return;
-    }
-    if(game.energy < ab.costEnergy){
-      showToast('Not enough Energy.', 1.0);
-      return;
-    }
-    game.energy -= ab.costEnergy;
-
-    // apply ability effects
-    if(t.type===TurretType.MG){
-      t.overclock = 5.0;
-      t.abilityCD = 9.0;
-      showToast('MG Overclock engaged.', 1.2);
-    } else if(t.type===TurretType.RAIL){
-      t.magPulse = 6.0; // next shot window
-      t.abilityCD = 10.0;
-      showToast('Railgun Mag Pulse primed.', 1.2);
-    } else if(t.type===TurretType.EMP){
-      // arc net: stun segments in range
-      const r = t.stats().range * 0.55;
-      const segs = game.segGrid.queryCircle(t.x,t.y,r);
-      for(const s of segs){
-        if(s.dead || !s.train.alive) continue;
-        if(dist2(t.x,t.y,s.x,s.y) <= r*r){
-          s.stun = Math.max(s.stun, 1.6 + t.tier*0.2);
-          s.smokeHit = 0.18;
-        }
-      }
-      game.effects.explosions.push({x:t.x,y:t.y,r:r*0.55,t:0.55, orange:false});
-      t.abilityCD = 12.0;
-      showToast('EMP Arc Net deployed.', 1.2);
-    } else if(t.type===TurretType.LASER){
-      t.searing = 4.0;
-      t.abilityCD = 12.0;
-      showToast('Laser Searing Focus online.', 1.2);
-    } else if(t.type===TurretType.MISSILE){
-      // barrage fires 3 immediate missiles
-      t.abilityCD = 13.0;
-      for(let i=0;i<3;i++){
-        t.cool = 0;
-        // force a pseudo update fire next tick by setting cool negative
-        t.cool = -0.001;
-        // add a small immediate muzzle
-        game.effects.muzzle.push({x:t.x+Math.cos(t.ang)*12,y:t.y+Math.sin(t.ang)*12,a:t.ang,t:0.10, rocket:true});
-      }
-      // actually spawn them instantly at nearest target
-      const range=t.stats().range;
-      const cand = game.segGrid.queryCircle(t.x,t.y,range).filter(s=>!s.dead && s.train.alive);
-      cand.sort((a,b)=>dist2(t.x,t.y,a.x,a.y)-dist2(t.x,t.y,b.x,b.y));
-      const target = cand[0];
-      if(target){
-        for(let i=0;i<3;i++){
-          const s=t.stats();
-          const p = new Projectile('missile');
-          p.x=t.x; p.y=t.y;
-          const desired=Math.atan2(target.y-t.y, target.x-t.x) + (rand(game.rng)-0.5)*0.08;
-          const sp=s.projSpeed;
-          p.vx=Math.cos(desired)*sp;
-          p.vy=Math.sin(desired)*sp;
-          p.life=4.2;
-          p.r=4.8;
-          p.dmg=s.dmg*0.85;
-          p.dmgType=DamageType.EXPLOSIVE;
-          p.splash=s.splash*0.95;
-          p.accel=s.accel;
-          p.targetId = target;
-          game.projectiles.push(p);
-        }
-        showToast('Missile Barrage launched.', 1.2);
-      } else {
-        showToast('Barrage wasted — no targets.', 1.2);
-      }
-    }
-    updateRightPanel();
-  });
-
-  mapSelect.addEventListener('change', ()=>{
-    const idx = parseInt(mapSelect.value,10);
-    switchMap(idx);
-  });
-
-  function setPlacing(type){
-    game.placing = type;
-    if(type){
-      const m=TURRET_META[type];
-      placeVal.textContent = m.name;
-      placeHint.textContent = `Deploy ${m.name}. Cost: ${m.baseCost.credits} Credits. ${m.power?`(Power cap applies)`:' '}`;
-    } else {
-      placeVal.textContent = 'None';
-      placeHint.textContent = 'Select a turret card, then click the field to deploy. You cannot place on or near the track.';
-      // clear selected card UI
-      for(const el of document.querySelectorAll('.card')) el.classList.remove('selected');
-    }
-  }
 
   function selectTurret(t){
-    // clear selection
-    for(const tt of game.turrets) tt.selected=false;
-    game.selectedTurret = t;
-    if(t) t.selected=true;
-    updateRightPanel();
-  }
-
-  function updateRightPanel(){
-    const t=game.selectedTurret;
+    game.selected = t;
     if(!t){
-      selSub.textContent = '—';
-      statsVal.textContent = '—';
-      statsBody.textContent = 'Hover a turret or an enemy segment for details.';
-      tierVal.textContent = '—';
-      tierBody.textContent = 'Click a turret to select it, then upgrade. Upgrades cost Credits + Scrap.';
-      btnUpgrade.disabled = true;
-      btnAbility.disabled = true;
-      upTag.textContent = '—';
-      abTag.textContent = '—';
-      return;
+      selName.textContent='None'; selStats.textContent='Click a turret to see stats.';
+      selLvl.textContent='-'; selDps.textContent='-'; selRange.textContent='-';
+      btnUpgrade.disabled=true; btnSell.disabled=true; return;
     }
-    const m=t.meta();
-    const s=t.stats();
-    selSub.textContent = `${m.name} • Tier ${t.tier+1}`;
-    tierVal.textContent = `Tier ${t.tier+1}/${TIER_COUNT}`;
-    const dps = t.dpsEstimate();
-    statsVal.textContent = `${Math.round(dps)} DPS • Range ${Math.round(s.range)}m`;
-    const parts=[];
-    if(t.type===TurretType.MG) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Spread ${(s.spread*57.3).toFixed(1)}°`);
-    if(t.type===TurretType.RAIL) parts.push(`ROF ${s.rof.toFixed(2)}/s • DMG ${s.dmg.toFixed(0)} • Pierce ${s.pierce} • ArmorPierce ${(s.armorPierce*100)|0}%`);
-    if(t.type===TurretType.EMP) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Stun ${s.stun.toFixed(2)}s`);
-    if(t.type===TurretType.LASER) parts.push(`Base ${s.dps.toFixed(0)} DPS • Ramp x${s.rampMax.toFixed(1)} • Sticky ${(s.lockStick*100)|0}%`);
-    if(t.type===TurretType.MISSILE) parts.push(`ROF ${s.rof.toFixed(2)}/s • DMG ${s.dmg.toFixed(0)} • Splash ${s.splash.toFixed(0)}m`);
-    statsBody.textContent = parts.join('  |  ');
-
-    if(t.tier<TIER_MAX){
-      const c=m.upgradeCost(t.tier+1);
-      btnUpgrade.disabled = false;
-      upTag.textContent = `${c.credits}C + ${c.scrap}S`;
-      tierBody.textContent = `Upgrade improves core stats and special effects. Cost: ${c.credits} Credits + ${c.scrap} Scrap.`;
-    } else {
-      btnUpgrade.disabled = true;
-      upTag.textContent = 'MAX';
-      tierBody.textContent = 'Max tier reached.';
-    }
-
-    const ab=m.ability;
-    if(ab){
-      btnAbility.disabled = false;
-      abTag.textContent = `${ab.costEnergy}E` + (t.abilityCD>0 ? ` • CD ${t.abilityCD.toFixed(0)}s` : '');
-      btnAbility.querySelector('span')?.textContent;
-      btnAbility.innerHTML = `<span>${ab.name}</span><span class="tag">${t.abilityCD>0 ? ('CD '+t.abilityCD.toFixed(0)+'s') : (ab.costEnergy+'E')}</span>`;
-    } else {
-      btnAbility.disabled=true;
-      abTag.textContent='—';
-    }
+    const m=t.meta(); const s=t.stats();
+    selName.textContent=m.name;
+    selLvl.textContent=(t.level+1)+'/5';
+    const dps = m.key===TurretType.LAS ? s.dps : (s.dmg*s.rof);
+    selDps.textContent=Math.round(dps);
+    selRange.textContent=Math.round(s.range);
+    selStats.textContent=m.desc;
+    btnSell.disabled=false;
+    btnUpgrade.disabled=(t.level>=TIER_MAX);
   }
 
-  // Build turret cards
-  const turretCards = document.getElementById('turretCards');
-  const cardOrder = [TurretType.MG, TurretType.RAIL, TurretType.EMP, TurretType.LASER, TurretType.MISSILE];
-  function renderTurretCards(){
-    turretCards.innerHTML='';
-    for(const type of cardOrder){
-      const m=TURRET_META[type];
-      const el=document.createElement('div');
-      el.className='card';
-      const powerPill = m.power ? `<span class="pill">POWER</span>` : `<span class="pill" style="background:rgba(106,168,255,.10);border-color:rgba(106,168,255,.18)">CORE</span>`;
-      el.innerHTML=`
-        <div class="name">${m.name} ${powerPill}</div>
-        <div class="desc">${m.desc}</div>
-        <div class="cost">
-          <span class="badge orange">${m.baseCost.credits}C</span>
-          ${m.power?`<span class="badge red">CAP</span>`:''}
-        </div>
-      `;
-      el.addEventListener('click', ()=>{
-        for(const c of document.querySelectorAll('.card')) c.classList.remove('selected');
-        el.classList.add('selected');
-        setPlacing(type);
-        selectTurret(null);
-      });
-      turretCards.appendChild(el);
-    }
-  }
-  renderTurretCards();
-
-  function updateCapText(){
-    const powerCount = game.turrets.filter(t=>TURRET_META[t.type].power).length;
-    capText.textContent = `Power Cap: ${powerCount}/${POWER_CAP}`;
-  }
-
-  // ---------------------------
-  // Save / Load
-  // ---------------------------
-  function saveGame(){
-    const data = {
-      v: 2,
-      mapIndex: game.mapIndex,
-      credits: game.credits,
-      scrap: game.scrap,
-      energy: game.energy,
-      lives: game.lives,
-      wave: game.wave,
-      waveState: game.waveState,
-      betweenTimer: game.betweenTimer,
-      speedMul: game.speedMul,
-      rng: game.rng.s|0,
-      turrets: game.turrets.map(t=>({
-        type:t.type, x:t.x, y:t.y, tier:t.tier, ang:t.ang,
-        overclock:t.overclock, abilityCD:t.abilityCD, searing:t.searing, magPulse:t.magPulse
-      })),
-      // trains are not saved mid-wave to keep it robust (resume between waves)
-    };
-    localStorage.setItem('ironline_td_save', JSON.stringify(data));
-    showToast('Saved locally.', 1.1);
-  }
-
-  function loadGame(){
-    const raw = localStorage.getItem('ironline_td_save');
-    if(!raw){
-      showToast('No save found.', 1.1);
-      return;
-    }
-    try{
-      const d = JSON.parse(raw);
-      if(!d || d.v<2) throw new Error('bad version');
-      game.mapIndex = d.mapIndex|0;
-      mapSelect.value = String(game.mapIndex);
-      buildPathForMap(game.mapIndex);
-
-      game.credits = d.credits|0;
-      game.scrap = d.scrap|0;
-      game.energy = d.energy|0;
-      game.lives = d.lives|0;
-      game.wave = d.wave|0;
-      game.waveState = 'BETWEEN';
-      game.betweenTimer = 1.2;
-      game.speedMul = d.speedMul||1;
-      game.rng.s = d.rng|0;
-
-      game.turrets = [];
-      for(const tt of d.turrets||[]){
-        const t = new Turret(tt.type, tt.x, tt.y);
-        t.tier = clamp(tt.tier|0, 0, TIER_MAX);
-        t.ang = tt.ang||0;
-        t.overclock = tt.overclock||0;
-        t.abilityCD = tt.abilityCD||0;
-        t.searing = tt.searing||0;
-        t.magPulse = tt.magPulse||0;
-        game.turrets.push(t);
-      }
-
-      game.trains = [];
-      game.projectiles = [];
-      game.effects.muzzle = [];
-      game.effects.railLines = [];
-      game.effects.laserBeams = [];
-      game.effects.explosions = [];
-      game.effects.smokePuffs = [];
-      game.effects.smokeTime = 0;
-      game.effects.smokeAccPenalty = 0;
-
-      setSpeed(game.speedMul);
-      selectTurret(null);
-      setPlacing(null);
-      showToast('Loaded.', 1.2);
-    } catch(e){
-      console.warn(e);
-      showToast('Load failed (corrupt save).', 1.6);
-    }
-  }
-
-  function hardReset(){
-    game.rng.s = 0xC0FFEE ^ 0x1234567;
-    game.credits=200; game.scrap=0; game.energy=0; game.lives=20;
-    game.wave=1; game.waveState='READY'; game.betweenTimer=0;
-    game.turrets=[]; game.trains=[]; game.projectiles=[];
-    game.effects.muzzle=[]; game.effects.railLines=[]; game.effects.laserBeams=[];
-    game.effects.explosions=[]; game.effects.smokePuffs=[]; game.effects.dust=[];
-    game.effects.smokeTime=0; game.effects.smokeAccPenalty=0;
-    game.paused=false;
-    setSpeed(1);
+  btnUpgrade.onclick=()=>{
+    const t=game.selected; if(!t) return;
+    if(t.level>=TIER_MAX) return;
+    const c=turretCost(t);
+    if(game.credits<c.c || game.scrap<c.s) return;
+    game.credits-=c.c; game.scrap-=c.s; t.level++;
+    selectTurret(t);
+  };
+  btnSell.onclick=()=>{
+    const t=game.selected; if(!t) return;
+    const meta=t.meta();
+    const refund = Math.round(meta.cost.c*0.6 + t.level*20);
+    game.credits += refund;
+    game.turrets = game.turrets.filter(x=>x!==t);
     selectTurret(null);
-    setPlacing(null);
-    showToast('Reset complete.', 1.2);
+  };
+
+  btnStart.onclick=()=>{ if(game.waveState==='READY') startWave(); };
+  btnSkip.onclick=()=>{
+    if(game.waveState==='ACTIVE') return;
+    if(game.wave===1 && game.waveState==='READY') startWave();
+    if(game.wave>1 && game.waveState!=='ACTIVE'){ game.credits += 40; startWave(); }
+  };
+  btnPause.onclick=()=>{ game.paused=!game.paused; showMenu(game.paused?menuPause:null); };
+  btnSpeed.onclick=()=>{ game.speedMul = game.speedMul%3 + 1; btnSpeed.textContent='Speed x'+game.speedMul; };
+  btnHelp.onclick=()=>{ helpPanel.classList.toggle('active'); };
+
+  document.getElementById('btnPlay').onclick=()=>{ showMenu(null); };
+  document.getElementById('btnSettingsMain').onclick=()=>{ showMenu(menuSettings); };
+  document.getElementById('btnCredits').onclick=()=>{ alert('Built by Codex.'); };
+  document.getElementById('btnResume').onclick=()=>{ game.paused=false; showMenu(null); };
+  document.getElementById('btnRestart').onclick=()=>{ resetGame(); showMenu(null); };
+  document.getElementById('btnSettingsPause').onclick=()=>{ showMenu(menuSettings); };
+  document.getElementById('btnQuit').onclick=()=>{ resetGame(); showMenu(menuMain); };
+  document.getElementById('btnCloseSettings').onclick=()=>{ showMenu(null); };
+  document.getElementById('btnRetry').onclick=()=>{ resetGame(); showMenu(null); };
+  document.getElementById('btnQuit2').onclick=()=>{ resetGame(); showMenu(menuMain); };
+  document.getElementById('btnContinue').onclick=()=>{ game.endless = toggleEndless.checked; showMenu(null); game.waveState='READY'; };
+  document.getElementById('btnQuit3').onclick=()=>{ resetGame(); showMenu(menuMain); };
+
+  togglePerf.onchange=()=>{ game.perf = togglePerf.checked; };
+  toggleDmg.onchange=()=>{ game.dmgNumbers = toggleDmg.checked; };
+  toggleShake.onchange=()=>{};
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==='p' || e.key==='P'){ game.paused=!game.paused; showMenu(game.paused?menuPause:null); }
+    if(e.key===' ') { e.preventDefault(); if(game.waveState==='READY') startWave(); }
+    if(e.key==='u' || e.key==='U') btnUpgrade.onclick();
+    if(e.key==='x' || e.key==='X') btnSell.onclick();
+    if(e.key==='Escape') game.placing=null;
+    if(e.key>='1' && e.key<='5'){
+      const idx = Number(e.key)-1; const meta=TURRETS[idx]; if(meta){ selectCard(meta.key); }
+    }
+  });
+
+  function selectCard(type){
+    game.placing=type; selectTurret(null);
+    [...cardsEl.children].forEach(c=>c.classList.toggle('selected', c.dataset.key===type));
   }
 
-  // ---------------------------
-  // Map Switching
-  // ---------------------------
-  function switchMap(idx){
-    // keep run resources but reset trains/projectiles; turrets remain but must still obey placement rules (we keep them; if invalid, we nudge them away)
-    game.mapIndex = idx;
-    buildPathForMap(idx);
-
-    // Nudge turrets away if too close to track
-    for(const t of game.turrets){
-      let d = game.path.distanceToPoint(t.x,t.y);
-      if(d < TRACK_SAFE_RADIUS + 4){
-        // push along gradient approx by sampling small offsets
-        const steps = [
-          {x:18,y:0},{x:-18,y:0},{x:0,y:18},{x:0,y:-18},
-          {x:14,y:14},{x:-14,y:14},{x:14,y:-14},{x:-14,y:-14}
-        ];
-        let best={x:t.x,y:t.y, d};
-        for(const s of steps){
-          const nx = clamp(t.x+s.x, 20, W-20);
-          const ny = clamp(t.y+s.y, 20, H-20);
-          const nd = game.path.distanceToPoint(nx,ny);
-          if(nd > best.d){
-            best={x:nx,y:ny,d:nd};
-          }
-        }
-        t.x = best.x; t.y = best.y;
-      }
-    }
-
-    game.trains = [];
-    game.projectiles = [];
-    game.waveState = 'BETWEEN';
-    game.betweenTimer = 1.2;
-    showToast(`Map: ${MAPS[idx].name}`, 1.2);
+  function renderCards(){
+    cardsEl.innerHTML='';
+    TURRETS.forEach(t=>{
+      const el=document.createElement('div');
+      el.className='card'; el.dataset.key=t.key;
+      el.innerHTML=`<div class=\"hot\">${t.hot}</div><div class=\"name\">${t.name}</div><div class=\"desc\">${t.desc}</div><div style=\"margin-top:6px;\"><span class=\"badge\">${t.cost.c}C + ${t.cost.s}S</span></div>`;
+      el.onclick=()=>selectCard(t.key);
+      cardsEl.appendChild(el);
+    });
   }
 
-  // ---------------------------
-  // Simulation Update
-  // ---------------------------
-  function updateSim(dt){
-    // toast timer
-    if(toastTimer>0){
-      toastTimer -= dt;
-      if(toastTimer<=0) toast.style.display='none';
-    }
+  MAPS.forEach((m,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=m.name; mapSelect.appendChild(opt); });
+  mapSelect.onchange=()=>{ game.mapIndex=Number(mapSelect.value); buildMap(); };
 
-    // start/skip button
-    const canStart = (game.waveState !== 'ACTIVE' && game.lives > 0);
-    const btnSkipLabel = btnSkip.querySelector('span');
-    if(game.wave === 1){
-      if(btnSkipLabel) btnSkipLabel.textContent = 'Start Wave';
-      skipTag.textContent = 'READY';
-      btnSkip.disabled = !canStart || game.waveState !== 'READY';
+  function drawPlaceholder(x,y,w,h,label){
+    ctx.fillStyle='rgba(40,30,20,0.9)'; ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle='rgba(255,181,90,0.6)'; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='rgba(255,235,200,0.8)'; ctx.font='10px var(--font)'; ctx.fillText(label, x+4, y+h/2);
+  }
+
+  function drawTrack(){
+    const pts = game.path.pts;
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(50,36,22,1)'; ctx.lineWidth=40; ctx.beginPath();
+    pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.stroke();
+    ctx.strokeStyle='rgba(120,90,60,0.9)'; ctx.lineWidth=6; ctx.beginPath();
+    pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.stroke();
+    for(let s=0; s<game.path.len; s+=26){
+      const at = game.path.getAt(s);
+      const nx = -Math.sin(at.ang), ny = Math.cos(at.ang);
+      ctx.strokeStyle='rgba(90,70,50,0.9)'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(at.x+nx*14, at.y+ny*14); ctx.lineTo(at.x-nx*14, at.y-ny*14); ctx.stroke();
+    }
+  }
+
+  function drawTurret(t){
+    const meta=t.meta();
+    const sprite = meta.sprite[t.level];
+    const img = imgOrNull(sprite);
+    ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.ang);
+    if(img){
+      const scale=0.7; const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
+      ctx.drawImage(img, -w/2, -h/2, w, h);
     } else {
-      game.skipCD = Math.max(0, game.skipCD - dt);
-      if(btnSkipLabel) btnSkipLabel.textContent = 'Skip to Next Wave';
-      skipTag.textContent = (game.skipCD>0 ? `${game.skipCD.toFixed(0)}s` : 'READY');
-      const cooldown = game.skipCD > 0;
-      btnSkip.disabled = cooldown || !canStart;
+      drawPlaceholder(-18,-18,36,36,'T'+(t.level+1));
     }
-
-    // smoke effect timer
-    if(game.effects.smokeTime>0){
-      game.effects.smokeTime = Math.max(0, game.effects.smokeTime - dt);
-      if(game.effects.smokeTime<=0){
-        game.effects.smokeAccPenalty = 0;
-      }
-    }
-
-    // build segment grid
-    game.segGrid.clear();
-    for(const tr of game.trains){
-      if(!tr.alive) continue;
-      for(const seg of tr.segments){
-        if(seg.dead) continue;
-        game.segGrid.insert(seg.x,seg.y,seg);
-      }
-    }
-
-    // wave state machine
-    if(game.waveState==='BETWEEN'){
-      game.betweenTimer -= dt;
-      if(game.betweenTimer<=0){
-        game.waveState='READY';
-      }
-    }
-
-    // update trains
-    for(const tr of game.trains){
-      tr.update(dt, game);
-    }
-
-    // remove dead trains
-    game.trains = game.trains.filter(tr=>tr.alive && !tr.segments[0].dead);
-
-    // update turrets
-    for(const t of game.turrets){
-      t.update(dt, game);
-    }
-
-    // update projectiles & collisions
-    // Note: collisions are against segments near projectile using grid query
-    for(const p of game.projectiles){
-      p.life -= dt;
-      if(p.life<=0) continue;
-
-      if(p.kind==='missile'){
-        // guidance
-        const target = p.targetId;
-        if(target && !target.dead && target.train.alive){
-          const dx = target.x - p.x;
-          const dy = target.y - p.y;
-          const d = Math.hypot(dx,dy) || 1;
-          const ux = dx/d, uy = dy/d;
-          p.vx += ux * p.accel * dt;
-          p.vy += uy * p.accel * dt;
-          // clamp speed
-          const sp = Math.hypot(p.vx,p.vy);
-          const maxSp = 520;
-          if(sp>maxSp){ p.vx = p.vx/sp*maxSp; p.vy = p.vy/sp*maxSp; }
-        }
-      }
-
-      p.x += p.vx*dt;
-      p.y += p.vy*dt;
-
-      // out of bounds
-      if(p.x<-50||p.y<-50||p.x>W+50||p.y>H+50) p.life=0;
-
-      // collision query
-      const candidates = game.segGrid.queryCircle(p.x,p.y, 46);
-      let hit=null;
-      let hitD=1e9;
-
-      for(const seg of candidates){
-        if(seg.dead || !seg.train.alive) continue;
-        const rr = seg.radius + p.r;
-        const d2 = dist2(p.x,p.y, seg.x,seg.y);
-        if(d2 <= rr*rr){
-          const d = Math.sqrt(d2);
-          if(d < hitD){ hit=seg; hitD=d; }
-        }
-      }
-
-      if(hit){
-        if(p.kind==='bullet'){
-          game.applyDamage(hit, p.dmg, p.dmgType, { source:p });
-          p.life = 0;
-        } else if(p.kind==='emp'){
-          game.applyDamage(hit, p.dmg, p.dmgType, { source:p });
-          hit.stun = Math.max(hit.stun, p.stun);
-          // small EMP ring
-          game.effects.explosions.push({x:hit.x,y:hit.y,r:28,t:0.32, orange:false});
-          p.life = 0;
-        } else if(p.kind==='missile'){
-          // splash
-          const r = p.splash;
-          const segs = game.segGrid.queryCircle(p.x,p.y,r);
-          for(const s of segs){
-            if(s.dead || !s.train.alive) continue;
-            const d = dist(p.x,p.y,s.x,s.y);
-            if(d<=r){
-              const mult = 1 - (d/r)*0.55;
-              game.applyDamage(s, p.dmg*mult, DamageType.EXPLOSIVE, { source:p });
-            }
-          }
-          game.effects.explosions.push({x:p.x,y:p.y,r:r,t:0.55, orange:true});
-          p.life=0;
-        }
-      }
-    }
-    game.projectiles = game.projectiles.filter(p=>p.life>0);
-
-    // if active wave but no trains alive => end wave
-    if(game.waveState==='ACTIVE' && game.trains.length===0){
-      endWave();
+    ctx.restore();
+    if(game.selected===t){
+      ctx.strokeStyle='rgba(255,181,90,0.6)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(t.x,t.y,20,0,Math.PI*2); ctx.stroke();
     }
   }
 
-  // ---------------------------
-  // Hover detection (turret/segment) for HUD & overlays
-  // ---------------------------
-  function updateHover(){
-    game.hoverTurret = turretAt(mouseX,mouseY);
-
-    // hover segment: find closest segment within small radius (use grid)
-    const segs = game.segGrid.queryCircle(mouseX,mouseY, 24);
-    let best=null, bestD=1e9;
-    for(const s of segs){
-      if(s.dead || !s.train.alive) continue;
-      const d2=dist2(mouseX,mouseY,s.x,s.y);
-      const rr=s.radius+8;
-      if(d2<=rr*rr && d2<bestD){ best=s; bestD=d2; }
+  function drawTrainSeg(s){
+    if(s.dead) return;
+    const img = imgOrNull(s.kind==='engine'?manifest.train.engine:manifest.train.cars[(s.idx%3)]);
+    ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
+    if(img){
+      const scale = s.kind==='engine'?0.75:0.65; const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
+      ctx.drawImage(img, -w/2, -h/2, w, h);
+    } else {
+      drawPlaceholder(-16,-10,32,20, s.kind==='engine'?'ENG':'CAR');
     }
-    game.hoverSeg = best;
+    ctx.restore();
+    const w=34; const x=s.x-w/2; const y=s.y-26;
+    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(x,y,w,4);
+    ctx.fillStyle='rgba(120,255,160,0.9)'; ctx.fillRect(x,y,w*(s.hp/s.hpMax),4);
+  }
 
-    // If hovering, update right panel (without overriding selection logic)
-    if(!game.selectedTurret){
-      if(game.hoverTurret){
-        const t=game.hoverTurret;
-        const m=t.meta(); const s=t.stats();
-        const dps=t.dpsEstimate();
-        selSub.textContent = `${m.name} • Tier ${t.tier+1}`;
-        statsVal.textContent = `${Math.round(dps)} DPS • Range ${Math.round(s.range)}m`;
-        tierVal.textContent = `Tier ${t.tier+1}/${TIER_COUNT}`;
-        const parts=[];
-        if(t.type===TurretType.MG) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Crit ${(s.crit*100)|0}%`);
-        if(t.type===TurretType.RAIL) parts.push(`DMG ${s.dmg.toFixed(0)} • Pierce ${s.pierce} • ArmorPierce ${(s.armorPierce*100)|0}%`);
-        if(t.type===TurretType.EMP) parts.push(`DMG ${s.dmg.toFixed(0)} • Stun ${s.stun.toFixed(2)}s`);
-        if(t.type===TurretType.LASER) parts.push(`Base ${s.dps.toFixed(0)} DPS • Ramp x${s.rampMax.toFixed(1)}`);
-        if(t.type===TurretType.MISSILE) parts.push(`DMG ${s.dmg.toFixed(0)} • Splash ${s.splash.toFixed(0)}m`);
-        statsBody.textContent = parts.join('  |  ');
-        tierBody.textContent = 'Click turret to select and upgrade.';
-      } else if(game.hoverSeg){
-        const seg=game.hoverSeg;
-        const ttype=seg.train.waveCfg.type;
-        const label = seg.kind==='engine' ? 'Engine' : (seg.repair?'Repair Car': seg.bomb?'Bomb Car':'Car');
-        selSub.textContent = `${label} • ${ttype.replace('_',' ')}`;
-        statsVal.textContent = `HP ${Math.ceil(seg.hp)}/${Math.ceil(seg.hpMax)}` + (seg.shieldMax>0?` • Shield ${Math.ceil(seg.shield)}/${Math.ceil(seg.shieldMax)}`:'');
-        const armorPct = Math.round(seg.armor*100);
-        let extra=[];
-        if(seg.stun>0) extra.push(`STUN ${seg.stun.toFixed(1)}s`);
-        if(seg.repair) extra.push('HEALS NEARBY');
-        if(seg.bomb) extra.push('EXPLODES ON DEATH');
-        if(seg.train.waveCfg.type===TrainType.BOSS) extra.push('BOSS CORE');
-        statsBody.textContent = `Armor ${armorPct}%${extra.length?` • ${extra.join(' • ')}`:''}`;
-        tierVal.textContent = '—';
-        tierBody.textContent = 'Hover segments to see HP bars. Destroy engine to kill the train.';
+  function applyDamage(seg, dmg){
+    if(seg.dead) return;
+    seg.hp -= dmg;
+    if(seg.hp<=0){ seg.dead=true; if(seg.kind==='engine'){ seg.train.alive=false; game.credits+=80; game.scrap+=20; } }
+  }
+
+  function turretLogic(dt){
+    game.grid.clear();
+    for(const tr of game.trains){ if(!tr.alive) continue; for(const s of tr.segments){ if(!s.dead) game.grid.insert(s.x,s.y,s); } }
+
+    for(const t of game.turrets){
+      const m=t.meta(); const s=t.stats();
+      t.cool -= dt; if(t.cool>0) continue;
+      const range = s.range * game.perkRange;
+      const targets = game.grid.query(t.x,t.y,range);
+      let best=null, bestD=1e9;
+      for(const seg of targets){ const d=dist2(t.x,t.y,seg.x,seg.y); if(d<range*range && d<bestD){ best=seg; bestD=d; } }
+      if(!best) continue;
+      t.ang = Math.atan2(best.y-t.y, best.x-t.x);
+
+      if(m.key===TurretType.LAS){
+        applyDamage(best, (s.dps*dt) * game.perkDmg);
+        t.cool = 0.05;
+      } else if(m.key===TurretType.TES){
+        applyDamage(best, s.dmg * game.perkDmg);
+        best.stun = Math.max(best.stun, s.stun);
+        t.cool = 1/s.rof;
+      } else if(m.key===TurretType.CAN){
+        applyDamage(best, s.dmg * game.perkDmg);
+        for(const seg of game.grid.query(best.x,best.y,s.splash)){
+          if(seg!==best && dist(best.x,best.y,seg.x,seg.y)<=s.splash) applyDamage(seg, s.dmg*0.4);
+        }
+        t.cool = 1/s.rof;
+      } else if(m.key===TurretType.SLO){
+        applyDamage(best, s.dmg * game.perkDmg);
+        best.slow = Math.max(best.slow, s.slow*game.perkSlow);
+        t.cool = 1/s.rof;
       } else {
-        // return to default
-        updateRightPanel();
+        applyDamage(best, s.dmg * game.perkDmg);
+        t.cool = 1/s.rof;
       }
     }
   }
 
-  // ---------------------------
-  // Main Render
-  // ---------------------------
-  function render(dt){
-    // background
-    ctx.fillStyle = '#070b10';
-    ctx.fillRect(0,0,W,H);
+  let last=performance.now();
+  function loop(now){
+    const dt = Math.min(0.033, (now-last)/1000) * game.speedMul; last=now;
+    if(!game.paused && !menuMain.classList.contains('active') && !menuSettings.classList.contains('active') && !menuPause.classList.contains('active') && !menuPerk.classList.contains('active') && !menuVictory.classList.contains('active') && !menuGameOver.classList.contains('active')){
+      update(dt);
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
 
-    drawTerrain();
+  function update(dt){
+    if(game.waveState==='ACTIVE'){
+      for(const tr of game.trains) tr.update(dt);
+      game.trains = game.trains.filter(t=>t.alive);
+      turretLogic(dt);
+      if(game.trains.length===0) endWave();
+    } else if(game.waveState==='BETWEEN'){
+      game.betweenT -= dt;
+      if(game.betweenT<=0) game.waveState='READY';
+    }
+    if(game.lives<=0){ showMenu(menuGameOver); }
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#1a140c'; ctx.fillRect(0,0,W,H);
     drawTrack();
-
-    // placement invalid zone hint (subtle)
-    if(game.placing){
-      ctx.strokeStyle='rgba(255,92,122,0.10)';
-      ctx.lineWidth = (TRACK_SAFE_RADIUS*2);
-      ctx.beginPath();
-      const pts=game.pathPoly;
-      for(let i=0;i<pts.length;i++){
-        const p=pts[i];
-        if(i===0) ctx.moveTo(p.x,p.y);
-        else ctx.lineTo(p.x,p.y);
-      }
-      ctx.stroke();
-    }
-
-    // train segments
-    for(const tr of game.trains){
-      for(const seg of tr.segments){
-        if(seg.dead) continue;
-        drawSegment(seg);
-      }
-    }
-
-    // projectiles
-    drawProjectiles();
-
-    // turrets
-    for(const t of game.turrets){
-      drawTurret(t);
-    }
-
-    // FX
-    drawFX(dt);
-
-    // overlays: hover/selection range and HP bars
-    const hoverT = game.hoverTurret || game.selectedTurret;
-    if(hoverT){
-      const r = hoverT.stats().range;
-      ctx.strokeStyle = game.selectedTurret ? 'rgba(255,154,60,0.22)' : 'rgba(106,168,255,0.20)';
-      ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(hoverT.x,hoverT.y,r,0,Math.PI*2); ctx.stroke();
-    }
-
-    // segment HP bars only when hovering enemies (as requested)
-    if(game.hoverSeg){
-      // draw HP bars for segments near hover
-      const tr = game.hoverSeg.train;
-      for(const seg of tr.segments){
-        if(seg.dead) continue;
-        drawHPBarsForSegment(seg);
-      }
-    }
-
-    // placement ghost
     if(game.placing && mouseIn){
-      drawPlacementGhost(mouseX,mouseY, canPlaceAt(mouseX,mouseY));
+      const ok = canPlaceAt(mouseX,mouseY);
+      ctx.strokeStyle = ok ? 'rgba(120,255,160,0.7)' : 'rgba(255,95,111,0.8)';
+      ctx.lineWidth=2; ctx.beginPath(); ctx.arc(mouseX,mouseY,18,0,Math.PI*2); ctx.stroke();
     }
-
-    // paused overlay / defeat
-    if(game.paused){
-      ctx.fillStyle='rgba(0,0,0,0.45)';
-      ctx.fillRect(0,0,W,H);
-      ctx.fillStyle='rgba(230,240,255,0.92)';
-      ctx.font='800 28px '+getComputedStyle(document.body).fontFamily;
-      ctx.textAlign='center';
-      ctx.fillText(game.lives>0 ? 'PAUSED' : 'DEFENSE FAILED', W/2, H/2 - 8);
-      ctx.font='500 14px '+getComputedStyle(document.body).fontFamily;
-      ctx.fillStyle='rgba(200,215,245,0.85)';
-      ctx.fillText('Press SPACE to resume • Save/Load available', W/2, H/2 + 18);
-    }
-
-    // smoke warning overlay
-    if(game.effects.smokeTime>0){
-      const a = clamp(game.effects.smokeTime/4.8,0,1);
-      ctx.fillStyle = `rgba(20,24,30,${0.08*a})`;
-      ctx.fillRect(0,0,W,H);
-      ctx.fillStyle = `rgba(200,215,245,${0.65*a})`;
-      ctx.font='800 13px '+getComputedStyle(document.body).fontFamily;
-      ctx.textAlign='left';
-      ctx.fillText('SMOKE SCREEN — ACCURACY REDUCED', 16, 24);
-    }
+    for(const tr of game.trains){ for(const s of tr.segments){ drawTrainSeg(s); } }
+    for(const t of game.turrets) drawTurret(t);
+    creditsText.textContent = game.credits;
+    scrapText.textContent = game.scrap;
+    energyText.textContent = game.energy;
+    waveText.textContent = game.wave;
+    livesText.textContent = game.lives;
   }
 
-  // ---------------------------
-  // Frame Loop (Deterministic Fixed Step)
-  // ---------------------------
-  let lastT = performance.now();
-  function frame(now){
-    const realDt = Math.min(0.05, (now-lastT)/1000);
-    lastT = now;
-
-    // UI updates
-    updateHover();
-
-    // fixed step accumulator
-    if(!game.paused && game.lives>0){
-      game.acc += realDt * game.speedMul;
-      const step = game.fixedStep;
-      let guard=0;
-      while(game.acc >= step && guard < 8){
-        updateSim(step);
-        game.acc -= step;
-        guard++;
-      }
-    }
-
-    // render (use realDt for effect fading)
-    render(realDt);
-
-    // top HUD text
-    waveText.textContent = String(game.wave);
-    livesText.textContent = String(game.lives);
-    creditsText.textContent = String(game.credits);
-    scrapText.textContent = String(game.scrap);
-    energyText.textContent = String(game.energy);
-    speedText.textContent = `x${game.speedMul}`;
-
-    const running = (!game.paused && game.lives>0);
-    dotState.className = 'dot' + (running ? '' : (game.lives<=0 ? ' bad' : ' warn'));
-    stateText.textContent = running ? 'RUN' : (game.lives<=0 ? 'FAIL' : 'PAUSE');
-
-    updateCapText();
-    // ability button content refresh when selected
-    if(game.selectedTurret) updateRightPanel();
-
-    requestAnimationFrame(frame);
+  function buildMap(){
+    const m=MAPS[game.mapIndex];
+    const margin=40;
+    const pts = m.pts.map(p=>({x: margin + p.x*(W-margin*2), y: margin + p.y*(H-margin*2)}));
+    game.path = new Path(pts);
   }
 
-  // ---------------------------
-  // Placement / Selection UX
-  // ---------------------------
-  function refreshPlacementLabel(){
-    if(game.placing){
-      const m=TURRET_META[game.placing];
-      placeVal.textContent = m.name;
-    } else {
-      placeVal.textContent = 'None';
-    }
+  function resetGame(){
+    game.credits=200; game.scrap=40; game.energy=0; game.lives=20; game.wave=1; game.speedMul=1;
+    game.trains=[]; game.turrets=[]; game.waveState='READY'; game.placing=null; selectTurret(null);
   }
 
-  // ---------------------------
-  // Init
-  // ---------------------------
-  buildPathForMap(game.mapIndex);
-  mapSelect.value = String(game.mapIndex);
-  setSpeed(1);
-  setPlacing(null);
-  selectTurret(null);
-
-  // Start in READY so player must click Start Wave
-  game.waveState='READY';
-  game.betweenTimer=0;
-
-  // keep UI responsive
-  updateRightPanel();
-  refreshPlacementLabel();
-
-  // auto-load if exists? (safe: do not force; but helpful as option)
-  // (We won't auto-load; player can load.)
-  showToast('Deploy defenses — Wave 1 inbound.', 1.8);
-
-  requestAnimationFrame(frame);
-
+  renderCards();
+  buildMap();
+  requestAnimationFrame(loop);
 })();
 </script>
 </body>
 </html>
+
+
+

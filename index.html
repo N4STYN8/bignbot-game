@@ -6,22 +6,22 @@
   <title>IRONLINE TD — Single-File Tower Defense</title>
   <style>
     :root{
-      --bg0:#14110b;
-      --bg1:#1c160f;
-      --panel:#1b1a15f0;
-      --panel2:#12110eeb;
-      --line:#3a3328;
-      --line2:#504535;
-      --text:#f3ead7;
-      --muted:#cbbba1;
-      --good:#64ff9f;
-      --warn:#ffcf6a;
-      --bad:#ff6b7b;
-      --accent:#7bd0ff;
-      --accent2:#ff9b43;
+      --bg0:#1a140c;
+      --bg1:#261c12;
+      --panel:#221b12f0;
+      --panel2:#17110beb;
+      --line:#5a4633;
+      --line2:#7a5d41;
+      --text:#fff1d8;
+      --muted:#e3cfae;
+      --good:#7bffb1;
+      --warn:#ffd36a;
+      --bad:#ff5f6f;
+      --accent:#8fe1ff;
+      --accent2:#ffb55a;
       --shadow: 0 18px 46px rgba(0,0,0,.65);
-      --glow: 0 0 18px rgba(255,155,70,.22);
-      --glow2: 0 0 18px rgba(123,208,255,.18);
+      --glow: 0 0 22px rgba(255,181,90,.35);
+      --glow2: 0 0 22px rgba(143,225,255,.28);
       --hudH: 188px;
       --btnH: 40px;
       --radius: 14px;
@@ -30,7 +30,7 @@
     }
 
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% -20%, #2a2115 0%, #14110b 58%, #0a0806 100%); color:var(--text); font-family:var(--font); overflow:hidden; }
+    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% -20%, #3a2a18 0%, #1a140c 58%, #0b0906 100%); color:var(--text); font-family:var(--font); overflow:hidden; }
     #wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
     #topbar{
       position:absolute; top:12px; left:12px; right:12px;
@@ -40,10 +40,10 @@
     }
     .chipRow{ display:flex; gap:10px; align-items:center; pointer-events:auto; }
     .chip{
-      background:linear-gradient(180deg, rgba(36,28,20,.92), rgba(20,16,12,.96));
-      border:1px solid rgba(110,85,55,.45);
-      border-bottom-color: rgba(140,110,70,.55);
-      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,220,170,.18);
+      background:linear-gradient(180deg, rgba(52,38,24,.96), rgba(26,18,12,.98));
+      border:1px solid rgba(150,115,70,.55);
+      border-bottom-color: rgba(190,140,80,.65);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,220,170,.30);
       border-radius: 12px;
       padding: 8px 12px;
       display:flex; gap:10px; align-items:center;
@@ -61,8 +61,8 @@
     #gameCanvas{ display:block; width:100%; height:calc(100% - var(--hudH)); }
     #hud{
       height:var(--hudH);
-      background:linear-gradient(180deg, rgba(20,16,12,.22), rgba(18,14,10,.90) 34%, rgba(14,10,7,.98));
-      border-top:1px solid rgba(120,95,60,.28);
+      background:linear-gradient(180deg, rgba(26,18,12,.20), rgba(22,16,11,.92) 34%, rgba(16,12,8,.99));
+      border-top:1px solid rgba(170,125,70,.32);
       box-shadow: 0 -12px 40px rgba(0,0,0,.65);
       padding: 12px 14px;
       display:flex;
@@ -78,11 +78,11 @@
 
     .panel{
       flex:1;
-      background:linear-gradient(180deg, rgba(38,30,22,.90), rgba(22,18,14,.96));
-      border:1px solid rgba(115,85,50,.35);
+      background:linear-gradient(180deg, rgba(52,38,24,.94), rgba(24,18,12,.98));
+      border:1px solid rgba(165,120,70,.42);
       border-radius: 14px;
       padding: 10px;
-      box-shadow: var(--glow), var(--shadow), inset 0 1px 0 rgba(255,220,170,.12);
+      box-shadow: var(--glow), var(--shadow), inset 0 1px 0 rgba(255,220,170,.22);
       overflow:hidden;
       position:relative;
     }
@@ -108,10 +108,10 @@
       height: var(--btnH);
       padding: 0 12px;
       border-radius: 12px;
-      border:1px solid rgba(140,110,70,.35);
-      background:linear-gradient(180deg, rgba(46,36,26,.98), rgba(22,18,12,.98));
+      border:1px solid rgba(185,140,80,.50);
+      background:linear-gradient(180deg, rgba(70,48,28,.98), rgba(28,20,12,.98));
       color:var(--text);
-      box-shadow: 0 10px 20px rgba(0,0,0,.45), 0 0 16px rgba(255,154,60,.12);
+      box-shadow: 0 10px 20px rgba(0,0,0,.50), 0 0 18px rgba(255,181,90,.20);
       display:inline-flex; align-items:center; justify-content:center;
       gap:10px;
       cursor:pointer;
@@ -120,20 +120,20 @@
       font-weight:650;
       letter-spacing:.02em;
     }
-    .btn:hover{ filter:brightness(1.08); border-color: rgba(210,170,120,.45); }
+    .btn:hover{ filter:brightness(1.10); border-color: rgba(255,200,140,.65); }
     .btn:active{ transform: translateY(1px) scale(.99); }
     .btn[disabled]{ opacity:.45; cursor:not-allowed; filter:saturate(.4); }
     .btn .tag{
       font-size:11px; font-family:var(--mono); color:rgba(220,240,255,.85);
-      background: rgba(255,154,60,.12);
-      border:1px solid rgba(255,154,60,.22);
+      background: rgba(255,181,90,.16);
+      border:1px solid rgba(255,181,90,.28);
       padding: 4px 8px;
       border-radius: 999px;
     }
     .btn.primary{
-      border-color: rgba(255,154,60,.46);
-      box-shadow: 0 10px 24px rgba(0,0,0,.46), 0 0 22px rgba(255,154,60,.20);
-      background:linear-gradient(180deg, rgba(60,36,20,.98), rgba(24,16,10,.98));
+      border-color: rgba(255,181,90,.70);
+      box-shadow: 0 10px 24px rgba(0,0,0,.50), 0 0 26px rgba(255,181,90,.30);
+      background:linear-gradient(180deg, rgba(88,52,24,.98), rgba(30,20,12,.98));
     }
     .btn.primary:hover{ border-color: rgba(255,180,120,.32); }
     .btn.ghost{
@@ -144,22 +144,22 @@
     .select{
       height: var(--btnH);
       border-radius: 12px;
-      border:1px solid rgba(140,110,70,.35);
-      background:linear-gradient(180deg, rgba(46,36,26,.96), rgba(22,18,12,.96));
+      border:1px solid rgba(185,140,80,.50);
+      background:linear-gradient(180deg, rgba(70,48,28,.96), rgba(28,20,12,.96));
       color:var(--text);
       padding: 0 12px;
       outline:none;
       font-weight:650;
       cursor:pointer;
-      box-shadow: 0 10px 20px rgba(0,0,0,.40), 0 0 16px rgba(255,154,60,.12);
+      box-shadow: 0 10px 20px rgba(0,0,0,.45), 0 0 18px rgba(255,181,90,.20);
     }
 
     .cards{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
     .card{
       border-radius: 14px;
-      border:1px solid rgba(120,90,55,.22);
-      background:linear-gradient(180deg, rgba(34,26,18,.92), rgba(18,14,10,.96));
-      box-shadow: 0 10px 24px rgba(0,0,0,.45);
+      border:1px solid rgba(170,125,70,.40);
+      background:linear-gradient(180deg, rgba(60,40,22,.94), rgba(22,16,10,.98));
+      box-shadow: 0 10px 24px rgba(0,0,0,.50);
       padding: 10px;
       cursor:pointer;
       user-select:none;
@@ -168,18 +168,18 @@
       transition: transform .08s ease, filter .12s ease, border-color .12s ease;
       min-height: 86px;
     }
-    .card:hover{ filter:brightness(1.06); border-color: rgba(210,170,120,.35); }
+    .card:hover{ filter:brightness(1.08); border-color: rgba(255,200,140,.55); }
     .card:active{ transform: translateY(1px) scale(.99); }
     .card.selected{
-      border-color: rgba(255,154,60,.55);
-      box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 18px rgba(255,154,60,.22);
+      border-color: rgba(255,181,90,.80);
+      box-shadow: 0 10px 24px rgba(0,0,0,.50), 0 0 22px rgba(255,181,90,.30);
     }
     .card .name{ font-weight:800; letter-spacing:.02em; font-size:13px; display:flex; gap:8px; align-items:center; }
     .card .name .pill{
       font-size:10px; letter-spacing:.14em; text-transform:uppercase;
       color:rgba(255,255,255,.82);
-      background: rgba(255,154,60,.16);
-      border:1px solid rgba(255,154,60,.28);
+      background: rgba(255,181,90,.18);
+      border:1px solid rgba(255,181,90,.38);
       padding: 3px 7px;
       border-radius:999px;
       font-family:var(--mono);
@@ -190,8 +190,8 @@
       font-family:var(--mono);
       font-size:11px;
       color: rgba(220,240,255,.90);
-      background: rgba(255,154,60,.12);
-      border:1px solid rgba(255,154,60,.18);
+      background: rgba(255,181,90,.16);
+      border:1px solid rgba(255,181,90,.24);
       padding: 4px 7px;
       border-radius: 999px;
     }
@@ -210,10 +210,10 @@
 
     .infoBox{
       border-radius: 16px;
-      border:1px solid rgba(120,90,55,.22);
-      background:linear-gradient(180deg, rgba(26,20,14,.80), rgba(18,14,10,.92));
+      border:1px solid rgba(170,125,70,.36);
+      background:linear-gradient(180deg, rgba(46,32,20,.86), rgba(22,16,10,.96));
       padding: 10px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.45);
+      box-shadow: 0 10px 24px rgba(0,0,0,.50);
       min-height: 72px;
     }
     .infoBox .h{ display:flex; justify-content:space-between; align-items:center; }
@@ -952,9 +952,19 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       }
       this.smokeTimer = Math.max(0, this.smokeTimer - dt);
 
-      // move engine unless stunned
+      // move engine unless stunned; pause if rear gap too large
       const engine=this.segments[0];
-      const speed = (engine.stun>0) ? this.speed*0.15 : this.speed;
+      const baseSpeed = (engine.stun>0) ? this.speed*0.15 : this.speed;
+      let maxGap = 0;
+      let aliveIndex = 0;
+      for(const seg of this.segments){
+        if(seg.dead) continue;
+        const targetBack = aliveIndex * SEG.gap;
+        maxGap = Math.max(maxGap, seg.backOffset - targetBack);
+        aliveIndex++;
+      }
+      const gapHold = maxGap > 0.5 ? 0 : 1;
+      const speed = baseSpeed * gapHold;
       this.progress += speed * dt;
 
       // if reached end -> damage lives, train removed
@@ -966,7 +976,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
 
       // place segments along path with offsets (catch-up when cars destroyed)
       const catchUpSpeed = this.speed * 2.2;
-      let aliveIndex = 0;
+      aliveIndex = 0;
       for(let i=0;i<this.segments.length;i++){
         const seg=this.segments[i];
         seg.stun = Math.max(0, seg.stun - dt);

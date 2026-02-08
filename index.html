@@ -656,24 +656,28 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       {
         name:'Dust Basin',
         ctrl:[
-          {x:0.06,y:0.25},{x:0.20,y:0.20},{x:0.38,y:0.26},{x:0.52,y:0.36},
-          {x:0.62,y:0.54},{x:0.72,y:0.64},{x:0.84,y:0.68},{x:0.95,y:0.78}
+          {x:0.05,y:0.18},{x:0.14,y:0.14},{x:0.22,y:0.20},{x:0.28,y:0.32},
+          {x:0.20,y:0.46},{x:0.30,y:0.58},{x:0.46,y:0.62},{x:0.58,y:0.48},
+          {x:0.50,y:0.34},{x:0.62,y:0.22},{x:0.78,y:0.28},{x:0.88,y:0.42},
+          {x:0.94,y:0.62}
         ]
       },
       {
         name:'Switchback',
         ctrl:[
-          {x:0.05,y:0.80},{x:0.18,y:0.72},{x:0.34,y:0.62},{x:0.24,y:0.44},
-          {x:0.14,y:0.28},{x:0.32,y:0.22},{x:0.52,y:0.28},{x:0.70,y:0.40},
-          {x:0.86,y:0.56},{x:0.95,y:0.30}
+          {x:0.06,y:0.82},{x:0.18,y:0.74},{x:0.32,y:0.68},{x:0.22,y:0.54},
+          {x:0.12,y:0.40},{x:0.26,y:0.28},{x:0.42,y:0.22},{x:0.58,y:0.30},
+          {x:0.48,y:0.44},{x:0.34,y:0.56},{x:0.46,y:0.70},{x:0.64,y:0.78},
+          {x:0.80,y:0.66},{x:0.92,y:0.52},{x:0.96,y:0.34}
         ]
       },
       {
         name:'Broken Yard',
         ctrl:[
-          {x:0.04,y:0.40},{x:0.18,y:0.36},{x:0.30,y:0.46},{x:0.42,y:0.58},
-          {x:0.56,y:0.62},{x:0.68,y:0.52},{x:0.58,y:0.38},{x:0.44,y:0.30},
-          {x:0.62,y:0.22},{x:0.82,y:0.26},{x:0.96,y:0.44}
+          {x:0.04,y:0.36},{x:0.14,y:0.30},{x:0.26,y:0.38},{x:0.34,y:0.50},
+          {x:0.28,y:0.64},{x:0.42,y:0.74},{x:0.60,y:0.70},{x:0.70,y:0.58},
+          {x:0.62,y:0.44},{x:0.48,y:0.36},{x:0.56,y:0.24},{x:0.72,y:0.18},
+          {x:0.88,y:0.26},{x:0.96,y:0.44}
         ]
       }
     ];
@@ -770,6 +774,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       this.radius = (kind==='engine'?SEG.engineR:SEG.carR);
       this.dead=false;
       this.smokeHit=0; // visual hit flash
+      this.backOffset = 0; // distance behind engine along path
     }
   }
 
@@ -798,6 +803,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
       if(wc.shield>0){ eng.shieldMax=wc.shield*1.4; eng.shield=eng.shieldMax; }
       eng.boss = (wc.type===TrainType.BOSS);
       eng.radius = wc.type===TrainType.BOSS ? 20 : SEG.engineR;
+      eng.backOffset = 0;
       this.segments.push(eng);
 
       // Cars
@@ -826,6 +832,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
           s.hpMax *= 1.25;
           s.hp = s.hpMax;
         }
+        s.backOffset = s.idx * SEG.gap;
         this.segments.push(s);
       }
     }
@@ -857,14 +864,25 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
         return;
       }
 
-      // place segments along path with offsets
+      // place segments along path with offsets (catch-up when cars destroyed)
+      const catchUpSpeed = this.speed * 2.2;
+      let aliveIndex = 0;
       for(let i=0;i<this.segments.length;i++){
         const seg=this.segments[i];
         seg.stun = Math.max(0, seg.stun - dt);
         seg.smokeHit = Math.max(0, seg.smokeHit - dt*2.0);
-        const back = i * SEG.gap;
-        const at = this.path.getAt(this.progress - back);
+        if(seg.dead) continue;
+
+        const targetBack = aliveIndex * SEG.gap;
+        if(seg.backOffset > targetBack){
+          seg.backOffset = Math.max(targetBack, seg.backOffset - catchUpSpeed * dt);
+        } else {
+          seg.backOffset = targetBack;
+        }
+
+        const at = this.path.getAt(this.progress - seg.backOffset);
         seg.x = at.x; seg.y = at.y; seg.ang = at.ang;
+        aliveIndex++;
       }
 
       // repair cars heal nearby segments

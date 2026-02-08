@@ -1,1426 +1,2802 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bignbot TD</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>IRONLINE TD — Single-File Tower Defense</title>
   <style>
     :root{
-      --bg:#0a0d12;
-      --panel:#0e141b;
-      --panel2:#111a23;
-      --stroke:#ffffff22;
-      --txt:#eaf1ff;
-      --muted:#a9b4d6;
-
-      /* “war UI” accents (like your reference art) */
-      --gold:#f2c14f;
-      --red:#ff4d4d;
-      --green:#59ff7a;
-      --cyan:#53e6ff;
-
-      --shadow: 0 18px 60px #000000aa;
-      --r:16px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      background:
-        radial-gradient(1200px 800px at 50% 10%, #1a2330 0%, transparent 55%),
-        radial-gradient(900px 700px at 25% 15%, #1b2a1f 0%, transparent 60%),
-        radial-gradient(900px 700px at 80% 25%, #2a1b1b 0%, transparent 60%),
-        linear-gradient(180deg, #070a0f, #0a0d12);
-      color:var(--txt);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      overflow:hidden;
+      --bg0:#070b10;
+      --bg1:#0c111a;
+      --panel:#0f1622cc;
+      --panel2:#0d1420ee;
+      --line:#223247;
+      --line2:#2e415c;
+      --text:#d9e4ff;
+      --muted:#9fb0d6;
+      --good:#39e58a;
+      --warn:#ffcc66;
+      --bad:#ff5c7a;
+      --accent:#6aa8ff;
+      --accent2:#ff9a3c;
+      --shadow: 0 14px 40px rgba(0,0,0,.55);
+      --glow: 0 0 18px rgba(106,168,255,.24);
+      --glow2: 0 0 18px rgba(255,154,60,.18);
+      --hudH: 188px;
+      --btnH: 40px;
+      --radius: 16px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    /* Frame */
-    .hud{
-      position:fixed;
-      inset:0;
-      display:grid;
-      grid-template-rows: auto 1fr auto;
-      gap:12px;
-      padding:12px;
-      max-width: 1800px;
-      margin:0 auto;
-    }
-
-    /* Top bar (like the reference) */
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      pointer-events:none; /* only buttons re-enable */
-    }
-
-    .chipbar{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      padding:8px 10px;
-      border-radius: var(--r);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #141c25cc, #0c1219cc);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      pointer-events:auto;
-    }
-
-    .resource{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius: 14px;
-      border:1px solid #ffffff18;
-      background: linear-gradient(180deg, #1a222dcc, #0d131acc);
-      min-width: 110px;
-    }
-    .resource .icon{
-      width:22px;height:22px;border-radius:6px;
-      display:grid;place-items:center;
-      background:#0b0f14;
-      border:1px solid #ffffff22;
-    }
-    .resource .val{
-      font-weight:900;
-      letter-spacing:.2px;
-    }
-    .resource.gold .val{ color: var(--gold); text-shadow: 0 0 10px #f2c14f33; }
-    .resource.red  .val{ color: var(--red);  text-shadow: 0 0 10px #ff4d4d33; }
-    .resource.green .val{ color: var(--green); text-shadow: 0 0 10px #59ff7a33; }
-
-    .midinfo{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      padding:8px 10px;
-      border-radius: var(--r);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #141c25cc, #0c1219cc);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      pointer-events:auto;
-    }
-    .midinfo .title{
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-    .midinfo .sub{
-      color:var(--muted);
-      font-weight:800;
-      font-size:12px;
-    }
-    .midinfo .sep{opacity:.35}
-
-    /* Center playfield */
-    #gameWrap{
-      position:relative;
-      border-radius: 22px;
-      border:1px solid #ffffff20;
-      box-shadow: var(--shadow);
-      overflow:hidden;
-      background:
-        radial-gradient(900px 700px at 50% 0%, #53e6ff16, transparent 55%),
-        radial-gradient(900px 700px at 85% 25%, #ff4d4d12, transparent 55%),
-        linear-gradient(180deg, #0b1017, #070a0f);
-    }
-    canvas{
-      position:absolute; left:0; top:0;
-      width:100%; height:100%;
-    }
-
-    /* Bottom build bar (icons like your art) */
-    .bottombar{
-      display:flex;
-      align-items:stretch;
-      justify-content:space-between;
-      gap:12px;
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% -20%, #13213a 0%, #070b10 58%, #05070b 100%); color:var(--text); font-family:var(--font); overflow:hidden; }
+    #wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
+    #topbar{
+      position:absolute; top:12px; left:12px; right:12px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
       pointer-events:none;
+      z-index:20;
     }
-
-    .buildbar{
-      flex:1;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px;
-      border-radius: 18px;
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #151e29dd, #0b1118dd);
+    .chipRow{ display:flex; gap:10px; align-items:center; pointer-events:auto; }
+    .chip{
+      background:linear-gradient(180deg, rgba(20,30,46,.78), rgba(10,16,26,.86));
+      border:1px solid rgba(60,90,130,.35);
+      border-bottom-color: rgba(40,65,105,.45);
+      backdrop-filter: blur(10px);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      overflow:hidden;
-      pointer-events:auto;
-    }
-
-    .towerGrid{
-      display:flex;
-      gap:10px;
-      overflow:hidden;
-      flex-wrap:nowrap;
-    }
-
-    .tile{
-      width:90px;
-      height:78px;
-      border-radius: 14px;
-      border:1px solid #ffffff1f;
-      background: linear-gradient(180deg, #202a35, #0f151e);
-      box-shadow: 0 10px 24px #00000066;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      padding:8px;
-      cursor:pointer;
+      border-radius: 999px;
+      padding: 8px 12px;
+      display:flex; gap:10px; align-items:center;
+      min-height: 36px;
       user-select:none;
+    }
+    .chip .k{ color:var(--muted); font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+    .chip .v{ font-family:var(--mono); font-size:13px; }
+    .chip .sep{ width:1px; height:18px; background:rgba(255,255,255,.08); margin:0 2px; }
+    .chip strong{ color:#fff; font-weight:650; }
+    .chip .dot{ width:8px; height:8px; border-radius:999px; background:var(--good); box-shadow:0 0 12px rgba(57,229,138,.45); }
+    .chip .dot.warn{ background:var(--warn); box-shadow:0 0 12px rgba(255,204,102,.35); }
+    .chip .dot.bad{ background:var(--bad); box-shadow:0 0 12px rgba(255,92,122,.35); }
+
+    #gameCanvas{ display:block; width:100%; height:calc(100% - var(--hudH)); }
+    #hud{
+      height:var(--hudH);
+      background:linear-gradient(180deg, rgba(8,10,14,.30), rgba(6,8,12,.82) 34%, rgba(6,8,12,.95));
+      border-top:1px solid rgba(120,160,220,.18);
+      box-shadow: 0 -12px 40px rgba(0,0,0,.6);
+      padding: 12px 14px;
+      display:flex;
+      gap:12px;
+      z-index:10;
+    }
+    #leftCol{ width: 360px; min-width:320px; display:flex; flex-direction:column; gap:10px; }
+    #midCol{ flex:1; display:flex; flex-direction:column; gap:10px; }
+    #rightCol{ width: 380px; min-width:340px; display:flex; flex-direction:column; gap:10px; }
+
+    .panel{
+      flex:1;
+      background:linear-gradient(180deg, rgba(15,22,34,.84), rgba(10,14,22,.92));
+      border:1px solid rgba(60,90,130,.28);
+      border-radius: 18px;
+      padding: 10px;
+      box-shadow: var(--glow), var(--shadow);
+      overflow:hidden;
       position:relative;
     }
-    .tile:hover{ transform: translateY(-1px); border-color:#ffffff4a; }
-    .tile:active{ transform: translateY(0px); }
-    .tile.selected{ outline:2px solid #53e6ff66; border-color:#53e6ff88; }
-    .tile.locked{ opacity:.45; cursor:not-allowed; }
-    .tile .label{
-      font-weight:1000;
-      font-size:12px;
-      letter-spacing:.2px;
+
+    .panelTitle{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 2px 6px 10px 6px;
     }
-    .tile .cost{
-      position:absolute;
-      right:8px; bottom:8px;
-      font-weight:1000;
-      font-size:12px;
-      padding:2px 7px;
-      border-radius:999px;
-      border:1px solid #ffffff26;
-      background:#0b0f14cc;
-      color: var(--gold);
+    .panelTitle .t{
+      font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+      color: var(--muted);
     }
-    .tile .cap{
-      position:absolute;
-      left:8px; bottom:8px;
-      font-weight:900;
-      font-size:11px;
-      padding:2px 6px;
-      border-radius:999px;
-      border:1px solid #ffffff20;
-      background:#0b0f14cc;
-      color: #d9e2ff;
+    .panelTitle .sub{
+      font-family:var(--mono);
+      color:#cfe2ff;
+      font-size:12px;
       opacity:.9;
     }
 
-    .rightbar{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      padding:10px;
-      border-radius: 18px;
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, #151e29dd, #0b1118dd);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      pointer-events:auto;
-    }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
     .btn{
-      cursor:pointer;
+      height: var(--btnH);
+      padding: 0 12px;
       border-radius: 14px;
-      padding:10px 12px;
-      border:1px solid #ffffff28;
-      background: linear-gradient(180deg, #1f2833, #0f151e);
-      color:var(--txt);
-      font-weight:1000;
-      letter-spacing:.2px;
-      box-shadow: 0 10px 22px #00000055;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+      border:1px solid rgba(120,160,220,.22);
+      background:linear-gradient(180deg, rgba(22,32,48,.95), rgba(12,18,30,.96));
+      color:var(--text);
+      box-shadow: 0 10px 20px rgba(0,0,0,.35), 0 0 16px rgba(106,168,255,.10);
+      display:inline-flex; align-items:center; justify-content:center;
       gap:10px;
-      min-width: 110px;
+      cursor:pointer;
       user-select:none;
+      transition: transform .08s ease, filter .12s ease, border-color .12s ease;
+      font-weight:650;
+      letter-spacing:.02em;
     }
-    .btn:hover{ transform: translateY(-1px); border-color:#ffffff52; }
-    .btn:active{ transform: translateY(0px); }
-    .btn[disabled]{opacity:.45; cursor:not-allowed; transform:none;}
-    .btn.primary{ border-color:#53e6ff55; box-shadow: 0 0 0 1px #53e6ff22, 0 14px 30px #53e6ff10; }
-    .btn.danger{ border-color:#ff4d4d55; box-shadow: 0 0 0 1px #ff4d4d22, 0 14px 30px #ff4d4d10; }
-    .btn.gold{ border-color:#f2c14f55; box-shadow: 0 0 0 1px #f2c14f22, 0 14px 30px #f2c14f10; }
+    .btn:hover{ filter:brightness(1.08); border-color: rgba(170,210,255,.30); }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn[disabled]{ opacity:.45; cursor:not-allowed; filter:saturate(.4); }
+    .btn .tag{
+      font-size:11px; font-family:var(--mono); color:rgba(220,240,255,.85);
+      background: rgba(100,150,220,.14);
+      border:1px solid rgba(120,160,220,.18);
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+    .btn.primary{
+      border-color: rgba(255,154,60,.26);
+      box-shadow: 0 10px 20px rgba(0,0,0,.38), 0 0 18px rgba(255,154,60,.12);
+      background:linear-gradient(180deg, rgba(44,28,18,.98), rgba(18,12,9,.98));
+    }
+    .btn.primary:hover{ border-color: rgba(255,180,120,.32); }
+    .btn.ghost{
+      background:linear-gradient(180deg, rgba(20,28,40,.55), rgba(10,14,22,.65));
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
+    }
 
-    .mini{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      white-space:nowrap;
+    .select{
+      height: var(--btnH);
+      border-radius: 14px;
+      border:1px solid rgba(120,160,220,.22);
+      background:linear-gradient(180deg, rgba(22,32,48,.92), rgba(12,18,30,.92));
+      color:var(--text);
+      padding: 0 12px;
+      outline:none;
+      font-weight:650;
+      cursor:pointer;
+      box-shadow: 0 10px 20px rgba(0,0,0,.30), 0 0 16px rgba(106,168,255,.08);
     }
 
-    /* Small overlay help + toast */
-    .toast{
-      position:absolute;
-      left:14px; bottom:14px;
-      background:#0c1118e6;
-      border:1px solid #53e6ff40;
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:900;
-      font-size:12px;
-      color:var(--txt);
-      box-shadow: 0 12px 30px #00000080;
-      display:none;
-      max-width: 560px;
-    }
-    .toast.show{display:block;}
-    .toast b{ color:var(--cyan); }
-
-    .loading{
-      position:absolute; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      flex-direction:column;
-      gap:12px;
-      background: linear-gradient(180deg, #0b1017, #070a0f);
-      z-index:5;
-    }
-    .loading .big{
-      font-weight:1100;
-      font-size:18px;
-      letter-spacing:.2px;
-    }
-    .bar{
-      width:min(520px, 80%);
-      height:10px;
-      border-radius:999px;
-      border:1px solid #ffffff22;
-      background:#0b0f14cc;
+    .cards{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; }
+    .card{
+      border-radius: 16px;
+      border:1px solid rgba(120,160,220,.18);
+      background:linear-gradient(180deg, rgba(14,22,36,.90), rgba(10,14,22,.95));
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      padding: 10px;
+      cursor:pointer;
+      user-select:none;
+      position:relative;
       overflow:hidden;
+      transition: transform .08s ease, filter .12s ease, border-color .12s ease;
+      min-height: 86px;
     }
-    .bar > i{
-      display:block;
-      height:100%;
-      width:0%;
-      background: linear-gradient(90deg, #53e6ff, #f2c14f, #ff4d4d);
+    .card:hover{ filter:brightness(1.06); border-color: rgba(170,210,255,.26); }
+    .card:active{ transform: translateY(1px) scale(.99); }
+    .card.selected{
+      border-color: rgba(255,154,60,.32);
+      box-shadow: 0 10px 24px rgba(0,0,0,.35), 0 0 18px rgba(255,154,60,.14);
+    }
+    .card .name{ font-weight:800; letter-spacing:.02em; font-size:13px; display:flex; gap:8px; align-items:center; }
+    .card .name .pill{
+      font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+      color:rgba(255,255,255,.82);
+      background: rgba(255,154,60,.14);
+      border:1px solid rgba(255,154,60,.20);
+      padding: 3px 7px;
+      border-radius:999px;
+      font-family:var(--mono);
+    }
+    .card .desc{ margin-top:6px; font-size:11px; color:rgba(180,200,230,.92); line-height:1.25; min-height: 28px; }
+    .card .cost{ margin-top:10px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .badge{
+      font-family:var(--mono);
+      font-size:11px;
+      color: rgba(220,240,255,.90);
+      background: rgba(100,150,220,.12);
+      border:1px solid rgba(120,160,220,.16);
+      padding: 4px 7px;
+      border-radius: 999px;
+    }
+    .badge.orange{
+      background: rgba(255,154,60,.10);
+      border-color: rgba(255,154,60,.18);
+    }
+    .badge.green{
+      background: rgba(57,229,138,.10);
+      border-color: rgba(57,229,138,.18);
+    }
+    .badge.red{
+      background: rgba(255,92,122,.10);
+      border-color: rgba(255,92,122,.18);
     }
 
-    /* Responsive: keep no-scroll; shrink tiles */
-    @media (max-width: 1200px){
-      .tile{ width:78px; height:74px; }
-      .btn{ min-width: 96px; padding:10px 10px; }
-      .resource{ min-width: 96px; }
-      .midinfo .title{ font-size: 14px; }
+    .infoBox{
+      border-radius: 16px;
+      border:1px solid rgba(120,160,220,.16);
+      background:linear-gradient(180deg, rgba(10,14,22,.70), rgba(8,10,14,.85));
+      padding: 10px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      min-height: 72px;
     }
-    @media (max-width: 980px){
-      .topbar{ flex-wrap:wrap; }
-      .bottombar{ flex-wrap:wrap; }
-      .buildbar{ order:2; width:100%; }
-      .rightbar{ order:1; width:100%; justify-content:space-between; }
-      .towerGrid{ justify-content:space-between; width:100%; }
-      .tile{ flex:1; min-width: 70px; max-width: 110px; }
+    .infoBox .h{ display:flex; justify-content:space-between; align-items:center; }
+    .infoBox .h .label{ color:var(--muted); letter-spacing:.14em; text-transform:uppercase; font-size:11px; }
+    .infoBox .h .val{ font-family:var(--mono); font-size:12px; color:#d7e9ff; }
+    .infoBox .body{ margin-top:8px; font-size:12px; color: rgba(205,220,255,.92); line-height:1.35; }
+
+    .tiny{
+      font-size:11px; color:rgba(170,190,225,.9); font-family:var(--mono);
+    }
+
+    .split{
+      display:flex; gap:10px; align-items:center;
+    }
+    .split > .panel{ flex:1; }
+
+    .hr{ height:1px; background:rgba(255,255,255,.06); margin:8px 0; }
+
+    /* tooltip */
+    #toast{
+      position:absolute;
+      left:50%;
+      top: 66px;
+      transform: translateX(-50%);
+      background:linear-gradient(180deg, rgba(16,24,38,.85), rgba(10,14,22,.90));
+      border:1px solid rgba(120,160,220,.18);
+      border-radius: 999px;
+      padding: 10px 14px;
+      box-shadow: var(--shadow), var(--glow2);
+      font-size:12px;
+      color:rgba(230,240,255,.95);
+      display:none;
+      z-index:30;
+      pointer-events:none;
+      max-width:min(980px, calc(100% - 24px));
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    @media (max-width: 1200px){
+      #leftCol{ width: 320px; }
+      #rightCol{ width: 340px; }
+      .cards{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 920px){
+      :root{ --hudH: 240px; }
+      #hud{ flex-direction:column; }
+      #leftCol,#rightCol{ width:auto; min-width:0; }
+      #midCol{ width:auto; }
+      .cards{ grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
   </style>
 </head>
 <body>
+<div id="wrap">
+  <canvas id="gameCanvas"></canvas>
 
-  <div class="hud">
-    <!-- TOP BAR -->
-    <div class="topbar">
-      <div class="chipbar" title="Resources">
-        <div class="resource gold">
-          <div class="icon">💰</div>
-          <div class="val" id="cash">0</div>
-        </div>
-        <div class="resource red">
-          <div class="icon">❤</div>
-          <div class="val" id="lives">0</div>
-        </div>
-        <div class="resource green">
-          <div class="icon">👾</div>
-          <div class="val" id="enemyCount">0</div>
-        </div>
+  <div id="topbar">
+    <div class="chipRow">
+      <div class="chip" title="Status">
+        <span class="dot" id="dotState"></span>
+        <span class="k">State</span>
+        <span class="v" id="stateText">RUN</span>
+        <span class="sep"></span>
+        <span class="k">Wave</span>
+        <span class="v"><strong id="waveText">1</strong></span>
+        <span class="sep"></span>
+        <span class="k">Lives</span>
+        <span class="v"><strong id="livesText">20</strong></span>
       </div>
-
-      <div class="midinfo">
-        <div>
-          <div class="title" id="mapName">Training Grounds</div>
-          <div class="sub">
-            Wave <b id="waveNum">0</b>/<b id="waveMax">25</b>
-            <span class="sep">•</span>
-            Next: <b id="nextWave">READY</b>
-          </div>
-        </div>
-        <div class="sep">|</div>
-        <div class="mini">
-          MAP <b id="mapIdx">1</b>/<b id="mapTotal">3</b>
-          <span class="sep">•</span>
-          SPEED <b id="speedLabel">1x</b>
-          <span class="sep">•</span>
-          <b id="runState">RUN</b>
-        </div>
-      </div>
-
-      <div class="chipbar">
-        <button class="btn" id="btnPause">Pause</button>
-        <button class="btn primary" id="btnRange">Range: ON</button>
+      <div class="chip" title="Resources">
+        <span class="k">Credits</span><span class="v" id="creditsText">200</span>
+        <span class="sep"></span>
+        <span class="k">Scrap</span><span class="v" id="scrapText">0</span>
+        <span class="sep"></span>
+        <span class="k">Energy</span><span class="v" id="energyText">0</span>
       </div>
     </div>
 
-    <!-- GAME -->
-    <div id="gameWrap">
-      <canvas id="c"></canvas>
-      <div class="loading" id="loading">
-        <div class="big">Loading Bignbot TD assets…</div>
-        <div class="bar"><i id="loadBar"></i></div>
-        <div class="mini" id="loadText">Preparing sprites</div>
-      </div>
-      <div class="toast" id="toast"></div>
-    </div>
-
-    <!-- BOTTOM BAR -->
-    <div class="bottombar">
-      <div class="buildbar">
-        <div class="towerGrid" id="towerGrid"></div>
-        <div class="mini" style="margin-left:auto; opacity:.9;">
-          Click a tower, then click the map to place. Right-click cancels.
-        </div>
-      </div>
-
-      <div class="rightbar">
-        <button class="btn gold" id="btnStartWave">Start Wave</button>
-        <button class="btn primary" id="btnSkip" disabled>Skip Timer</button>
-
-        <button class="btn" id="btnSpd1">1x</button>
-        <button class="btn" id="btnSpd2">2x</button>
-        <button class="btn" id="btnSpd3">3x</button>
-        <button class="btn danger" id="btnSpd4">4x</button>
-
-        <button class="btn danger" id="btnRestart">HOLD RESTART (1.2s)</button>
+    <div class="chipRow">
+      <div class="chip" title="Controls: Space pause, 1/2 speed, Esc cancel placement.">
+        <span class="k">Speed</span><span class="v" id="speedText">x1</span>
+        <span class="sep"></span>
+        <span class="k">Map</span>
+        <select id="mapSelect" class="select" style="height:32px; padding:0 10px;">
+          <option value="0">Dust Basin</option>
+          <option value="1">Switchback</option>
+          <option value="2">Broken Yard</option>
+        </select>
       </div>
     </div>
   </div>
 
+  <div id="toast"></div>
+
+  <div id="hud">
+    <div id="leftCol">
+      <div class="panel">
+        <div class="panelTitle">
+          <div class="t">Ops</div>
+          <div class="sub" id="opSub">IRONLINE DEFENSE GRID</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnPause"><span>Pause</span><span class="tag">SPACE</span></button>
+          <button class="btn ghost" id="btnSpeed"><span>Speed x1</span><span class="tag">1/2</span></button>
+          <button class="btn primary" id="btnSkip"><span>Skip to Next Wave</span><span class="tag" id="skipTag">READY</span></button>
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <button class="btn" id="btnSave"><span>Save</span><span class="tag">LOCAL</span></button>
+          <button class="btn ghost" id="btnLoad"><span>Load</span><span class="tag">LOCAL</span></button>
+          <button class="btn ghost" id="btnReset"><span>Reset</span><span class="tag">CTRL</span></button>
+        </div>
+        <div class="hr"></div>
+        <div class="infoBox">
+          <div class="h">
+            <div class="label">Placement</div>
+            <div class="val" id="placeVal">None</div>
+          </div>
+          <div class="body" id="placeHint">
+            Select a turret card, then click the field to deploy. You cannot place on or near the track. Hover a placed turret to see range and DPS.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="midCol">
+      <div class="panel">
+        <div class="panelTitle">
+          <div class="t">Turrets</div>
+          <div class="sub" id="capText">Power Cap: 0/8</div>
+        </div>
+        <div class="cards" id="turretCards"></div>
+      </div>
+    </div>
+
+    <div id="rightCol">
+      <div class="panel">
+        <div class="panelTitle">
+          <div class="t">Selected / Upgrades</div>
+          <div class="sub" id="selSub">—</div>
+        </div>
+        <div class="split">
+          <div class="infoBox" style="flex:1.1">
+            <div class="h">
+              <div class="label">Stats</div>
+              <div class="val" id="statsVal">—</div>
+            </div>
+            <div class="body" id="statsBody">
+              Hover a turret or an enemy segment for details.
+            </div>
+          </div>
+          <div class="infoBox" style="flex:.9">
+            <div class="h">
+              <div class="label">Upgrade</div>
+              <div class="val" id="tierVal">—</div>
+            </div>
+            <div class="body" id="tierBody">
+              Click a turret to select it, then upgrade. Upgrades cost Credits + Scrap.
+            </div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <button class="btn primary" id="btnUpgrade" disabled><span>Upgrade Tier</span><span class="tag" id="upTag">—</span></button>
+          <button class="btn ghost" id="btnAbility" disabled><span>Ability</span><span class="tag" id="abTag">—</span></button>
+        </div>
+        <div class="hr"></div>
+        <div class="tiny" id="tipLine">
+          Tip: Boss waves (every 5) deploy smoke screens: turret accuracy drops temporarily.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+/*
+IRONLINE TD — Controls & Tips
+- Click a turret card, then click the map to place it. Esc cancels placement.
+- Hover turrets to see range + DPS; click turrets to select and upgrade.
+- Space: Pause/Resume. Keys 1 and 2: Speed x1 / x2.
+- Skip to Next Wave has a cooldown. Boss waves (every 5) deploy smoke: accuracy drops.
+
+Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
+*/
+
 (() => {
-  // ============================================================
-  // RESPONSIVE LETTERBOX WORLD
-  // ============================================================
-  const BASE_W = 1600, BASE_H = 900;
+  'use strict';
 
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d', { alpha:true });
-  const wrap = document.getElementById('gameWrap');
+  // ---------------------------
+  // Utilities
+  // ---------------------------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const dist2 = (ax,ay,bx,by)=>{ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; };
+  const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+  const rand = (seedObj)=>{ // xorshift32 deterministic RNG
+    let x = seedObj.s|0;
+    x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+    seedObj.s = x|0;
+    return ((x>>>0) / 4294967296);
+  };
+  const hash2 = (x,y)=>{ // stable hash for terrain
+    let h = (x|0)*374761393 + (y|0)*668265263;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    return (h ^ (h >>> 16)) >>> 0;
+  };
 
-  let viewW=1, viewH=1, scale=1, offX=0, offY=0;
+  function pointSegDist(px,py, ax,ay, bx,by){
+    const vx = bx-ax, vy = by-ay;
+    const wx = px-ax, wy = py-ay;
+    const c1 = vx*wx + vy*wy;
+    if(c1 <= 0) return Math.hypot(px-ax, py-ay);
+    const c2 = vx*vx + vy*vy;
+    if(c2 <= c1) return Math.hypot(px-bx, py-by);
+    const t = c1 / c2;
+    const ix = ax + t*vx, iy = ay + t*vy;
+    return Math.hypot(px-ix, py-iy);
+  }
 
+  function polylineDistance(px,py, pts){
+    let d = Infinity;
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i], b=pts[i+1];
+      d = Math.min(d, pointSegDist(px,py,a.x,a.y,b.x,b.y));
+    }
+    return d;
+  }
+
+  // ---------------------------
+  // Canvas & Layout
+  // ---------------------------
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d', { alpha:false });
+
+  let W=0,H=0, hudH=0, dpr=1;
   function resize(){
-    const r = wrap.getBoundingClientRect();
-    viewW = Math.max(1, Math.floor(r.width));
-    viewH = Math.max(1, Math.floor(r.height));
-
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width  = Math.floor(viewW * dpr);
-    canvas.height = Math.floor(viewH * dpr);
-    canvas.style.width = viewW + 'px';
-    canvas.style.height = viewH + 'px';
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const hud = document.getElementById('hud');
+    hudH = hud.getBoundingClientRect().height;
+    const rect = canvas.getBoundingClientRect();
+    W = Math.floor(rect.width);
+    H = Math.floor(rect.height);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
-
-    scale = Math.min(viewW/BASE_W, viewH/BASE_H);
-    offX = (viewW - BASE_W*scale)/2;
-    offY = (viewH - BASE_H*scale)/2;
   }
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
 
-  function screenToWorld(clientX, clientY){
-    const r = canvas.getBoundingClientRect();
-    const mx = clientX - r.left;
-    const my = clientY - r.top;
-    return { x:(mx - offX)/scale, y:(my - offY)/scale };
+  // ---------------------------
+  // UI Elements
+  // ---------------------------
+  const dotState = document.getElementById('dotState');
+  const stateText = document.getElementById('stateText');
+  const waveText = document.getElementById('waveText');
+  const livesText = document.getElementById('livesText');
+  const creditsText = document.getElementById('creditsText');
+  const scrapText = document.getElementById('scrapText');
+  const energyText = document.getElementById('energyText');
+  const speedText = document.getElementById('speedText');
+
+  const btnPause = document.getElementById('btnPause');
+  const btnSpeed = document.getElementById('btnSpeed');
+  const btnSkip = document.getElementById('btnSkip');
+  const btnSave = document.getElementById('btnSave');
+  const btnLoad = document.getElementById('btnLoad');
+  const btnReset = document.getElementById('btnReset');
+  const btnUpgrade = document.getElementById('btnUpgrade');
+  const btnAbility = document.getElementById('btnAbility');
+
+  const skipTag = document.getElementById('skipTag');
+  const placeVal = document.getElementById('placeVal');
+  const placeHint = document.getElementById('placeHint');
+
+  const selSub = document.getElementById('selSub');
+  const statsVal = document.getElementById('statsVal');
+  const statsBody = document.getElementById('statsBody');
+  const tierVal = document.getElementById('tierVal');
+  const tierBody = document.getElementById('tierBody');
+  const upTag = document.getElementById('upTag');
+  const abTag = document.getElementById('abTag');
+
+  const capText = document.getElementById('capText');
+  const mapSelect = document.getElementById('mapSelect');
+
+  const toast = document.getElementById('toast');
+  let toastTimer = 0;
+  function showToast(msg, seconds=1.6){
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    toastTimer = seconds;
   }
-  function inWorld(x,y){ return x>=0 && y>=0 && x<=BASE_W && y<=BASE_H; }
 
-  // ============================================================
-  // ASSETS (expects /assets/* from your zip)
-  // ============================================================
-  const loadingEl = document.getElementById('loading');
-  const loadBar = document.getElementById('loadBar');
-  const loadText = document.getElementById('loadText');
-  const toastEl = document.getElementById('toast');
+  // ---------------------------
+  // Game Data: Turrets
+  // ---------------------------
+  const TurretType = Object.freeze({
+    MG: 'MG',
+    RAIL: 'RAIL',
+    EMP: 'EMP',
+    LASER: 'LASER',
+    MISSILE: 'MISSILE',
+  });
 
-  const SPR = { turrets:{}, enemies:{}, proj:{}, icons:{} };
+  const DamageType = Object.freeze({
+    KINETIC: 'KIN',
+    ENERGY: 'EN',
+    EMP: 'EMP',
+    EXPLOSIVE: 'EXP',
+  });
 
-  const TURRET_TYPES = [
-    { id:"basic",  name:"Marine", cost:60,  dmg:14, rng:145, cd:0.52, proj:"bullet", cap:999, unlockMap:1 },
-    { id:"rapid",  name:"Tesla",  cost:90,  dmg:7,  rng:120, cd:0.16, proj:"bullet", cap:999, unlockMap:1 },
-    { id:"sniper", name:"Rail",   cost:135, dmg:52, rng:260, cd:1.25, proj:"laser",  cap:6,   unlockMap:1 },
-    { id:"splash", name:"Mortar", cost:140, dmg:20, rng:165, cd:1.25, proj:"shell",  cap:5,   unlockMap:1 },
-
-    { id:"tesla",  name:"Chain",  cost:170, dmg:13, rng:150, cd:0.50, proj:"pulse",  cap:4,   unlockMap:2 },
-    { id:"rail",   name:"Pierce", cost:210, dmg:75, rng:290, cd:1.55, proj:"laser",  cap:3,   unlockMap:3 },
-    { id:"flame",  name:"Flame",  cost:160, dmg:9,  rng:115, cd:0.12, proj:"bullet", cap:4,   unlockMap:3 },
-  ];
-  const ENEMY_KINDS = ["grunt","runner","tank","shield","boss"];
-
-  const ASSET_LIST = [];
-  for(const t of TURRET_TYPES){
-    for(const lvl of [1,2,3]){
-      ASSET_LIST.push({url:`assets/turret_${t.id}_lvl${lvl}.png`, kind:"turret", id:t.id, lvl});
+  const TURRET_META = {
+    [TurretType.MG]: {
+      name: 'Kinetic MG',
+      desc: 'Fast tracer bursts. Best vs light segments. Pure kinetic.',
+      power:false,
+      baseCost:{credits: 55, scrap:0, energy:0},
+      tiers:[
+        { dmg: 6,  rof: 13, range: 150, projSpeed: 520, spread: 0.06, crit:0.05 },
+        { dmg: 8,  rof: 16, range: 165, projSpeed: 560, spread: 0.05, crit:0.06 },
+        { dmg: 11, rof: 20, range: 180, projSpeed: 600, spread: 0.045, crit:0.07 },
+      ],
+      dmgType: DamageType.KINETIC,
+      upgradeCost:(tier)=>({credits: 60 + tier*40, scrap: 18 + tier*10, energy:0}),
+      ability:{ name:'Overclock (5s)', costEnergy: 2, desc:'Doubles fire rate for 5 seconds.' }
+    },
+    [TurretType.RAIL]: {
+      name: 'Railgun',
+      desc: 'Hyper-velocity spike. Pierces up to 2 segments. High armor punch.',
+      power:true,
+      baseCost:{credits: 130, scrap:0, energy:0},
+      tiers:[
+        { dmg: 68, rof: 0.65, range: 215, pierce:2, armorPierce: 0.35, acc:0.98 },
+        { dmg: 92, rof: 0.75, range: 235, pierce:2, armorPierce: 0.45, acc:0.985 },
+        { dmg: 128,rof: 0.85, range: 255, pierce:2, armorPierce: 0.55, acc:0.99 },
+      ],
+      dmgType: DamageType.KINETIC,
+      upgradeCost:(tier)=>({credits: 110 + tier*70, scrap: 40 + tier*18, energy:0}),
+      ability:{ name:'Mag Pulse', costEnergy: 4, desc:'Next shot pierces +1 and ignores shields.' }
+    },
+    [TurretType.EMP]: {
+      name: 'EMP Emitter',
+      desc: 'Ion bolts. Low damage, stuns a segment briefly. Great control.',
+      power:false,
+      baseCost:{credits: 85, scrap:0, energy:0},
+      tiers:[
+        { dmg: 10, rof: 1.8, range: 175, projSpeed: 360, stun: 1.0 },
+        { dmg: 14, rof: 2.1, range: 190, projSpeed: 390, stun: 1.2 },
+        { dmg: 18, rof: 2.4, range: 205, projSpeed: 420, stun: 1.35 },
+      ],
+      dmgType: DamageType.EMP,
+      upgradeCost:(tier)=>({credits: 85 + tier*55, scrap: 28 + tier*14, energy:0}),
+      ability:{ name:'Arc Net (3s)', costEnergy: 5, desc:'Creates a short EMP field that stuns segments in range.' }
+    },
+    [TurretType.LASER]: {
+      name: 'Laser Lance',
+      desc: 'Sustained beam. Damage ramps while locked on target (melts shields).',
+      power:true,
+      baseCost:{credits: 145, scrap:0, energy:0},
+      tiers:[
+        { dps: 26, range: 210, ramp: 1.9, rampMax: 2.2, lockStick: 0.86 },
+        { dps: 34, range: 230, ramp: 2.1, rampMax: 2.4, lockStick: 0.88 },
+        { dps: 45, range: 250, ramp: 2.3, rampMax: 2.6, lockStick: 0.90 },
+      ],
+      dmgType: DamageType.ENERGY,
+      upgradeCost:(tier)=>({credits: 120 + tier*75, scrap: 46 + tier*20, energy:0}),
+      ability:{ name:'Searing Focus (4s)', costEnergy: 6, desc:'Beam ramp accelerates massively for 4 seconds.' }
+    },
+    [TurretType.MISSILE]: {
+      name: 'Missile Pod',
+      desc: 'Slow guided rockets. Splash damage (AOE). Good vs clustered cars.',
+      power:true,
+      baseCost:{credits: 150, scrap:0, energy:0},
+      tiers:[
+        { dmg: 64, rof: 0.55, range: 230, projSpeed: 240, splash: 46, accel: 460 },
+        { dmg: 84, rof: 0.62, range: 245, projSpeed: 255, splash: 52, accel: 500 },
+        { dmg: 110,rof: 0.70, range: 260, projSpeed: 270, splash: 58, accel: 540 },
+      ],
+      dmgType: DamageType.EXPLOSIVE,
+      upgradeCost:(tier)=>({credits: 130 + tier*85, scrap: 52 + tier*24, energy:0}),
+      ability:{ name:'Barrage (x3)', costEnergy: 7, desc:'Fires 3 missiles instantly (shared cooldown).' }
     }
+  };
+
+  const POWER_CAP = 8; // combined cap for Rail/Laser/Missile
+  const TRACK_SAFE_RADIUS = 30;
+  const TURRET_MIN_SPACING = 18;
+
+  // ---------------------------
+  // Game Data: Trains / Waves
+  // ---------------------------
+  const TrainType = Object.freeze({
+    NORMAL:'NORMAL',
+    ARMORED:'ARMORED',
+    SHIELD:'SHIELD',
+    REPAIR:'REPAIR',
+    BOMB:'BOMB',
+    BOSS:'BOSS',
+  });
+
+  // Segment rendering sizes
+  const SEG = {
+    engineR: 16,
+    carR: 13,
+    gap: 26, // spacing along path
+  };
+
+  // ---------------------------
+  // Maps: Control points -> sampled polyline
+  // ---------------------------
+  function catmullRom(p0,p1,p2,p3,t){
+    const t2=t*t, t3=t2*t;
+    return {
+      x: 0.5*((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+      y: 0.5*((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+    };
   }
-  for(const k of ENEMY_KINDS){
-    for(const tier of [1,2,3]){
-      ASSET_LIST.push({url:`assets/enemy_${k}_t${tier}.png`, kind:"enemy", id:k, tier});
+  function sampleSpline(ctrl, step=0.03){
+    // pad endpoints
+    const pts = ctrl.map(p=>({x:p.x,y:p.y}));
+    const pad0 = {x: pts[0].x + (pts[0].x-pts[1].x), y: pts[0].y + (pts[0].y-pts[1].y)};
+    const pad1 = {x: pts[pts.length-1].x + (pts[pts.length-1].x-pts[pts.length-2].x), y: pts[pts.length-1].y + (pts[pts.length-1].y-pts[pts.length-2].y)};
+    const P = [pad0, ...pts, pad1];
+
+    const out=[];
+    for(let i=0;i<P.length-3;i++){
+      const p0=P[i], p1=P[i+1], p2=P[i+2], p3=P[i+3];
+      for(let t=0; t<1; t+=step){
+        out.push(catmullRom(p0,p1,p2,p3,t));
+      }
     }
-  }
-  for(const p of ["bullet","laser","pulse","shell"]){
-    ASSET_LIST.push({url:`assets/proj_${p}.png`, kind:"proj", id:p});
-  }
-
-  function loadImage(url){
-    return new Promise((resolve,reject)=>{
-      const im = new Image();
-      im.onload = ()=>resolve(im);
-      im.onerror = ()=>reject(new Error("Missing: "+url));
-      im.src = url;
-    });
+    out.push({x: pts[pts.length-1].x, y: pts[pts.length-1].y});
+    return out;
   }
 
-  function toast(msg, ms=1300){
-    toastEl.innerHTML = msg;
-    toastEl.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=>toastEl.classList.remove('show'), ms);
+  function buildMaps(){
+    // control points are normalized (0..1) to be scaled to canvas each resize/map load
+    return [
+      {
+        name:'Dust Basin',
+        ctrl:[
+          {x:0.06,y:0.25},{x:0.20,y:0.20},{x:0.38,y:0.26},{x:0.52,y:0.36},
+          {x:0.62,y:0.54},{x:0.72,y:0.64},{x:0.84,y:0.68},{x:0.95,y:0.78}
+        ]
+      },
+      {
+        name:'Switchback',
+        ctrl:[
+          {x:0.05,y:0.80},{x:0.18,y:0.72},{x:0.34,y:0.62},{x:0.24,y:0.44},
+          {x:0.14,y:0.28},{x:0.32,y:0.22},{x:0.52,y:0.28},{x:0.70,y:0.40},
+          {x:0.86,y:0.56},{x:0.95,y:0.30}
+        ]
+      },
+      {
+        name:'Broken Yard',
+        ctrl:[
+          {x:0.04,y:0.40},{x:0.18,y:0.36},{x:0.30,y:0.46},{x:0.42,y:0.58},
+          {x:0.56,y:0.62},{x:0.68,y:0.52},{x:0.58,y:0.38},{x:0.44,y:0.30},
+          {x:0.62,y:0.22},{x:0.82,y:0.26},{x:0.96,y:0.44}
+        ]
+      }
+    ];
   }
+  const MAPS = buildMaps();
 
-  async function loadAssets(){
-    let done=0, total=ASSET_LIST.length;
-    for(const a of ASSET_LIST){
-      loadText.textContent = a.url;
-      loadBar.style.width = Math.floor((done/total)*100)+"%";
-      try{
-        const im = await loadImage(a.url);
-        if(a.kind==="turret"){
-          SPR.turrets[a.id] ??= {};
-          SPR.turrets[a.id][a.lvl] = im;
-        }else if(a.kind==="enemy"){
-          SPR.enemies[a.id] ??= {};
-          SPR.enemies[a.id][a.tier] = im;
-        }else if(a.kind==="proj"){
-          SPR.proj[a.id] = im;
+  // ---------------------------
+  // Spatial Hash Grid (segments)
+  // ---------------------------
+  class SpatialGrid {
+    constructor(cellSize){
+      this.cs = cellSize;
+      this.map = new Map();
+    }
+    _key(ix,iy){ return (ix<<16) ^ (iy & 0xffff); }
+    clear(){ this.map.clear(); }
+    insert(x,y,obj){
+      const cs=this.cs;
+      const ix = Math.floor(x/cs), iy=Math.floor(y/cs);
+      const k=this._key(ix,iy);
+      let arr=this.map.get(k);
+      if(!arr){ arr=[]; this.map.set(k,arr); }
+      arr.push(obj);
+      obj._gix=ix; obj._giy=iy;
+    }
+    queryCircle(x,y,r){
+      const cs=this.cs;
+      const ix0 = Math.floor((x-r)/cs), ix1=Math.floor((x+r)/cs);
+      const iy0 = Math.floor((y-r)/cs), iy1=Math.floor((y+r)/cs);
+      const out=[];
+      for(let iy=iy0; iy<=iy1; iy++){
+        for(let ix=ix0; ix<=ix1; ix++){
+          const k=this._key(ix,iy);
+          const arr=this.map.get(k);
+          if(arr) out.push(...arr);
         }
-      }catch(e){
-        console.warn(e);
       }
-      done++;
+      return out;
     }
-    loadBar.style.width = "100%";
-    loadingEl.style.display = "none";
   }
 
-  // ============================================================
-  // MAPS (campaign auto-advance)
-  // ============================================================
-  const MAPS = [
-    { name:"Training Grounds", waves:25, path:[
-      {x:120,y:610},{x:420,y:610},{x:420,y:470},{x:520,y:470},
-      {x:520,y:250},{x:880,y:250},{x:880,y:610},{x:1330,y:610},{x:1480,y:610}
-    ]},
-    { name:"Outpost Ridge", waves:25, path:[
-      {x:120,y:300},{x:360,y:300},{x:360,y:720},{x:740,y:720},{x:740,y:340},
-      {x:1060,y:340},{x:1060,y:600},{x:1480,y:600}
-    ]},
-    { name:"Broken Canyon", waves:25, path:[
-      {x:120,y:670},{x:520,y:670},{x:520,y:520},{x:320,y:520},{x:320,y:260},
-      {x:980,y:260},{x:980,y:520},{x:1180,y:520},{x:1180,y:700},{x:1480,y:700}
-    ]},
-  ];
-
-  function pathSegments(path){
-    const segs=[]; let total=0;
-    for(let i=0;i<path.length-1;i++){
-      const a=path[i], b=path[i+1];
+  // ---------------------------
+  // Core Game Classes
+  // ---------------------------
+  class Path {
+    constructor(poly){
+      this.pts = poly;
+      this.len = 0;
+      this.segLen = [];
+      for(let i=0;i<poly.length-1;i++){
+        const a=poly[i], b=poly[i+1];
+        const l=Math.hypot(b.x-a.x, b.y-a.y);
+        this.segLen.push(l);
+        this.len += l;
+      }
+      // prefix
+      this.prefix=[0];
+      let s=0;
+      for(let l of this.segLen){ s+=l; this.prefix.push(s); }
+    }
+    getAt(s){ // s in [0,len]
+      s = clamp(s, 0, this.len);
+      // find segment via linear scan (poly small); could binary, but fine.
+      let i=0;
+      while(i<this.segLen.length && this.prefix[i+1] < s) i++;
+      const a=this.pts[i], b=this.pts[i+1];
+      const segL=this.segLen[i] || 1;
+      const t = (s - this.prefix[i]) / segL;
+      const x = lerp(a.x,b.x,t), y=lerp(a.y,b.y,t);
       const dx=b.x-a.x, dy=b.y-a.y;
-      const len=Math.hypot(dx,dy);
-      segs.push({a,b,dx,dy,len,acc:total});
-      total += len;
+      const ang = Math.atan2(dy,dx);
+      return {x,y,ang};
     }
-    return {segs,total};
+    distanceToPoint(x,y){
+      return polylineDistance(x,y,this.pts);
+    }
   }
-  function posOnPath(pd, dist){
-    const d=Math.max(0, Math.min(pd.total, dist));
-    for(const s of pd.segs){
-      if(d <= s.acc+s.len){
-        const t=(d-s.acc)/s.len;
-        return {x:s.a.x+s.dx*t, y:s.a.y+s.dy*t, ang:Math.atan2(s.dy,s.dx)};
+
+  class Segment {
+    constructor(train, idx, kind){
+      this.train=train;
+      this.idx=idx;
+      this.kind=kind; // 'engine' | 'car'
+      this.hp=1;
+      this.hpMax=1;
+      this.shield=0;
+      this.shieldMax=0;
+      this.armor=0; // 0..1 reduces kinetic
+      this.stun=0;
+      this.repair=false;
+      this.bomb=false;
+      this.boss=false;
+      this.x=0; this.y=0; this.ang=0;
+      this.radius = (kind==='engine'?SEG.engineR:SEG.carR);
+      this.dead=false;
+      this.smokeHit=0; // visual hit flash
+    }
+  }
+
+  class Train {
+    constructor(path, waveCfg, rng){
+      this.path=path;
+      this.waveCfg=waveCfg;
+      this.rng=rng;
+      this.alive=true;
+      this.progress=0; // distance along path for engine
+      this.speed=waveCfg.speed;
+      this.type=waveCfg.type;
+      this.segments=[];
+      this.smokeTimer=0;      // boss attack clock
+      this.smokeCooldown=0;
+      this.spawn();
+    }
+    spawn(){
+      const wc=this.waveCfg;
+      const nCars = wc.cars;
+      // Engine
+      const eng = new Segment(this, 0, 'engine');
+      eng.hpMax = wc.engineHP;
+      eng.hp = eng.hpMax;
+      eng.armor = wc.armor;
+      if(wc.shield>0){ eng.shieldMax=wc.shield*1.4; eng.shield=eng.shieldMax; }
+      eng.boss = (wc.type===TrainType.BOSS);
+      eng.radius = wc.type===TrainType.BOSS ? 20 : SEG.engineR;
+      this.segments.push(eng);
+
+      // Cars
+      for(let i=0;i<nCars;i++){
+        const s = new Segment(this, i+1, 'car');
+        const base = wc.carHP;
+        s.hpMax = base * (1 + 0.06*i);
+        s.hp = s.hpMax;
+        s.armor = wc.armor;
+        if(wc.shield>0){ s.shieldMax=wc.shield; s.shield=s.shieldMax; }
+        // special cars mix
+        if(wc.type===TrainType.REPAIR && i===Math.floor(nCars*0.55)){
+          s.repair=true;
+          s.hpMax *= 1.25;
+          s.hp = s.hpMax;
+        }
+        if(wc.type===TrainType.BOMB && i===Math.floor(nCars*0.45)){
+          s.bomb=true;
+          s.hpMax *= 1.15;
+          s.hp = s.hpMax;
+        }
+        if(wc.type===TrainType.BOSS){
+          // boss gets extra utility cars: repair + bomb chance
+          if(i===Math.floor(nCars*0.35)) s.repair=true;
+          if(i===Math.floor(nCars*0.70)) s.bomb=true;
+          s.hpMax *= 1.25;
+          s.hp = s.hpMax;
+        }
+        this.segments.push(s);
       }
     }
-    const last=pd.segs[pd.segs.length-1];
-    return {x:last.b.x, y:last.b.y, ang:Math.atan2(last.dy,last.dx)};
-  }
+    update(dt, game){
+      if(!this.alive) return;
 
-  // ============================================================
-  // BALANCE + WAVES (kept strong)
-  // ============================================================
-  function turretStats(typeId, lvl){
-    const t = TURRET_TYPES.find(x=>x.id===typeId);
-    const mult = 1 + (lvl-1)*0.22;        // mild
-    const rng = t.rng + (lvl-1)*18;
-    const dmg = Math.round(t.dmg * mult);
-    const cd  = Math.max(0.06, t.cd * (1 - (lvl-1)*0.08));
-    return {dmg,rng,cd};
-  }
-  function enemyBase(kind){
-    switch(kind){
-      case "grunt": return {hp:60, spd:55, bounty:7};
-      case "runner":return {hp:40, spd:92, bounty:8};
-      case "tank":  return {hp:160, spd:40, bounty:14};
-      case "shield":return {hp:95, spd:52, bounty:12, shield:70};
-      case "boss":  return {hp:520, spd:34, bounty:55, boss:true};
-      default: return {hp:60, spd:55, bounty:7};
+      // update boss smoke attack
+      if(this.waveCfg.type===TrainType.BOSS){
+        this.smokeCooldown = Math.max(0, this.smokeCooldown - dt);
+        if(this.smokeCooldown<=0 && this.smokeTimer<=0){
+          this.smokeTimer = 3.8; // duration of active smoke screen
+          this.smokeCooldown = 10 + rand(this.rng)*3;
+          game.effects.smokeAccPenalty = Math.max(game.effects.smokeAccPenalty, 0.42);
+          game.effects.smokeTime = 4.8;
+          game.spawnSmokePuffs(this.segments[0].x, this.segments[0].y);
+        }
+      }
+      this.smokeTimer = Math.max(0, this.smokeTimer - dt);
+
+      // move engine unless stunned
+      const engine=this.segments[0];
+      const speed = (engine.stun>0) ? this.speed*0.15 : this.speed;
+      this.progress += speed * dt;
+
+      // if reached end -> damage lives, train removed
+      if(this.progress >= this.path.len){
+        this.alive=false;
+        game.onTrainEscaped(this);
+        return;
+      }
+
+      // place segments along path with offsets
+      for(let i=0;i<this.segments.length;i++){
+        const seg=this.segments[i];
+        seg.stun = Math.max(0, seg.stun - dt);
+        seg.smokeHit = Math.max(0, seg.smokeHit - dt*2.0);
+        const back = i * SEG.gap;
+        const at = this.path.getAt(this.progress - back);
+        seg.x = at.x; seg.y = at.y; seg.ang = at.ang;
+      }
+
+      // repair cars heal nearby segments
+      for(let i=0;i<this.segments.length;i++){
+        const seg=this.segments[i];
+        if(seg.dead) continue;
+        if(seg.repair && seg.stun<=0){
+          const heal = (this.waveCfg.type===TrainType.BOSS ? 10 : 7) * dt;
+          const rad = 55;
+          for(let j=0;j<this.segments.length;j++){
+            if(i===j) continue;
+            const t=this.segments[j];
+            if(t.dead) continue;
+            if(dist2(seg.x,seg.y,t.x,t.y) <= rad*rad){
+              t.hp = Math.min(t.hpMax, t.hp + heal);
+              // small shield regen on shield trains
+              if(t.shieldMax>0){
+                t.shield = Math.min(t.shieldMax, t.shield + heal*0.55);
+              }
+            }
+          }
+        }
+      }
+
+      // if engine dead -> whole train dies
+      if(engine.dead){
+        this.alive=false;
+        return;
+      }
     }
   }
-  function wavePlan(wave){
-    const tier = (wave<=8)?1:(wave<=17)?2:3;
-    let list=[];
-    const add=(kind,n,gap)=>{ for(let i=0;i<n;i++) list.push({kind,tier,delay:i*gap}); };
 
-    if(wave===1) add("grunt",10,0.55);
-    else if(wave===2){ add("grunt",8,0.48); add("runner",6,0.62); }
-    else if(wave===3) add("grunt",12,0.42);
-    else if(wave===4) add("runner",12,0.38);
-    else if(wave===5){ add("tank",5,1.05); add("grunt",8,0.45); }
-    else if(wave===6){ add("shield",6,0.85); add("runner",10,0.40); }
-    else if(wave===7) add("tank",7,0.95);
-    else if(wave===8){ add("boss",1,0.0); add("grunt",14,0.35); }
-    else{
-      const baseN = 12 + Math.floor(wave*0.9);
-      const runners = Math.floor(baseN*0.33);
-      const grunts  = Math.floor(baseN*0.40);
-      const tanks   = Math.max(2, Math.floor(baseN*0.12));
-      const shields = Math.max(2, Math.floor(baseN*0.14));
-
-      add("grunt", grunts, 0.35 - Math.min(0.10, wave*0.004));
-      list = list.map((e,i)=> ({...e, delay:e.delay + (i%3)*0.06}));
-      for(let i=0;i<runners;i++) list.push({kind:"runner", tier, delay:i*0.32 + 0.8});
-      for(let i=0;i<shields;i++) list.push({kind:"shield", tier, delay:i*0.62 + 1.6});
-      for(let i=0;i<tanks;i++)   list.push({kind:"tank", tier, delay:i*0.90 + 2.2});
-      if(wave%5===0) list.push({kind:"boss", tier, delay:3.2});
+  class Projectile {
+    constructor(kind){
+      this.kind=kind; // 'bullet'|'emp'|'missile'
+      this.x=0; this.y=0;
+      this.vx=0; this.vy=0;
+      this.r=2;
+      this.life=3;
+      this.dmg=0;
+      this.dmgType=DamageType.KINETIC;
+      this.stun=0;
+      this.splash=0;
+      this.pierce=0;
+      this.ignoreShield=false;
+      this.targetId = null; // for missile guidance
+      this.accel=0;
     }
-
-    list.sort((a,b)=>a.delay-b.delay);
-    for(const e of list){
-      const base = enemyBase(e.kind);
-      const hpMult = 1 + (wave-1)*0.08;
-      const tierMult = 1 + (e.tier-1)*0.22;
-      e.hp = Math.round(base.hp * hpMult * tierMult);
-      e.spd = base.spd * (1 + (e.tier-1)*0.06);
-      e.bounty = Math.round(base.bounty * (1 + (e.tier-1)*0.12));
-      if(base.shield) e.shield = Math.round(base.shield * (1 + (wave-1)*0.06));
-      e.boss = !!base.boss;
-    }
-    return {tier,enemies:list};
   }
 
-  // ============================================================
-  // STATE
-  // ============================================================
-  let enemyId=1, turretId=1, projId=1;
+  class Turret {
+    constructor(type, x,y){
+      this.type=type;
+      this.x=x; this.y=y;
+      this.tier=0;
+      this.cool=0;
+      this.ang=0;
+      this.selected=false;
+      this.overclock=0;
+      this.focus=0;
+      this.abilityCD=0;
 
-  const state = {
-    mapIndex:0,
-    wave:0,
-    cash:220,
-    lives:22,
-    speed:1,
+      // laser lock
+      this.lockTarget = null;
+      this.lockTime = 0; // increases while staying on same target
+      this.searing=0;
+
+      // rail special
+      this.magPulse=0;
+    }
+    meta(){ return TURRET_META[this.type]; }
+    stats(){
+      const m=this.meta();
+      return m.tiers[this.tier];
+    }
+    range(){
+      const s=this.stats();
+      return s.range ?? s.range;
+    }
+    isPower(){ return !!this.meta().power; }
+    dpsEstimate(){
+      const m=this.meta();
+      const s=this.stats();
+      if(this.type===TurretType.LASER){
+        // rough mid-ramp DPS (base * ~1.6)
+        return s.dps * 1.6;
+      }
+      if(m.tiers[this.tier].rof){
+        return m.tiers[this.tier].rof * (m.tiers[this.tier].dmg ?? 0);
+      }
+      return 0;
+    }
+    update(dt, game){
+      this.cool = Math.max(0, this.cool - dt);
+      this.abilityCD = Math.max(0, this.abilityCD - dt);
+      this.overclock = Math.max(0, this.overclock - dt);
+      this.searing = Math.max(0, this.searing - dt);
+      this.magPulse = Math.max(0, this.magPulse - dt);
+
+      // Acquire target
+      const range = this.stats().range;
+      const candidates = game.segGrid.queryCircle(this.x,this.y,range);
+      let best=null;
+      let bestScore=1e18;
+
+      // Accuracy penalty from smoke (boss)
+      const globalAccPenalty = game.effects.smokeTime>0 ? game.effects.smokeAccPenalty : 0;
+      const accMul = 1 - globalAccPenalty;
+
+      // prefer closest-to-end (highest progress), but only if within range
+      for(const seg of candidates){
+        if(seg.dead) continue;
+        if(!seg.train.alive) continue;
+        const d2 = dist2(this.x,this.y, seg.x,seg.y);
+        if(d2 > range*range) continue;
+        // heuristic: closer to end => higher progress => lower score
+        const prog = seg.train.progress;
+        const score = (1/(prog+1)) * 5000 + d2;
+        if(score < bestScore){
+          bestScore=score; best=seg;
+        }
+      }
+
+      // Update aim
+      if(best){
+        const targetX = best.x;
+        const targetY = best.y;
+        const desired = Math.atan2(targetY-this.y, targetX-this.x);
+        // smooth aim
+        let da = desired - this.ang;
+        while(da>Math.PI) da-=Math.PI*2;
+        while(da<-Math.PI) da+=Math.PI*2;
+        this.ang += da * clamp(dt*10, 0, 1);
+
+        // Fire logic
+        const m=this.meta();
+        const s=this.stats();
+
+        if(this.type===TurretType.LASER){
+          // stay on target if sticky and still in range
+          if(this.lockTarget && (!this.lockTarget.dead) && this.lockTarget.train.alive){
+            const inR = dist2(this.x,this.y,this.lockTarget.x,this.lockTarget.y) <= range*range;
+            const stick = rand(game.rng) < s.lockStick;
+            if(!inR || !stick){
+              this.lockTarget = best;
+              this.lockTime = 0;
+            }
+          }else{
+            this.lockTarget = best;
+            this.lockTime = 0;
+          }
+
+          if(this.lockTarget){
+            // ramping damage
+            this.lockTime += dt;
+            const ramp = clamp(1 + this.lockTime * s.ramp, 1, s.rampMax);
+            let dps = s.dps * ramp;
+            if(this.searing>0){
+              dps *= 1.65;
+              this.lockTime += dt*0.55;
+            }
+            // apply smoke accuracy as intermittent beam misses
+            const missChance = 1-accMul;
+            const hit = rand(game.rng) > missChance*0.55;
+            if(hit){
+              game.applyDamage(this.lockTarget, dps*dt, DamageType.ENERGY, { source:this });
+              game.effects.laserBeams.push({
+                x1:this.x,y1:this.y,x2:this.lockTarget.x,y2:this.lockTarget.y,
+                t:0.10, ramp
+              });
+            }else{
+              // beam flicker
+              game.effects.laserBeams.push({
+                x1:this.x,y1:this.y,x2:this.lockTarget.x,y2:this.lockTarget.y,
+                t:0.05, ramp:0.8
+              });
+            }
+          }
+          return;
+        }
+
+        // Non-laser turrets use cooldown-based firing
+        let rof = s.rof ?? 1;
+        if(this.overclock>0) rof *= 2;
+
+        if(this.cool<=0){
+          // smoke accuracy affects shot direction / miss
+          const missChance = 1-accMul;
+          const miss = rand(game.rng) < missChance*0.55;
+
+          if(this.type===TurretType.MG){
+            const p = new Projectile('bullet');
+            p.x=this.x; p.y=this.y;
+            const spread = s.spread + (miss?0.14:0);
+            const ang = desired + (rand(game.rng)-0.5)*2*spread;
+            const sp = s.projSpeed;
+            p.vx=Math.cos(ang)*sp;
+            p.vy=Math.sin(ang)*sp;
+            p.life=1.25;
+            p.r=2.2;
+            p.dmg=s.dmg * (rand(game.rng)<s.crit ? 1.6 : 1);
+            p.dmgType=DamageType.KINETIC;
+            game.projectiles.push(p);
+            // muzzle flash
+            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*10,y:this.y+Math.sin(this.ang)*10,a:this.ang,t:0.07});
+          }
+          else if(this.type===TurretType.EMP){
+            const p = new Projectile('emp');
+            p.x=this.x; p.y=this.y;
+            const ang = desired + (rand(game.rng)-0.5)*2*(miss?0.20:0.06);
+            const sp=s.projSpeed;
+            p.vx=Math.cos(ang)*sp;
+            p.vy=Math.sin(ang)*sp;
+            p.life=1.6;
+            p.r=3.6;
+            p.dmg=s.dmg;
+            p.dmgType=DamageType.EMP;
+            p.stun=s.stun;
+            game.projectiles.push(p);
+            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*9,y:this.y+Math.sin(this.ang)*9,a:this.ang,t:0.08, emp:true});
+          }
+          else if(this.type===TurretType.MISSILE){
+            const p = new Projectile('missile');
+            p.x=this.x; p.y=this.y;
+            const ang = desired + (rand(game.rng)-0.5)*2*(miss?0.10:0.03);
+            const sp=s.projSpeed;
+            p.vx=Math.cos(ang)*sp;
+            p.vy=Math.sin(ang)*sp;
+            p.life=4.2;
+            p.r=4.8;
+            p.dmg=s.dmg;
+            p.dmgType=DamageType.EXPLOSIVE;
+            p.splash=s.splash;
+            p.accel=s.accel;
+            p.targetId = best; // reference object directly (single-file runtime)
+            game.projectiles.push(p);
+            game.effects.muzzle.push({x:this.x+Math.cos(this.ang)*12,y:this.y+Math.sin(this.ang)*12,a:this.ang,t:0.10, rocket:true});
+          }
+          else if(this.type===TurretType.RAIL){
+            // hitscan line with pierce
+            const pierce = (this.magPulse>0 ? (s.pierce+1) : s.pierce);
+            const ignoreShield = this.magPulse>0;
+            this.magPulse = 0;
+
+            // small scatter if smoke
+            const scatter = miss ? 0.12 : (1-s.acc)*0.05;
+            const shotAng = desired + (rand(game.rng)-0.5)*2*scatter;
+            const dx=Math.cos(shotAng), dy=Math.sin(shotAng);
+            const maxR = s.range;
+
+            // Find segments near the ray by sampling candidates in range
+            const rayHits=[];
+            const inRange = game.segGrid.queryCircle(this.x,this.y,maxR);
+            for(const seg of inRange){
+              if(seg.dead || !seg.train.alive) continue;
+              const vx = seg.x - this.x;
+              const vy = seg.y - this.y;
+              const tproj = vx*dx + vy*dy;
+              if(tproj < 0 || tproj > maxR) continue;
+              const px = this.x + dx*tproj;
+              const py = this.y + dy*tproj;
+              const d = Math.hypot(seg.x-px, seg.y-py);
+              const hitR = seg.radius + 4;
+              if(d <= hitR){
+                rayHits.push({seg, tproj});
+              }
+            }
+            rayHits.sort((a,b)=>a.tproj-b.tproj);
+
+            let hits=0;
+            for(let i=0;i<rayHits.length && hits<pierce;i++){
+              const seg=rayHits[i].seg;
+              if(seg.dead) continue;
+              // armorPierce reduces armor effectiveness
+              const armorPierce = s.armorPierce ?? 0;
+              game.applyDamage(seg, s.dmg, DamageType.KINETIC, { armorPierce, ignoreShield, source:this });
+              hits++;
+            }
+
+            // visuals
+            const x2 = this.x + dx*maxR;
+            const y2 = this.y + dy*maxR;
+            game.effects.railLines.push({x1:this.x,y1:this.y,x2,y2,t:0.12});
+            game.effects.muzzle.push({x:this.x+dx*10,y:this.y+dy*10,a:shotAng,t:0.09, rail:true});
+          }
+
+          this.cool = 1 / Math.max(0.01, rof);
+        }
+      } else {
+        // no target: relax laser lock
+        if(this.type===TurretType.LASER){
+          this.lockTarget = null;
+          this.lockTime = 0;
+        }
+      }
+    }
+  }
+
+  // ---------------------------
+  // Game State
+  // ---------------------------
+  const game = {
+    // deterministic RNG seed
+    rng: { s: 0xC0FFEE ^ 0x1234567 },
     paused:false,
-    showRange:true,
+    speedMul:1,
+    fixedStep: 1/60,
+    acc: 0,
 
-    turrets:[],
-    enemies:[],
-    projectiles:[],
+    mapIndex: 0,
+    path: null,
+    pathPoly: null,
 
-    buildPick:null,
-    selectedTurretId:null,
+    credits: 200,
+    scrap: 0,
+    energy: 0,
+    lives: 20,
 
-    inWave:false,
-    nextWaveTimer:0,
-    allowSkip:false,
-    spawnQueue:null,
+    wave: 1,
+    waveState: 'IDLE', // IDLE | ACTIVE | BETWEEN
+    betweenTimer: 1.0,
 
-    powerCounts:{},
-    mouseWorld:null,
+    trains: [],
+    turrets: [],
+    projectiles: [],
+    effects: {
+      muzzle: [],
+      railLines: [],
+      laserBeams: [],
+      explosions: [],
+      smokePuffs: [],
+      smokeTime: 0,
+      smokeAccPenalty: 0,
+      dust: [],
+    },
+
+    // selection / placement
+    placing: null, // turret type or null
+    hoverTurret: null,
+    hoverSeg: null,
+    selectedTurret: null,
+
+    // spatial grid for segments
+    segGrid: new SpatialGrid(64),
+
+    // skip wave
+    skipCD: 0,
+    skipReady: true,
+
+    // cached terrain
+    terrainSeed: 1337,
   };
 
-  function currentMap(){ return MAPS[state.mapIndex]; }
+  // ---------------------------
+  // Wave Builder
+  // ---------------------------
+  function waveConfig(wave, rng){
+    const boss = (wave % 5 === 0);
+    const baseSpeed = 48 + wave*2.4;
+    const cars = clamp(3 + Math.floor(wave*0.7), 3, 18) + (boss?6:0);
+    const armor = clamp(0.04 + wave*0.012 + (boss?0.08:0), 0.02, 0.48);
 
-  // ============================================================
-  // UI ELEMENTS
-  // ============================================================
-  const ui = {
-    cash: document.getElementById('cash'),
-    lives: document.getElementById('lives'),
-    enemyCount: document.getElementById('enemyCount'),
-
-    mapName: document.getElementById('mapName'),
-    waveNum: document.getElementById('waveNum'),
-    waveMax: document.getElementById('waveMax'),
-    nextWave: document.getElementById('nextWave'),
-    mapIdx: document.getElementById('mapIdx'),
-    mapTotal: document.getElementById('mapTotal'),
-    speedLabel: document.getElementById('speedLabel'),
-    runState: document.getElementById('runState'),
-
-    btnPause: document.getElementById('btnPause'),
-    btnRange: document.getElementById('btnRange'),
-    btnStartWave: document.getElementById('btnStartWave'),
-    btnSkip: document.getElementById('btnSkip'),
-
-    btnSpd1: document.getElementById('btnSpd1'),
-    btnSpd2: document.getElementById('btnSpd2'),
-    btnSpd3: document.getElementById('btnSpd3'),
-    btnSpd4: document.getElementById('btnSpd4'),
-
-    btnRestart: document.getElementById('btnRestart'),
-    towerGrid: document.getElementById('towerGrid'),
-  };
-
-  function syncUI(){
-    const m = currentMap();
-    ui.cash.textContent = state.cash;
-    ui.lives.textContent = state.lives;
-    ui.enemyCount.textContent = state.enemies.length;
-
-    ui.mapName.textContent = m.name;
-    ui.waveNum.textContent = state.wave;
-    ui.waveMax.textContent = m.waves;
-    ui.mapIdx.textContent = state.mapIndex+1;
-    ui.mapTotal.textContent = MAPS.length;
-    ui.speedLabel.textContent = state.speed+"x";
-    ui.runState.textContent = state.paused ? "PAUSED" : "RUN";
-
-    if(state.inWave) ui.nextWave.textContent = "IN WAVE";
-    else if(state.wave===0) ui.nextWave.textContent = "READY";
-    else if(state.nextWaveTimer>0) ui.nextWave.textContent = Math.ceil(state.nextWaveTimer)+"s";
-    else ui.nextWave.textContent = "READY";
-
-    // Wave flow: wave 1 manual; after that auto (skip timer allowed)
-    ui.btnStartWave.disabled = state.inWave || (state.wave>=1 && state.wave < m.waves);
-    ui.btnSkip.disabled = !(state.allowSkip && !state.inWave && state.wave>=1 && state.wave<m.waves);
-
-    ui.btnRange.textContent = "Range: " + (state.showRange ? "ON" : "OFF");
-    ui.btnRange.classList.toggle('primary', state.showRange);
-  }
-
-  // ============================================================
-  // BUILD BAR
-  // ============================================================
-  function rebuildBuildBar(){
-    ui.towerGrid.innerHTML = "";
-    const unlockedMap = state.mapIndex+1;
-
-    for(const t of TURRET_TYPES){
-      const locked = unlockedMap < t.unlockMap;
-      const isSelected = state.buildPick === t.id;
-      const isPower = t.cap < 999;
-      const count = state.powerCounts[t.id] || 0;
-
-      const tile = document.createElement('div');
-      tile.className = "tile" + (locked ? " locked" : "") + (isSelected ? " selected" : "");
-      tile.innerHTML = `
-        <div class="label">${t.name}</div>
-        <div class="cost">$${t.cost}</div>
-        <div class="cap">${isPower ? `${count}/${t.cap}` : "∞"}</div>
-      `;
-      if(!locked){
-        tile.addEventListener('click', ()=>{
-          state.buildPick = (state.buildPick===t.id) ? null : t.id;
-          rebuildBuildBar();
-          toast(state.buildPick ? `Selected <b>${t.name}</b> — click map to place` : "Build canceled");
-        });
-      }
-      ui.towerGrid.appendChild(tile);
+    // train type rotation
+    let type = TrainType.NORMAL;
+    if(boss){
+      type = TrainType.BOSS;
+    } else {
+      const r = rand(rng);
+      if(wave>=3 && r<0.26) type = TrainType.ARMORED;
+      else if(wave>=4 && r<0.50) type = TrainType.SHIELD;
+      else if(wave>=6 && r<0.68) type = TrainType.REPAIR;
+      else if(wave>=7 && r<0.82) type = TrainType.BOMB;
+      else type = TrainType.NORMAL;
     }
-  }
 
-  // ============================================================
-  // GAME FLOW
-  // ============================================================
-  function resetCampaign(){
-    state.mapIndex=0;
-    state.wave=0;
-    state.cash=220;
-    state.lives=22;
-    state.speed=1;
-    state.paused=false;
-    state.showRange=true;
-    state.turrets=[];
-    state.enemies=[];
-    state.projectiles=[];
-    state.buildPick=null;
-    state.selectedTurretId=null;
-    state.inWave=false;
-    state.nextWaveTimer=0;
-    state.allowSkip=false;
-    state.spawnQueue=null;
-    state.powerCounts={};
-    rebuildBuildBar();
-    syncUI();
-    toast("Ready. <b>Start Wave</b> to begin.");
-  }
+    const shield = (type===TrainType.SHIELD || type===TrainType.BOSS) ? (22 + wave*5.5) : 0;
 
-  function beginMap(idx){
-    state.mapIndex=idx;
-    state.wave=0;
-    state.inWave=false;
-    state.nextWaveTimer=0;
-    state.allowSkip=false;
-    state.spawnQueue=null;
-    state.enemies=[];
-    state.projectiles=[];
-    rebuildBuildBar();
-    syncUI();
-    toast(`Entering <b>${currentMap().name}</b>. Wave 1 is manual.`);
-  }
+    const engineHP = (boss ? 900 : 260) + wave*65 + (type===TrainType.ARMORED? 90:0) + (type===TrainType.SHIELD? 70:0);
+    const carHP = (boss ? 180 : 90) + wave*20 + (type===TrainType.ARMORED? 28:0);
 
-  function victory(){
-    toast("<b>VICTORY!</b> Campaign cleared.", 2200);
-    state.paused = true;
-    syncUI();
-  }
-
-  function defeat(){
-    toast("<b>DEFEAT.</b> Hold restart to try again.", 2200);
-    state.paused = true;
-    syncUI();
+    return {
+      wave,
+      type,
+      speed: baseSpeed * (boss?0.9:1.0),
+      cars,
+      armor: armor + (type===TrainType.ARMORED? 0.12:0),
+      shield,
+      engineHP,
+      carHP,
+      // wave rewards
+      waveEnergy: 2 + Math.floor(wave/2) + (boss?4:0),
+    };
   }
 
   function startWave(){
-    if(state.inWave) return;
-    const m = currentMap();
-
-    if(state.wave >= m.waves){
-      const next = state.mapIndex+1;
-      if(next >= MAPS.length) victory();
-      else beginMap(next);
-      return;
-    }
-
-    state.wave++;
-    state.inWave = true;
-    state.allowSkip = false;
-
-    const plan = wavePlan(state.wave);
-    const pd = pathSegments(m.path);
-    state.spawnQueue = plan.enemies.map(e=>({ ...e, t:e.delay, pathData:pd }));
-
-    toast(`Wave <b>${state.wave}</b> started.`);
-    syncUI();
+    const cfg = waveConfig(game.wave, game.rng);
+    const t = new Train(game.path, cfg, game.rng);
+    // spawn progress slightly negative so engine appears from off-map
+    t.progress = -70;
+    game.trains.push(t);
+    game.waveState = 'ACTIVE';
+    showToast(`Wave ${game.wave}: ${cfg.type.replace('_',' ')} train inbound.`, 1.7);
   }
 
-  function onWaveEnded(){
-    state.inWave = false;
-    const m = currentMap();
-
-    if(state.wave >= m.waves){
-      // map complete → advance quickly
-      state.nextWaveTimer = 2.0;
-      state.allowSkip = false;
-      toast("Map cleared. Advancing…", 1300);
-      return;
-    }
-
-    state.nextWaveTimer = 30.0;
-    state.allowSkip = true;
-    toast("Wave cleared. Next wave in <b>30s</b> (or skip).", 1400);
-    syncUI();
+  function endWave(){
+    const cfg = waveConfig(game.wave, game.rng);
+    // Reward energy for completing wave
+    game.energy += cfg.waveEnergy;
+    game.waveState = 'BETWEEN';
+    game.betweenTimer = 2.0;
+    game.wave++;
+    showToast(`Wave clear. +${cfg.waveEnergy} Energy`, 1.4);
   }
 
-  // ============================================================
-  // PLACEMENT
-  // ============================================================
-  function canPlaceHere(x,y){
-    const path = currentMap().path;
-    const minDist = 44;
-    for(let i=0;i<path.length-1;i++){
-      const a=path[i], b=path[i+1];
-      const t = ((x-a.x)*(b.x-a.x)+(y-a.y)*(b.y-a.y))/((b.x-a.x)**2+(b.y-a.y)**2);
-      const tt=Math.max(0,Math.min(1,t));
-      const px=a.x+(b.x-a.x)*tt, py=a.y+(b.y-a.y)*tt;
-      if(Math.hypot(x-px,y-py) < minDist) return false;
+  // ---------------------------
+  // Damage & Rewards
+  // ---------------------------
+  game.applyDamage = function(seg, amount, dmgType, opts={}){
+    if(seg.dead) return;
+
+    const ignoreShield = !!opts.ignoreShield;
+    const armorPierce = opts.armorPierce ?? 0;
+
+    // segment resistances by train type
+    const ttype = seg.train.waveCfg.type;
+
+    // smoke hit flash
+    seg.smokeHit = 0.12;
+
+    let dmg = amount;
+
+    // shield logic
+    if(seg.shieldMax>0 && seg.shield>0 && !ignoreShield){
+      // energy best vs shields, kinetic weaker
+      const mult = (dmgType===DamageType.ENERGY || dmgType===DamageType.EMP) ? 1.05 : 0.78;
+      const take = Math.min(seg.shield, dmg*mult);
+      seg.shield -= take;
+      dmg -= take / mult;
+      if(dmg <= 0){
+        return;
+      }
     }
-    for(const t of state.turrets){
-      if(Math.hypot(x-t.x, y-t.y) < 52) return false;
+
+    // armor reduces kinetic, less effect on energy/explosive
+    if(dmgType===DamageType.KINETIC){
+      const armor = seg.armor;
+      const effectiveArmor = clamp(armor * (1 - armorPierce), 0, 0.85);
+      dmg *= (1 - effectiveArmor);
+      // armored train further reduces kinetic
+      if(ttype===TrainType.ARMORED || ttype===TrainType.BOSS){
+        dmg *= 0.82;
+      }
+    } else if(dmgType===DamageType.EXPLOSIVE){
+      // explosive is decent vs cars, a bit weaker vs boss engine
+      if(seg.kind==='engine' && ttype===TrainType.BOSS) dmg *= 0.86;
+    } else if(dmgType===DamageType.EMP){
+      // EMP does low hull damage but disrupts shield a bit better
+      dmg *= 0.72;
+    } else if(dmgType===DamageType.ENERGY){
+      // energy is stable, slight bonus vs shield trains
+      if(ttype===TrainType.SHIELD || ttype===TrainType.BOSS) dmg *= 1.05;
+    }
+
+    seg.hp -= dmg;
+
+    if(seg.hp <= 0){
+      seg.dead = true;
+      seg.hp = 0;
+
+      // rewards per segment
+      const baseC = seg.kind==='engine' ? 28 : 10;
+      const baseS = seg.kind==='engine' ? 8 : 4;
+      const w = seg.train.waveCfg.wave;
+      const mult = 1 + w*0.06 + (seg.train.waveCfg.type===TrainType.BOSS?0.30:0);
+
+      game.credits += Math.floor(baseC * mult);
+      game.scrap   += Math.floor(baseS * mult);
+
+      // bomb car death explosion
+      if(seg.bomb){
+        const radius = 76;
+        game.effects.explosions.push({x:seg.x,y:seg.y,r:radius,t:0.65, orange:true});
+        // damage nearby turrets
+        for(const tur of game.turrets){
+          const d = dist(tur.x,tur.y,seg.x,seg.y);
+          if(d <= radius){
+            // "damages nearby turrets" -> temporary disable / jam
+            tur.cool = Math.max(tur.cool, 0.8 + (radius-d)/radius * 0.9);
+            tur.overclock = Math.max(0, tur.overclock - 1.0);
+          }
+        }
+        showToast('Bomb car detonated — turrets jammed!', 1.2);
+      }
+
+      // if engine dead -> kill train
+      if(seg.kind==='engine'){
+        seg.train.alive = false;
+        // extra reward for killing engine
+        game.credits += Math.floor(24 * mult);
+        game.scrap += Math.floor(12 * mult);
+      }
+    }
+  };
+
+  game.onTrainEscaped = function(train){
+    // lose lives based on cars remaining
+    const aliveSeg = train.segments.filter(s=>!s.dead).length;
+    const loss = clamp(Math.floor(aliveSeg/2), 2, 10);
+    game.lives -= loss;
+    showToast(`Train breached perimeter. -${loss} Lives`, 1.5);
+    if(game.lives<=0){
+      game.lives=0;
+      game.paused=true;
+      showToast('DEFENSE FAILED — Load or Reset', 3.0);
+    }
+  };
+
+  // ---------------------------
+  // Visual Effects Helpers
+  // ---------------------------
+  game.spawnSmokePuffs = function(x,y){
+    for(let i=0;i<18;i++){
+      game.effects.smokePuffs.push({
+        x: x + (rand(game.rng)-0.5)*60,
+        y: y + (rand(game.rng)-0.5)*40,
+        vx: (rand(game.rng)-0.5)*15,
+        vy: -10 - rand(game.rng)*18,
+        r: 12 + rand(game.rng)*18,
+        t: 1.0 + rand(game.rng)*0.8,
+      });
+    }
+    // also add dust wave
+    for(let i=0;i<16;i++){
+      game.effects.dust.push({
+        x: x + (rand(game.rng)-0.5)*90,
+        y: y + (rand(game.rng)-0.5)*60,
+        vx: (rand(game.rng)-0.5)*20,
+        vy: (rand(game.rng)-0.5)*20,
+        r: 8 + rand(game.rng)*14,
+        t: 0.9 + rand(game.rng)*0.5,
+        c: 0.25 + rand(game.rng)*0.25,
+      });
+    }
+  };
+
+  // ---------------------------
+  // Map Building
+  // ---------------------------
+  function buildPathForMap(mapIndex){
+    const m = MAPS[mapIndex];
+    // scale control points to canvas
+    const margin = 40;
+    const ctrl = m.ctrl.map(p=>({
+      x: margin + p.x*(W - margin*2),
+      y: margin + p.y*(H - margin*2),
+    }));
+    const poly = sampleSpline(ctrl, 0.03);
+    game.pathPoly = poly;
+    game.path = new Path(poly);
+
+    // change terrain seed per map
+    game.terrainSeed = 1337 + mapIndex*917;
+  }
+
+  // ---------------------------
+  // Rendering: Terrain + Track
+  // ---------------------------
+  function terrainColorAt(x,y){
+    // gritty dirt/rock, deterministic
+    const sx = Math.floor(x/22), sy=Math.floor(y/22);
+    const h = hash2(sx ^ game.terrainSeed, sy + (game.terrainSeed*3));
+    const r = ((h & 255)/255);
+    const r2 = (((h>>>8)&255)/255);
+    // mix browns/greys
+    const base = 0.12 + r*0.12;
+    const rock = 0.08 + r2*0.16;
+    return { base, rock, r, r2 };
+  }
+
+  function drawTerrain(){
+    // fast tiled noise blocks
+    const tile=22;
+    for(let y=0; y<H; y+=tile){
+      for(let x=0; x<W; x+=tile){
+        const t = terrainColorAt(x,y);
+        const g = 12 + t.base*120;
+        const b = 14 + t.rock*80;
+        const r = 14 + t.base*110 + t.rock*40;
+        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillRect(x,y,tile+1,tile+1);
+
+        // speckles / stones
+        if(((hash2((x/22)|0,(y/22)|0) ^ game.terrainSeed) & 7)===0){
+          ctx.fillStyle = `rgba(220,220,230,0.05)`;
+          ctx.beginPath();
+          ctx.arc(x+6 + (t.r*10), y+7 + (t.r2*10), 2.5 + t.r*2.2, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // vignette
+    const grd = ctx.createRadialGradient(W*0.5, H*0.45, Math.min(W,H)*0.15, W*0.5, H*0.5, Math.max(W,H)*0.72);
+    grd.addColorStop(0,'rgba(0,0,0,0)');
+    grd.addColorStop(1,'rgba(0,0,0,0.55)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  function drawTrack(){
+    const pts = game.pathPoly;
+    if(!pts) return;
+
+    // track bed
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+
+    // underlay (dust)
+    ctx.strokeStyle='rgba(10,7,5,0.48)';
+    ctx.lineWidth=38;
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+
+    // ballast
+    ctx.strokeStyle='rgba(30,20,16,0.62)';
+    ctx.lineWidth=30;
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+
+    // rails (two parallel lines)
+    function railOffset(ix){
+      // approximate normal using neighbor direction
+      const p=pts[ix];
+      const p0=pts[Math.max(0,ix-1)];
+      const p1=pts[Math.min(pts.length-1,ix+1)];
+      const dx=p1.x-p0.x, dy=p1.y-p0.y;
+      const l=Math.hypot(dx,dy)||1;
+      const nx = -dy/l, ny=dx/l;
+      return {nx,ny};
+    }
+
+    const railSep = 10;
+    ctx.strokeStyle='rgba(160,170,190,0.40)';
+    ctx.lineWidth=3.2;
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      const o=railOffset(i);
+      const x=p.x + o.nx*railSep, y=p.y + o.ny*railSep;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      const o=railOffset(i);
+      const x=p.x - o.nx*railSep, y=p.y - o.ny*railSep;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // ties
+    const tieEvery = 22;
+    ctx.strokeStyle='rgba(65,45,30,0.55)';
+    ctx.lineWidth=4.6;
+    for(let s=0; s<game.path.len; s+=tieEvery){
+      const at = game.path.getAt(s);
+      const nx = -Math.sin(at.ang), ny = Math.cos(at.ang);
+      const tx1 = at.x + nx*16, ty1 = at.y + ny*16;
+      const tx2 = at.x - nx*16, ty2 = at.y - ny*16;
+      ctx.beginPath();
+      ctx.moveTo(tx1,ty1);
+      ctx.lineTo(tx2,ty2);
+      ctx.stroke();
+    }
+
+    // subtle highlight
+    ctx.strokeStyle='rgba(106,168,255,0.08)';
+    ctx.lineWidth=26;
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+  }
+
+  // ---------------------------
+  // Rendering: Turrets / Trains / FX / UI overlays
+  // ---------------------------
+  function drawTurret(t){
+    const m=t.meta();
+    const s=t.stats();
+
+    // base pad
+    ctx.save();
+    ctx.translate(t.x,t.y);
+
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0,6, 13, 9, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // pad body (metal)
+    ctx.fillStyle='rgba(22,32,48,0.95)';
+    ctx.strokeStyle='rgba(140,180,240,0.18)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.roundRect(-14,-12,28,24,7);
+    ctx.fill(); ctx.stroke();
+
+    // core light by type
+    let core='rgba(106,168,255,0.55)';
+    if(t.type===TurretType.MG) core='rgba(255,154,60,0.48)';
+    if(t.type===TurretType.MISSILE) core='rgba(255,92,122,0.44)';
+    if(t.type===TurretType.EMP) core='rgba(120,255,240,0.42)';
+    if(t.type===TurretType.RAIL) core='rgba(190,210,255,0.40)';
+    if(t.type===TurretType.LASER) core='rgba(106,168,255,0.62)';
+
+    ctx.fillStyle=core;
+    ctx.beginPath();
+    ctx.arc(0,0, 4.5 + t.tier*0.7, 0, Math.PI*2);
+    ctx.fill();
+
+    // turret head
+    ctx.rotate(t.ang);
+    ctx.fillStyle='rgba(15,22,34,0.95)';
+    ctx.strokeStyle='rgba(160,190,240,0.16)';
+    ctx.lineWidth=2;
+
+    if(t.type===TurretType.MG){
+      ctx.beginPath();
+      ctx.roundRect(-4,-8,18,16,6);
+      ctx.fill(); ctx.stroke();
+      // barrel
+      ctx.fillStyle='rgba(200,170,120,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(8,-3,16,6,3);
+      ctx.fill();
+    } else if(t.type===TurretType.RAIL){
+      ctx.beginPath();
+      ctx.roundRect(-6,-9,20,18,7);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(190,210,255,0.14)';
+      ctx.beginPath();
+      ctx.roundRect(8,-2,20,4,2);
+      ctx.fill();
+    } else if(t.type===TurretType.EMP){
+      ctx.beginPath();
+      ctx.roundRect(-6,-9,20,18,7);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(120,255,240,0.30)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(6,0,7, -0.6, 0.6);
+      ctx.stroke();
+    } else if(t.type===TurretType.LASER){
+      ctx.beginPath();
+      ctx.roundRect(-6,-10,22,20,8);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(106,168,255,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(10,-2,20,4,2);
+      ctx.fill();
+    } else if(t.type===TurretType.MISSILE){
+      ctx.beginPath();
+      ctx.roundRect(-7,-10,22,20,8);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(255,92,122,0.14)';
+      ctx.beginPath();
+      ctx.roundRect(8,-8,16,16,7);
+      ctx.fill();
+    }
+
+    // tier marks
+    ctx.resetTransform();
+    ctx.translate(t.x,t.y);
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    for(let i=0;i<=t.tier;i++){
+      ctx.fillRect(-12 + i*8, 12, 6, 2);
+    }
+
+    // selection ring
+    if(t.selected){
+      ctx.strokeStyle='rgba(255,154,60,0.40)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(0,0, 18, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSegment(seg){
+    const boss = seg.train.waveCfg.type===TrainType.BOSS;
+    const armored = seg.train.waveCfg.type===TrainType.ARMORED;
+    const shielded = seg.shieldMax>0;
+
+    ctx.save();
+    ctx.translate(seg.x, seg.y);
+    ctx.rotate(seg.ang);
+
+    // ground shadow
+    ctx.fillStyle='rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 7, seg.radius*1.1, seg.radius*0.75, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // body
+    const metal = armored ? 'rgba(45,50,58,0.95)' : 'rgba(34,40,52,0.95)';
+    const edge = boss ? 'rgba(255,154,60,0.28)' : 'rgba(150,190,240,0.16)';
+    ctx.fillStyle=metal;
+    ctx.strokeStyle=edge;
+    ctx.lineWidth=2;
+
+    const w = seg.kind==='engine' ? (boss?44:36) : (boss?34:28);
+    const h = seg.kind==='engine' ? (boss?26:22) : (boss?22:20);
+    ctx.beginPath();
+    ctx.roundRect(-w/2, -h/2, w, h, 8);
+    ctx.fill(); ctx.stroke();
+
+    // details: vents / panels
+    ctx.fillStyle='rgba(0,0,0,0.22)';
+    ctx.fillRect(-w/2+6, -h/2+6, w-12, 3);
+    ctx.fillRect(-w/2+6, h/2-9, w-12, 3);
+
+    // role icons
+    if(seg.repair){
+      ctx.fillStyle='rgba(57,229,138,0.30)';
+      ctx.beginPath(); ctx.arc(0,0, 6, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(57,229,138,0.50)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(-5,0); ctx.lineTo(5,0);
+      ctx.moveTo(0,-5); ctx.lineTo(0,5);
+      ctx.stroke();
+    }
+    if(seg.bomb){
+      ctx.fillStyle='rgba(255,92,122,0.26)';
+      ctx.beginPath(); ctx.arc(0,0, 6, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(255,92,122,0.52)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(-4,-4); ctx.lineTo(4,4);
+      ctx.moveTo(4,-4); ctx.lineTo(-4,4);
+      ctx.stroke();
+    }
+
+    // shield shimmer
+    if(shielded && seg.shield>0){
+      const t = seg.shield/seg.shieldMax;
+      ctx.strokeStyle=`rgba(106,168,255,${0.15 + 0.25*t})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.roundRect(-w/2-3, -h/2-3, w+6, h+6, 10);
+      ctx.stroke();
+    }
+
+    // hit flash
+    if(seg.smokeHit>0){
+      ctx.fillStyle=`rgba(255,154,60,${0.25*seg.smokeHit/0.12})`;
+      ctx.beginPath();
+      ctx.roundRect(-w/2, -h/2, w, h, 8);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawHPBarsForSegment(seg){
+    // draw on top of segment
+    const w = seg.kind==='engine' ? 44 : 34;
+    const x = seg.x - w/2;
+    const y = seg.y - (seg.kind==='engine'?30:26);
+
+    // back
+    ctx.fillStyle='rgba(0,0,0,0.45)';
+    ctx.fillRect(x,y,w,6);
+
+    // hull
+    const hull = seg.hp/seg.hpMax;
+    ctx.fillStyle = hull>0.6 ? 'rgba(57,229,138,0.85)' : hull>0.3 ? 'rgba(255,204,102,0.85)' : 'rgba(255,92,122,0.85)';
+    ctx.fillRect(x,y,w*hull,6);
+
+    // shield bar
+    if(seg.shieldMax>0){
+      const s = seg.shield/seg.shieldMax;
+      ctx.fillStyle='rgba(106,168,255,0.92)';
+      ctx.fillRect(x,y-7, w*s, 4);
+      ctx.fillStyle='rgba(0,0,0,0.35)';
+      ctx.fillRect(x+w*s, y-7, w*(1-s), 4);
+    }
+  }
+
+  function drawProjectiles(){
+    for(const p of game.projectiles){
+      if(p.kind==='bullet'){
+        ctx.strokeStyle='rgba(255,154,60,0.75)';
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(p.x - p.vx*0.008, p.y - p.vy*0.008);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      } else if(p.kind==='emp'){
+        ctx.fillStyle='rgba(120,255,240,0.80)';
+        ctx.beginPath();
+        ctx.arc(p.x,p.y, p.r, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle='rgba(120,255,240,0.35)';
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y, p.r+4, 0, Math.PI*2);
+        ctx.stroke();
+      } else if(p.kind==='missile'){
+        ctx.save();
+        const a = Math.atan2(p.vy,p.vx);
+        ctx.translate(p.x,p.y);
+        ctx.rotate(a);
+        ctx.fillStyle='rgba(255,92,122,0.85)';
+        ctx.beginPath();
+        ctx.roundRect(-6,-3,12,6,3);
+        ctx.fill();
+        ctx.fillStyle='rgba(255,154,60,0.65)';
+        ctx.beginPath();
+        ctx.arc(-7,0, 3.2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+
+        // exhaust
+        ctx.strokeStyle='rgba(255,154,60,0.18)';
+        ctx.lineWidth=3;
+        ctx.beginPath();
+        ctx.moveTo(p.x - Math.cos(a)*16, p.y - Math.sin(a)*16);
+        ctx.lineTo(p.x - Math.cos(a)*6, p.y - Math.sin(a)*6);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawFX(dt){
+    // muzzle flashes
+    for(const m of game.effects.muzzle){
+      const alpha = m.t / 0.10;
+      ctx.save();
+      ctx.translate(m.x,m.y);
+      ctx.rotate(m.a);
+      let c = 'rgba(255,154,60,'+ (0.55*alpha) +')';
+      if(m.emp) c = 'rgba(120,255,240,'+(0.50*alpha)+')';
+      if(m.rail) c = 'rgba(220,235,255,'+(0.45*alpha)+')';
+      if(m.rocket) c= 'rgba(255,92,122,'+(0.46*alpha)+')';
+      ctx.fillStyle=c;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(18,4);
+      ctx.lineTo(18,-4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      m.t -= dt;
+    }
+    game.effects.muzzle = game.effects.muzzle.filter(m=>m.t>0);
+
+    // rail lines
+    for(const r of game.effects.railLines){
+      const a = r.t/0.12;
+      ctx.strokeStyle = `rgba(220,235,255,${0.45*a})`;
+      ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.moveTo(r.x1,r.y1);
+      ctx.lineTo(r.x2,r.y2);
+      ctx.stroke();
+      // shimmer
+      ctx.strokeStyle = `rgba(106,168,255,${0.18*a})`;
+      ctx.lineWidth=7;
+      ctx.beginPath();
+      ctx.moveTo(r.x1,r.y1);
+      ctx.lineTo(r.x2,r.y2);
+      ctx.stroke();
+      r.t -= dt;
+    }
+    game.effects.railLines = game.effects.railLines.filter(r=>r.t>0);
+
+    // laser beams
+    for(const b of game.effects.laserBeams){
+      const a = b.t/0.10;
+      const w = 2.2 + (b.ramp*0.9);
+      ctx.strokeStyle = `rgba(106,168,255,${0.22*a})`;
+      ctx.lineWidth = w*2.5;
+      ctx.beginPath();
+      ctx.moveTo(b.x1,b.y1);
+      ctx.lineTo(b.x2,b.y2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(200,235,255,${0.30*a})`;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(b.x1,b.y1);
+      ctx.lineTo(b.x2,b.y2);
+      ctx.stroke();
+
+      // impact sparkle
+      ctx.fillStyle = `rgba(255,154,60,${0.18*a})`;
+      ctx.beginPath();
+      ctx.arc(b.x2,b.y2, 6 + b.ramp*2, 0, Math.PI*2);
+      ctx.fill();
+
+      b.t -= dt;
+    }
+    game.effects.laserBeams = game.effects.laserBeams.filter(b=>b.t>0);
+
+    // explosions
+    for(const e of game.effects.explosions){
+      const a = e.t/0.65;
+      const r = e.r * (1 - a*0.2);
+      ctx.fillStyle = `rgba(255,154,60,${(e.orange?0.24:0.14)*a})`;
+      ctx.beginPath(); ctx.arc(e.x,e.y, r, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = `rgba(255,92,122,${0.30*a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(e.x,e.y, r*0.72, 0, Math.PI*2); ctx.stroke();
+      e.t -= dt;
+    }
+    game.effects.explosions = game.effects.explosions.filter(e=>e.t>0);
+
+    // smoke puffs
+    for(const s of game.effects.smokePuffs){
+      const a = clamp(s.t,0,1);
+      ctx.fillStyle = `rgba(20,24,30,${0.22*a})`;
+      ctx.beginPath();
+      ctx.arc(s.x,s.y, s.r*(1.1 - a*0.15), 0, Math.PI*2);
+      ctx.fill();
+      s.x += s.vx*dt; s.y += s.vy*dt;
+      s.vx *= (1 - dt*0.4);
+      s.vy *= (1 - dt*0.2);
+      s.t -= dt*0.6;
+      s.r += dt*7;
+    }
+    game.effects.smokePuffs = game.effects.smokePuffs.filter(s=>s.t>0);
+
+    // dust
+    for(const d of game.effects.dust){
+      const a = clamp(d.t,0,1);
+      ctx.fillStyle = `rgba(255,154,60,${d.c*a})`;
+      ctx.beginPath();
+      ctx.arc(d.x,d.y, d.r*(1.2 - a*0.2), 0, Math.PI*2);
+      ctx.fill();
+      d.x += d.vx*dt; d.y += d.vy*dt;
+      d.vx *= (1 - dt*0.5);
+      d.vy *= (1 - dt*0.5);
+      d.t -= dt*0.8;
+      d.r += dt*5;
+    }
+    game.effects.dust = game.effects.dust.filter(d=>d.t>0);
+  }
+
+  function drawPlacementGhost(mx,my, ok){
+    if(!game.placing) return;
+    const type=game.placing;
+    const tmp = new Turret(type, mx,my);
+    tmp.tier=0;
+    ctx.save();
+    ctx.globalAlpha = ok ? 0.85 : 0.55;
+    drawTurret(tmp);
+    // range circle
+    ctx.strokeStyle = ok ? 'rgba(106,168,255,0.28)' : 'rgba(255,92,122,0.28)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(mx,my, tmp.stats().range, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---------------------------
+  // Input Handling
+  // ---------------------------
+  let mouseX=0, mouseY=0, mouseIn=true, mouseDown=false;
+  canvas.addEventListener('mousemove', (e)=>{
+    const r = canvas.getBoundingClientRect();
+    mouseX = (e.clientX - r.left);
+    mouseY = (e.clientY - r.top);
+  }, {passive:true});
+  canvas.addEventListener('mouseenter', ()=>mouseIn=true, {passive:true});
+  canvas.addEventListener('mouseleave', ()=>mouseIn=false, {passive:true});
+  canvas.addEventListener('mousedown', (e)=>{ mouseDown=true; }, {passive:true});
+  window.addEventListener('mouseup', ()=>{ mouseDown=false; }, {passive:true});
+
+  function canPlaceAt(x,y){
+    // within bounds
+    if(x<18 || y<18 || x>W-18 || y>H-18) return false;
+    // track exclusion
+    const d = game.path.distanceToPoint(x,y);
+    if(d < TRACK_SAFE_RADIUS) return false;
+    // turret spacing
+    for(const t of game.turrets){
+      if(dist2(x,y,t.x,t.y) < (TURRET_MIN_SPACING*2)*(TURRET_MIN_SPACING*2)) return false;
     }
     return true;
   }
 
-  function placeTurret(typeId,x,y){
-    const tt = TURRET_TYPES.find(t=>t.id===typeId);
-    if(!tt) return;
-
-    state.powerCounts[typeId] ??= 0;
-    const isPower = tt.cap < 999;
-    if(isPower && state.powerCounts[typeId] >= tt.cap){
-      toast(`Cap reached for <b>${tt.name}</b>.`);
-      return;
+  function turretAt(x,y){
+    // pick closest within radius
+    let best=null, bestD=1e9;
+    for(const t of game.turrets){
+      const d = dist2(x,y,t.x,t.y);
+      if(d < 22*22 && d<bestD){ best=t; bestD=d; }
     }
-    if(state.cash < tt.cost){
-      toast("Not enough cash.");
-      return;
-    }
-    if(!canPlaceHere(x,y)){
-      toast("Can't place there.");
-      return;
-    }
-
-    state.cash -= tt.cost;
-
-    const turret = {
-      id: turretId++,
-      typeId,
-      x,y,
-      lvl:1,
-      cdLeft:0,
-      rot:0
-    };
-    state.turrets.push(turret);
-    if(isPower) state.powerCounts[typeId]++;
-
-    state.selectedTurretId = turret.id;
-    syncUI();
-    rebuildBuildBar();
+    return best;
   }
 
-  // ============================================================
-  // COMBAT
-  // ============================================================
-  function spawnEnemy(kind,tier,hp,spd,bounty,shield,boss,pathData){
-    const en = {
-      id: enemyId++,
-      kind,tier,
-      hp, spd, bounty,
-      shield: shield||0,
-      boss: !!boss,
-      dist: 0,
-      x:0,y:0,ang:0,
-      pathData,
-      dead:false
-    };
-    const p = posOnPath(pathData,0);
-    en.x=p.x; en.y=p.y; en.ang=p.ang;
-    state.enemies.push(en);
-  }
+  canvas.addEventListener('click', ()=>{
+    if(game.paused) return;
 
-  function dealDamage(e,dmg){
-    let left=dmg;
-    if(e.shield>0){
-      const s = Math.min(e.shield,left);
-      e.shield -= s;
-      left -= s;
-    }
-    if(left>0) e.hp -= left;
-    if(e.hp<=0){
-      e.dead=true;
-      state.cash += e.bounty;
-    }
-  }
+    // if placing
+    if(game.placing){
+      const type = game.placing;
+      const meta = TURRET_META[type];
+      const cost = meta.baseCost;
 
-  function fireProjectile(kind,turret,target,dmg,opt){
-    const muzzle=34;
-    const sx = turret.x + Math.cos(turret.rot)*muzzle;
-    const sy = turret.y + Math.sin(turret.rot)*muzzle;
-
-    if(kind==="laser"){
-      const p = { id:projId++, kind:"laser", x:sx,y:sy, tx:target.x,ty:target.y, rot:turret.rot, dmg, life:0.10, pierce:opt.pierce||0, lineWidth:opt.lineWidth||10, dead:false, hitIds:new Set() };
-      applyLaserHits(p);
-      state.projectiles.push(p);
-      return;
-    }
-
-    const p = {
-      id:projId++,
-      kind,
-      x:sx,y:sy,
-      tx:target.x, ty:target.y,
-      spd: 820,
-      dmg,
-      splash: opt.splash||0,
-      chain: opt.chain||0,
-      chainRange: opt.chainRange||0,
-      pierce: opt.pierce||0,
-      t:0,
-      dead:false,
-      hitIds:new Set()
-    };
-    state.projectiles.push(p);
-  }
-
-  function applyLaserHits(p){
-    const ax=p.x, ay=p.y, bx=p.tx, by=p.ty;
-    const abx=bx-ax, aby=by-ay;
-    const abLen=Math.hypot(abx,aby)||1;
-    const width=p.lineWidth||10;
-
-    const candidates=[];
-    for(const e of state.enemies){
-      const apx=e.x-ax, apy=e.y-ay;
-      const t=(apx*abx + apy*aby)/(abLen*abLen);
-      if(t<0 || t>1) continue;
-      const px=ax+abx*t, py=ay+aby*t;
-      if(Math.hypot(e.x-px,e.y-py) <= width) candidates.push({e,t});
-    }
-    candidates.sort((a,b)=>a.t-b.t);
-
-    let hits=0;
-    const maxHits=1+(p.pierce||0);
-    for(const c of candidates){
-      if(hits>=maxHits) break;
-      if(p.hitIds.has(c.e.id)) continue;
-      p.hitIds.add(c.e.id);
-      dealDamage(c.e,p.dmg);
-      hits++;
-    }
-  }
-
-  function impact(p){
-    if(p.kind==="shell" && p.splash){
-      for(const e of state.enemies){
-        const d=Math.hypot(e.x-p.x, e.y-p.y);
-        if(d<=p.splash){
-          const fall=1-(d/p.splash);
-          dealDamage(e, Math.round(p.dmg*(0.65+fall*0.35)));
+      // cap power towers
+      if(meta.power){
+        const powerCount = game.turrets.filter(t=>TURRET_META[t.type].power).length;
+        if(powerCount >= POWER_CAP){
+          showToast(`Power cap reached (${POWER_CAP}). Upgrade existing power towers instead.`, 1.8);
+          return;
         }
       }
-      return;
-    }
-    if(p.kind==="pulse" && p.chain){
-      // hit closest then chain
-      let best=null, bestD=999;
-      for(const e of state.enemies){
-        const d=Math.hypot(e.x-p.x,e.y-p.y);
-        if(d<bestD){ bestD=d; best=e; }
-      }
-      if(best && bestD<28){
-        dealDamage(best,p.dmg);
-        const near = state.enemies
-          .filter(e=>e.id!==best.id && Math.hypot(e.x-best.x,e.y-best.y) <= (p.chainRange||120))
-          .sort((a,b)=>Math.hypot(a.x-best.x,a.y-best.y)-Math.hypot(b.x-best.x,b.y-best.y));
-        let chained=0;
-        for(const e of near){
-          if(chained>=p.chain) break;
-          dealDamage(e, Math.round(p.dmg*0.65));
-          chained++;
-        }
-      }
-      return;
-    }
-    // default hit
-    let best=null, bestD=999;
-    for(const e of state.enemies){
-      const d=Math.hypot(e.x-p.x,e.y-p.y);
-      if(d<bestD){ bestD=d; best=e; }
-    }
-    if(best && bestD<28) dealDamage(best,p.dmg);
-  }
 
-  // ============================================================
-  // UPDATE LOOP
-  // ============================================================
-  let last = performance.now();
-
-  function update(dt){
-    if(state.paused) return;
-    dt *= state.speed;
-
-    // spawns
-    if(state.inWave && state.spawnQueue){
-      for(const s of state.spawnQueue) s.t -= dt;
-      while(state.spawnQueue.length && state.spawnQueue[0].t <= 0){
-        const s = state.spawnQueue.shift();
-        spawnEnemy(s.kind, s.tier, s.hp, s.spd, s.bounty, s.shield||0, s.boss||false, s.pathData);
-      }
-      state.spawnQueue.sort((a,b)=>a.t-b.t);
-
-      if(state.spawnQueue.length===0 && state.enemies.length===0){
-        state.spawnQueue=null;
-        onWaveEnded();
-      }
-    }
-
-    // next wave timer (after wave 1)
-    if(!state.inWave && state.wave>0 && state.nextWaveTimer>0){
-      state.nextWaveTimer -= dt;
-      if(state.nextWaveTimer<=0){
-        const m=currentMap();
-        if(state.wave >= m.waves){
-          const next=state.mapIndex+1;
-          if(next>=MAPS.length) victory();
-          else beginMap(next);
-        }else{
-          startWave();
-        }
-      }
-    }
-
-    // move enemies
-    for(const e of state.enemies){
-      e.dist += e.spd*dt;
-      const p = posOnPath(e.pathData, e.dist);
-      e.x=p.x; e.y=p.y; e.ang=p.ang;
-
-      if(e.dist >= e.pathData.total){
-        e.dead=true;
-        state.lives = Math.max(0, state.lives - (e.boss?3:1));
-        if(state.lives<=0) defeat();
-      }
-    }
-    state.enemies = state.enemies.filter(e=>!e.dead);
-
-    // turrets fire
-    for(const t of state.turrets){
-      t.cdLeft -= dt;
-      if(t.cdLeft>0) continue;
-
-      const type = TURRET_TYPES.find(x=>x.id===t.typeId);
-      const st = turretStats(t.typeId, t.lvl);
-
-      let target=null, bestScore=-1;
-      for(const e of state.enemies){
-        const d=Math.hypot(e.x-t.x,e.y-t.y);
-        if(d>st.rng) continue;
-        const progress=e.dist/e.pathData.total;
-        const hpLeft=(e.shield>0?e.shield:0)+e.hp;
-        const score=progress*2.0 + (1/(1+hpLeft))*0.6;
-        if(score>bestScore){ bestScore=score; target=e; }
-      }
-      if(!target) continue;
-
-      t.rot = Math.atan2(target.y-t.y, target.x-t.x);
-
-      if(type.id==="splash") fireProjectile("shell", t, target, st.dmg, {splash:68});
-      else if(type.id==="tesla") fireProjectile("pulse", t, target, st.dmg, {chain:2, chainRange:120});
-      else if(type.id==="rail") fireProjectile("laser", t, target, st.dmg, {pierce:2, lineWidth:16});
-      else if(type.id==="sniper") fireProjectile("laser", t, target, st.dmg, {pierce:0});
-      else fireProjectile(type.proj, t, target, st.dmg, {});
-
-      t.cdLeft = st.cd;
-    }
-
-    // projectiles
-    for(const p of state.projectiles){
-      p.t += dt;
-      if(p.kind==="laser"){
-        p.life -= dt;
-        if(p.life<=0) p.dead=true;
-        continue;
-      }
-      const vx=p.tx-p.x, vy=p.ty-p.y;
-      const dist=Math.hypot(vx,vy);
-      if(dist<1){
-        impact(p);
-        p.dead=true;
-      }else{
-        const step=Math.min(dist, p.spd*dt);
-        p.x += vx/dist*step;
-        p.y += vy/dist*step;
-      }
-    }
-    state.projectiles = state.projectiles.filter(p=>!p.dead);
-
-    syncUI();
-  }
-
-  // ============================================================
-  // RENDER (more “war UI” look; still uses your sprites)
-  // ============================================================
-  function draw(){
-    ctx.clearRect(0,0,viewW,viewH);
-
-    // letterbox bars (if any)
-    ctx.save();
-    ctx.fillStyle="#00000066";
-    const drawW=BASE_W*scale, drawH=BASE_H*scale;
-    if(offY>0){ ctx.fillRect(0,0,viewW,offY); ctx.fillRect(0,offY+drawH,viewW,viewH-(offY+drawH)); }
-    if(offX>0){ ctx.fillRect(0,0,offX,viewH); ctx.fillRect(offX+drawW,0,viewW-(offX+drawW),viewH); }
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(offX,offY);
-    ctx.scale(scale,scale);
-
-    // subtle ground grid (less neon, more “tactical”)
-    ctx.globalAlpha=0.12;
-    ctx.strokeStyle="#ffffff22";
-    ctx.lineWidth=1;
-    for(let x=0;x<=BASE_W;x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,BASE_H); ctx.stroke(); }
-    for(let y=0;y<=BASE_H;y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(BASE_W,y); ctx.stroke(); }
-    ctx.globalAlpha=1;
-
-    drawPath(currentMap().path);
-
-    // ranges
-    if(state.showRange){
-      for(const t of state.turrets){
-        const st=turretStats(t.typeId,t.lvl);
-        const sel=(t.id===state.selectedTurretId);
-        ctx.globalAlpha=sel?0.20:0.10;
-        ctx.fillStyle=sel?"#53e6ff":"#53e6ff";
-        ctx.beginPath(); ctx.arc(t.x,t.y,st.rng,0,Math.PI*2); ctx.fill();
-      }
-      ctx.globalAlpha=1;
-    }
-
-    // turrets
-    for(const t of state.turrets) drawTurret(t);
-
-    // enemies
-    for(const e of state.enemies) drawEnemy(e);
-
-    // projectiles
-    for(const p of state.projectiles) drawProjectile(p);
-
-    // selection ring
-    const sel = state.turrets.find(t=>t.id===state.selectedTurretId);
-    if(sel){
-      ctx.strokeStyle="#53e6ff";
-      ctx.lineWidth=3;
-      ctx.beginPath(); ctx.arc(sel.x,sel.y,36,0,Math.PI*2); ctx.stroke();
-      ctx.globalAlpha=0.4;
-      ctx.strokeStyle="#ffffff";
-      ctx.lineWidth=1;
-      ctx.beginPath(); ctx.arc(sel.x,sel.y,40,0,Math.PI*2); ctx.stroke();
-      ctx.globalAlpha=1;
-    }
-
-    // build ghost
-    if(state.buildPick && state.mouseWorld && inWorld(state.mouseWorld.x,state.mouseWorld.y)){
-      ctx.globalAlpha = canPlaceHere(state.mouseWorld.x,state.mouseWorld.y) ? 0.85 : 0.45;
-      drawTurret({typeId:state.buildPick,lvl:1,x:state.mouseWorld.x,y:state.mouseWorld.y,rot:0});
-      ctx.globalAlpha=1;
-    }
-
-    ctx.restore();
-  }
-
-  function drawPath(path){
-    ctx.save();
-    ctx.lineCap="round";
-    ctx.lineJoin="round";
-
-    // dirt/track base
-    ctx.strokeStyle="#00000055";
-    ctx.lineWidth=84;
-    ctx.beginPath();
-    ctx.moveTo(path[0].x,path[0].y);
-    for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
-    ctx.stroke();
-
-    // subtle highlight
-    ctx.strokeStyle="#53e6ff33";
-    ctx.lineWidth=14;
-    ctx.beginPath();
-    ctx.moveTo(path[0].x,path[0].y);
-    for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
-    ctx.stroke();
-
-    // start/end markers
-    ctx.shadowBlur=18;
-    ctx.shadowColor="#59ff7a";
-    ctx.fillStyle="#59ff7a";
-    ctx.beginPath(); ctx.arc(path[0].x,path[0].y,14,0,Math.PI*2); ctx.fill();
-
-    const end=path[path.length-1];
-    ctx.shadowColor="#ff4d4d";
-    ctx.fillStyle="#ff4d4d";
-    ctx.beginPath(); ctx.arc(end.x,end.y,14,0,Math.PI*2); ctx.fill();
-
-    ctx.restore();
-  }
-
-  function drawTurret(t){
-    const im = (SPR.turrets[t.typeId] && SPR.turrets[t.typeId][t.lvl]) || null;
-    ctx.save();
-    ctx.translate(t.x,t.y);
-    ctx.rotate(t.rot||0);
-    if(im){
-      const s=0.62;
-      ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
-    }else{
-      ctx.fillStyle="#53e6ff";
-      ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawEnemy(e){
-    const im = (SPR.enemies[e.kind] && SPR.enemies[e.kind][e.tier]) || null;
-    ctx.save();
-    ctx.translate(e.x,e.y);
-    ctx.rotate(e.ang + Math.PI/2);
-    if(im){
-      const s=e.boss?0.68:0.55;
-      ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
-    }else{
-      ctx.fillStyle="#ff4d4d";
-      ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
-
-    // hp/shield bar
-    const base=enemyBase(e.kind);
-    const maxHp=base.hp;
-    const hpPct=Math.max(0,Math.min(1,e.hp/maxHp));
-    const shieldPct=e.shield?Math.max(0,Math.min(1,e.shield/(base.shield||e.shield))):0;
-
-    const w=e.boss?64:46, h=6;
-    const x=e.x-w/2, y=e.y-(e.boss?46:36);
-
-    ctx.save();
-    ctx.globalAlpha=0.9;
-    ctx.fillStyle="#00000088";
-    ctx.fillRect(x,y,w,h);
-    if(e.shield>0){
-      ctx.fillStyle="#53e6ff";
-      ctx.fillRect(x,y,w*shieldPct,h);
-    }else{
-      ctx.fillStyle="#f2c14f";
-      ctx.fillRect(x,y,w*hpPct,h);
-    }
-    ctx.restore();
-  }
-
-  function drawProjectile(p){
-    if(p.kind==="laser"){
-      ctx.save();
-      ctx.globalAlpha=0.9;
-      ctx.strokeStyle="#ff4d4d";
-      ctx.lineWidth=5;
-      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.tx,p.ty); ctx.stroke();
-      ctx.globalAlpha=0.35;
-      ctx.strokeStyle="#ffffff";
-      ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.tx,p.ty); ctx.stroke();
-      ctx.restore();
-      return;
-    }
-    const im = SPR.proj[p.kind] || null;
-    ctx.save();
-    ctx.translate(p.x,p.y);
-    ctx.rotate(Math.atan2(p.ty-p.y,p.tx-p.x));
-    if(im){
-      const s=0.7;
-      ctx.drawImage(im, -im.width*s/2, -im.height*s/2, im.width*s, im.height*s);
-    }else{
-      ctx.fillStyle="#fff";
-      ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  // ============================================================
-  // INPUT
-  // ============================================================
-  canvas.addEventListener('contextmenu', e=>e.preventDefault());
-  canvas.addEventListener('mousemove', (e)=>{ state.mouseWorld = screenToWorld(e.clientX,e.clientY); });
-
-  canvas.addEventListener('mousedown', (e)=>{
-    const w = screenToWorld(e.clientX,e.clientY);
-    if(!inWorld(w.x,w.y)) return;
-
-    if(e.button===2){
-      state.buildPick=null;
-      rebuildBuildBar();
-      toast("Build canceled.");
-      return;
-    }
-
-    // select turret
-    let hit=null;
-    for(const t of state.turrets){
-      if(Math.hypot(w.x-t.x,w.y-t.y) < 34){ hit=t; break; }
-    }
-    if(hit){
-      state.selectedTurretId = hit.id;
-      syncUI();
-      return;
-    }
-
-    // place
-    if(state.buildPick){
-      placeTurret(state.buildPick, w.x, w.y);
-      return;
-    }
-
-    state.selectedTurretId=null;
-    syncUI();
-  });
-
-  // ============================================================
-  // BUTTONS
-  // ============================================================
-  ui.btnPause.addEventListener('click', ()=>{ state.paused=!state.paused; syncUI(); });
-  ui.btnRange.addEventListener('click', ()=>{ state.showRange=!state.showRange; syncUI(); });
-
-  ui.btnStartWave.addEventListener('click', ()=> startWave());
-  ui.btnSkip.addEventListener('click', ()=>{
-    if(!state.allowSkip || state.inWave) return;
-    state.nextWaveTimer = 0.01;
-    state.allowSkip = false;
-    toast("Timer skipped.");
-    syncUI();
-  });
-
-  function setSpeed(n){ state.speed=n; syncUI(); }
-  ui.btnSpd1.addEventListener('click', ()=>setSpeed(1));
-  ui.btnSpd2.addEventListener('click', ()=>setSpeed(2));
-  ui.btnSpd3.addEventListener('click', ()=>setSpeed(3));
-  ui.btnSpd4.addEventListener('click', ()=>setSpeed(4));
-
-  // safer restart hold
-  let holdRAF=null, holdStart=0;
-  function startHold(){
-    holdStart=performance.now();
-    holdRAF=requestAnimationFrame(function tick(now){
-      const left = Math.max(0, 1200-(now-holdStart));
-      ui.btnRestart.textContent = `HOLD RESTART (${(left/1000).toFixed(1)}s)`;
-      if(now-holdStart >= 1200){
-        cancelAnimationFrame(holdRAF); holdRAF=null;
-        ui.btnRestart.textContent="RESTARTING…";
-        resetCampaign();
-        ui.btnRestart.textContent="HOLD RESTART (1.2s)";
+      if(!canPlaceAt(mouseX,mouseY)){
+        showToast('Invalid placement — too close to track/turrets.', 1.2);
         return;
       }
-      holdRAF=requestAnimationFrame(tick);
-    });
-  }
-  function stopHold(){
-    if(holdRAF){ cancelAnimationFrame(holdRAF); holdRAF=null; }
-    ui.btnRestart.textContent="HOLD RESTART (1.2s)";
-  }
-  ui.btnRestart.addEventListener('mousedown', startHold);
-  window.addEventListener('mouseup', stopHold);
+      if(game.credits < cost.credits){
+        showToast('Not enough Credits.', 1.2);
+        return;
+      }
+      // place turret
+      game.credits -= cost.credits;
+      const t = new Turret(type, mouseX, mouseY);
+      game.turrets.push(t);
+      selectTurret(t);
+      showToast(`${meta.name} deployed.`, 1.2);
+      return;
+    }
 
-  // ============================================================
-  // MAIN LOOP
-  // ============================================================
-  function loop(now){
-    const dt = Math.min(0.033, (now-last)/1000);
-    last = now;
-    update(dt);
-    draw();
-    requestAnimationFrame(loop);
+    // else: select turret if clicked
+    const t = turretAt(mouseX,mouseY);
+    if(t){
+      selectTurret(t);
+    } else {
+      selectTurret(null);
+    }
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === ' '){
+      e.preventDefault();
+      togglePause();
+    } else if(e.key === 'Escape'){
+      if(game.placing){
+        setPlacing(null);
+        showToast('Placement canceled.', 1.0);
+      } else {
+        selectTurret(null);
+      }
+    } else if(e.key === '1'){
+      setSpeed(1);
+    } else if(e.key === '2'){
+      setSpeed(2);
+    }
+  });
+
+  // ---------------------------
+  // UI Wiring
+  // ---------------------------
+  function togglePause(){
+    game.paused = !game.paused;
+    btnPause.textContent = game.paused ? 'Resume' : 'Pause';
+  }
+  btnPause.addEventListener('click', togglePause);
+
+  function setSpeed(mult){
+    game.speedMul = mult;
+    speedText.textContent = `x${mult}`;
+    btnSpeed.innerHTML = `<span>Speed x${mult}</span><span class="tag">1/2</span>`;
+  }
+  btnSpeed.addEventListener('click', ()=>setSpeed(game.speedMul===1 ? 2 : 1));
+
+  btnSkip.addEventListener('click', ()=>{
+    if(game.skipCD>0) return;
+    if(game.waveState==='ACTIVE') return;
+    game.skipCD = 10.0;
+    game.waveState='IDLE';
+    game.betweenTimer = 0;
+    showToast('Skip engaged — inbound sooner.', 1.0);
+  });
+
+  btnSave.addEventListener('click', ()=>saveGame());
+  btnLoad.addEventListener('click', ()=>loadGame());
+  btnReset.addEventListener('click', ()=>{
+    if(confirm('Reset run?')){
+      localStorage.removeItem('ironline_td_save');
+      hardReset();
+    }
+  });
+
+  btnUpgrade.addEventListener('click', ()=>{
+    if(!game.selectedTurret) return;
+    const t=game.selectedTurret;
+    const m=t.meta();
+    if(t.tier>=2) return;
+    const cost = m.upgradeCost(t.tier+1);
+    if(game.credits < cost.credits || game.scrap < cost.scrap){
+      showToast('Insufficient resources for upgrade.', 1.2);
+      return;
+    }
+    game.credits -= cost.credits;
+    game.scrap -= cost.scrap;
+    t.tier++;
+    showToast(`${m.name} upgraded to Tier ${t.tier+1}.`, 1.2);
+    updateRightPanel();
+  });
+
+  btnAbility.addEventListener('click', ()=>{
+    const t=game.selectedTurret;
+    if(!t) return;
+    const meta=t.meta();
+    const ab = meta.ability;
+    if(!ab) return;
+    if(t.abilityCD>0){
+      showToast('Ability cooling down.', 1.0);
+      return;
+    }
+    if(game.energy < ab.costEnergy){
+      showToast('Not enough Energy.', 1.0);
+      return;
+    }
+    game.energy -= ab.costEnergy;
+
+    // apply ability effects
+    if(t.type===TurretType.MG){
+      t.overclock = 5.0;
+      t.abilityCD = 9.0;
+      showToast('MG Overclock engaged.', 1.2);
+    } else if(t.type===TurretType.RAIL){
+      t.magPulse = 6.0; // next shot window
+      t.abilityCD = 10.0;
+      showToast('Railgun Mag Pulse primed.', 1.2);
+    } else if(t.type===TurretType.EMP){
+      // arc net: stun segments in range
+      const r = t.stats().range * 0.55;
+      const segs = game.segGrid.queryCircle(t.x,t.y,r);
+      for(const s of segs){
+        if(s.dead || !s.train.alive) continue;
+        if(dist2(t.x,t.y,s.x,s.y) <= r*r){
+          s.stun = Math.max(s.stun, 1.6 + t.tier*0.2);
+          s.smokeHit = 0.18;
+        }
+      }
+      game.effects.explosions.push({x:t.x,y:t.y,r:r*0.55,t:0.55, orange:false});
+      t.abilityCD = 12.0;
+      showToast('EMP Arc Net deployed.', 1.2);
+    } else if(t.type===TurretType.LASER){
+      t.searing = 4.0;
+      t.abilityCD = 12.0;
+      showToast('Laser Searing Focus online.', 1.2);
+    } else if(t.type===TurretType.MISSILE){
+      // barrage fires 3 immediate missiles
+      t.abilityCD = 13.0;
+      for(let i=0;i<3;i++){
+        t.cool = 0;
+        // force a pseudo update fire next tick by setting cool negative
+        t.cool = -0.001;
+        // add a small immediate muzzle
+        game.effects.muzzle.push({x:t.x+Math.cos(t.ang)*12,y:t.y+Math.sin(t.ang)*12,a:t.ang,t:0.10, rocket:true});
+      }
+      // actually spawn them instantly at nearest target
+      const range=t.stats().range;
+      const cand = game.segGrid.queryCircle(t.x,t.y,range).filter(s=>!s.dead && s.train.alive);
+      cand.sort((a,b)=>dist2(t.x,t.y,a.x,a.y)-dist2(t.x,t.y,b.x,b.y));
+      const target = cand[0];
+      if(target){
+        for(let i=0;i<3;i++){
+          const s=t.stats();
+          const p = new Projectile('missile');
+          p.x=t.x; p.y=t.y;
+          const desired=Math.atan2(target.y-t.y, target.x-t.x) + (rand(game.rng)-0.5)*0.08;
+          const sp=s.projSpeed;
+          p.vx=Math.cos(desired)*sp;
+          p.vy=Math.sin(desired)*sp;
+          p.life=4.2;
+          p.r=4.8;
+          p.dmg=s.dmg*0.85;
+          p.dmgType=DamageType.EXPLOSIVE;
+          p.splash=s.splash*0.95;
+          p.accel=s.accel;
+          p.targetId = target;
+          game.projectiles.push(p);
+        }
+        showToast('Missile Barrage launched.', 1.2);
+      } else {
+        showToast('Barrage wasted — no targets.', 1.2);
+      }
+    }
+    updateRightPanel();
+  });
+
+  mapSelect.addEventListener('change', ()=>{
+    const idx = parseInt(mapSelect.value,10);
+    switchMap(idx);
+  });
+
+  function setPlacing(type){
+    game.placing = type;
+    if(type){
+      const m=TURRET_META[type];
+      placeVal.textContent = m.name;
+      placeHint.textContent = `Deploy ${m.name}. Cost: ${m.baseCost.credits} Credits. ${m.power?`(Power cap applies)`:' '}`;
+    } else {
+      placeVal.textContent = 'None';
+      placeHint.textContent = 'Select a turret card, then click the field to deploy. You cannot place on or near the track.';
+      // clear selected card UI
+      for(const el of document.querySelectorAll('.card')) el.classList.remove('selected');
+    }
   }
 
-  // ============================================================
-  // INIT
-  // ============================================================
-  (async function init(){
-    resize();
-    rebuildBuildBar();
-    syncUI();
-    await loadAssets();
-    resetCampaign();
-    requestAnimationFrame(loop);
-  })();
+  function selectTurret(t){
+    // clear selection
+    for(const tt of game.turrets) tt.selected=false;
+    game.selectedTurret = t;
+    if(t) t.selected=true;
+    updateRightPanel();
+  }
+
+  function updateRightPanel(){
+    const t=game.selectedTurret;
+    if(!t){
+      selSub.textContent = '—';
+      statsVal.textContent = '—';
+      statsBody.textContent = 'Hover a turret or an enemy segment for details.';
+      tierVal.textContent = '—';
+      tierBody.textContent = 'Click a turret to select it, then upgrade. Upgrades cost Credits + Scrap.';
+      btnUpgrade.disabled = true;
+      btnAbility.disabled = true;
+      upTag.textContent = '—';
+      abTag.textContent = '—';
+      return;
+    }
+    const m=t.meta();
+    const s=t.stats();
+    selSub.textContent = `${m.name} • Tier ${t.tier+1}`;
+    tierVal.textContent = `Tier ${t.tier+1}/3`;
+    const dps = t.dpsEstimate();
+    statsVal.textContent = `${Math.round(dps)} DPS • Range ${Math.round(s.range)}m`;
+    const parts=[];
+    if(t.type===TurretType.MG) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Spread ${(s.spread*57.3).toFixed(1)}°`);
+    if(t.type===TurretType.RAIL) parts.push(`ROF ${s.rof.toFixed(2)}/s • DMG ${s.dmg.toFixed(0)} • Pierce ${s.pierce} • ArmorPierce ${(s.armorPierce*100)|0}%`);
+    if(t.type===TurretType.EMP) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Stun ${s.stun.toFixed(2)}s`);
+    if(t.type===TurretType.LASER) parts.push(`Base ${s.dps.toFixed(0)} DPS • Ramp x${s.rampMax.toFixed(1)} • Sticky ${(s.lockStick*100)|0}%`);
+    if(t.type===TurretType.MISSILE) parts.push(`ROF ${s.rof.toFixed(2)}/s • DMG ${s.dmg.toFixed(0)} • Splash ${s.splash.toFixed(0)}m`);
+    statsBody.textContent = parts.join('  |  ');
+
+    if(t.tier<2){
+      const c=m.upgradeCost(t.tier+1);
+      btnUpgrade.disabled = false;
+      upTag.textContent = `${c.credits}C + ${c.scrap}S`;
+      tierBody.textContent = `Upgrade improves core stats and special effects. Cost: ${c.credits} Credits + ${c.scrap} Scrap.`;
+    } else {
+      btnUpgrade.disabled = true;
+      upTag.textContent = 'MAX';
+      tierBody.textContent = 'Max tier reached.';
+    }
+
+    const ab=m.ability;
+    if(ab){
+      btnAbility.disabled = false;
+      abTag.textContent = `${ab.costEnergy}E` + (t.abilityCD>0 ? ` • CD ${t.abilityCD.toFixed(0)}s` : '');
+      btnAbility.querySelector('span')?.textContent;
+      btnAbility.innerHTML = `<span>${ab.name}</span><span class="tag">${t.abilityCD>0 ? ('CD '+t.abilityCD.toFixed(0)+'s') : (ab.costEnergy+'E')}</span>`;
+    } else {
+      btnAbility.disabled=true;
+      abTag.textContent='—';
+    }
+  }
+
+  // Build turret cards
+  const turretCards = document.getElementById('turretCards');
+  const cardOrder = [TurretType.MG, TurretType.RAIL, TurretType.EMP, TurretType.LASER, TurretType.MISSILE];
+  function renderTurretCards(){
+    turretCards.innerHTML='';
+    for(const type of cardOrder){
+      const m=TURRET_META[type];
+      const el=document.createElement('div');
+      el.className='card';
+      const powerPill = m.power ? `<span class="pill">POWER</span>` : `<span class="pill" style="background:rgba(106,168,255,.10);border-color:rgba(106,168,255,.18)">CORE</span>`;
+      el.innerHTML=`
+        <div class="name">${m.name} ${powerPill}</div>
+        <div class="desc">${m.desc}</div>
+        <div class="cost">
+          <span class="badge orange">${m.baseCost.credits}C</span>
+          ${m.power?`<span class="badge red">CAP</span>`:''}
+        </div>
+      `;
+      el.addEventListener('click', ()=>{
+        for(const c of document.querySelectorAll('.card')) c.classList.remove('selected');
+        el.classList.add('selected');
+        setPlacing(type);
+        selectTurret(null);
+      });
+      turretCards.appendChild(el);
+    }
+  }
+  renderTurretCards();
+
+  function updateCapText(){
+    const powerCount = game.turrets.filter(t=>TURRET_META[t.type].power).length;
+    capText.textContent = `Power Cap: ${powerCount}/${POWER_CAP}`;
+  }
+
+  // ---------------------------
+  // Save / Load
+  // ---------------------------
+  function saveGame(){
+    const data = {
+      v: 2,
+      mapIndex: game.mapIndex,
+      credits: game.credits,
+      scrap: game.scrap,
+      energy: game.energy,
+      lives: game.lives,
+      wave: game.wave,
+      waveState: game.waveState,
+      betweenTimer: game.betweenTimer,
+      speedMul: game.speedMul,
+      rng: game.rng.s|0,
+      turrets: game.turrets.map(t=>({
+        type:t.type, x:t.x, y:t.y, tier:t.tier, ang:t.ang,
+        overclock:t.overclock, abilityCD:t.abilityCD, searing:t.searing, magPulse:t.magPulse
+      })),
+      // trains are not saved mid-wave to keep it robust (resume between waves)
+    };
+    localStorage.setItem('ironline_td_save', JSON.stringify(data));
+    showToast('Saved locally.', 1.1);
+  }
+
+  function loadGame(){
+    const raw = localStorage.getItem('ironline_td_save');
+    if(!raw){
+      showToast('No save found.', 1.1);
+      return;
+    }
+    try{
+      const d = JSON.parse(raw);
+      if(!d || d.v<2) throw new Error('bad version');
+      game.mapIndex = d.mapIndex|0;
+      mapSelect.value = String(game.mapIndex);
+      buildPathForMap(game.mapIndex);
+
+      game.credits = d.credits|0;
+      game.scrap = d.scrap|0;
+      game.energy = d.energy|0;
+      game.lives = d.lives|0;
+      game.wave = d.wave|0;
+      game.waveState = 'BETWEEN';
+      game.betweenTimer = 1.2;
+      game.speedMul = d.speedMul||1;
+      game.rng.s = d.rng|0;
+
+      game.turrets = [];
+      for(const tt of d.turrets||[]){
+        const t = new Turret(tt.type, tt.x, tt.y);
+        t.tier = clamp(tt.tier|0, 0, 2);
+        t.ang = tt.ang||0;
+        t.overclock = tt.overclock||0;
+        t.abilityCD = tt.abilityCD||0;
+        t.searing = tt.searing||0;
+        t.magPulse = tt.magPulse||0;
+        game.turrets.push(t);
+      }
+
+      game.trains = [];
+      game.projectiles = [];
+      game.effects.muzzle = [];
+      game.effects.railLines = [];
+      game.effects.laserBeams = [];
+      game.effects.explosions = [];
+      game.effects.smokePuffs = [];
+      game.effects.smokeTime = 0;
+      game.effects.smokeAccPenalty = 0;
+
+      setSpeed(game.speedMul);
+      selectTurret(null);
+      setPlacing(null);
+      showToast('Loaded.', 1.2);
+    } catch(e){
+      console.warn(e);
+      showToast('Load failed (corrupt save).', 1.6);
+    }
+  }
+
+  function hardReset(){
+    game.rng.s = 0xC0FFEE ^ 0x1234567;
+    game.credits=200; game.scrap=0; game.energy=0; game.lives=20;
+    game.wave=1; game.waveState='IDLE'; game.betweenTimer=1.0;
+    game.turrets=[]; game.trains=[]; game.projectiles=[];
+    game.effects.muzzle=[]; game.effects.railLines=[]; game.effects.laserBeams=[];
+    game.effects.explosions=[]; game.effects.smokePuffs=[]; game.effects.dust=[];
+    game.effects.smokeTime=0; game.effects.smokeAccPenalty=0;
+    game.paused=false;
+    setSpeed(1);
+    selectTurret(null);
+    setPlacing(null);
+    showToast('Reset complete.', 1.2);
+  }
+
+  // ---------------------------
+  // Map Switching
+  // ---------------------------
+  function switchMap(idx){
+    // keep run resources but reset trains/projectiles; turrets remain but must still obey placement rules (we keep them; if invalid, we nudge them away)
+    game.mapIndex = idx;
+    buildPathForMap(idx);
+
+    // Nudge turrets away if too close to track
+    for(const t of game.turrets){
+      let d = game.path.distanceToPoint(t.x,t.y);
+      if(d < TRACK_SAFE_RADIUS + 4){
+        // push along gradient approx by sampling small offsets
+        const steps = [
+          {x:18,y:0},{x:-18,y:0},{x:0,y:18},{x:0,y:-18},
+          {x:14,y:14},{x:-14,y:14},{x:14,y:-14},{x:-14,y:-14}
+        ];
+        let best={x:t.x,y:t.y, d};
+        for(const s of steps){
+          const nx = clamp(t.x+s.x, 20, W-20);
+          const ny = clamp(t.y+s.y, 20, H-20);
+          const nd = game.path.distanceToPoint(nx,ny);
+          if(nd > best.d){
+            best={x:nx,y:ny,d:nd};
+          }
+        }
+        t.x = best.x; t.y = best.y;
+      }
+    }
+
+    game.trains = [];
+    game.projectiles = [];
+    game.waveState = 'BETWEEN';
+    game.betweenTimer = 1.2;
+    showToast(`Map: ${MAPS[idx].name}`, 1.2);
+  }
+
+  // ---------------------------
+  // Simulation Update
+  // ---------------------------
+  function updateSim(dt){
+    // toast timer
+    if(toastTimer>0){
+      toastTimer -= dt;
+      if(toastTimer<=0) toast.style.display='none';
+    }
+
+    // skip cooldown
+    game.skipCD = Math.max(0, game.skipCD - dt);
+    if(game.skipCD>0){
+      skipTag.textContent = `${game.skipCD.toFixed(0)}s`;
+      btnSkip.disabled = true;
+    } else {
+      skipTag.textContent = 'READY';
+      btnSkip.disabled = (game.waveState==='ACTIVE' || game.lives<=0);
+    }
+
+    // smoke effect timer
+    if(game.effects.smokeTime>0){
+      game.effects.smokeTime = Math.max(0, game.effects.smokeTime - dt);
+      if(game.effects.smokeTime<=0){
+        game.effects.smokeAccPenalty = 0;
+      }
+    }
+
+    // build segment grid
+    game.segGrid.clear();
+    for(const tr of game.trains){
+      if(!tr.alive) continue;
+      for(const seg of tr.segments){
+        if(seg.dead) continue;
+        game.segGrid.insert(seg.x,seg.y,seg);
+      }
+    }
+
+    // wave state machine
+    if(game.waveState==='IDLE'){
+      startWave();
+    } else if(game.waveState==='BETWEEN'){
+      game.betweenTimer -= dt;
+      if(game.betweenTimer<=0){
+        game.waveState='IDLE';
+      }
+    }
+
+    // update trains
+    for(const tr of game.trains){
+      tr.update(dt, game);
+    }
+
+    // remove dead trains
+    game.trains = game.trains.filter(tr=>tr.alive && !tr.segments[0].dead);
+
+    // update turrets
+    for(const t of game.turrets){
+      t.update(dt, game);
+    }
+
+    // update projectiles & collisions
+    // Note: collisions are against segments near projectile using grid query
+    for(const p of game.projectiles){
+      p.life -= dt;
+      if(p.life<=0) continue;
+
+      if(p.kind==='missile'){
+        // guidance
+        const target = p.targetId;
+        if(target && !target.dead && target.train.alive){
+          const dx = target.x - p.x;
+          const dy = target.y - p.y;
+          const d = Math.hypot(dx,dy) || 1;
+          const ux = dx/d, uy = dy/d;
+          p.vx += ux * p.accel * dt;
+          p.vy += uy * p.accel * dt;
+          // clamp speed
+          const sp = Math.hypot(p.vx,p.vy);
+          const maxSp = 520;
+          if(sp>maxSp){ p.vx = p.vx/sp*maxSp; p.vy = p.vy/sp*maxSp; }
+        }
+      }
+
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+
+      // out of bounds
+      if(p.x<-50||p.y<-50||p.x>W+50||p.y>H+50) p.life=0;
+
+      // collision query
+      const candidates = game.segGrid.queryCircle(p.x,p.y, 46);
+      let hit=null;
+      let hitD=1e9;
+
+      for(const seg of candidates){
+        if(seg.dead || !seg.train.alive) continue;
+        const rr = seg.radius + p.r;
+        const d2 = dist2(p.x,p.y, seg.x,seg.y);
+        if(d2 <= rr*rr){
+          const d = Math.sqrt(d2);
+          if(d < hitD){ hit=seg; hitD=d; }
+        }
+      }
+
+      if(hit){
+        if(p.kind==='bullet'){
+          game.applyDamage(hit, p.dmg, p.dmgType, { source:p });
+          p.life = 0;
+        } else if(p.kind==='emp'){
+          game.applyDamage(hit, p.dmg, p.dmgType, { source:p });
+          hit.stun = Math.max(hit.stun, p.stun);
+          // small EMP ring
+          game.effects.explosions.push({x:hit.x,y:hit.y,r:28,t:0.32, orange:false});
+          p.life = 0;
+        } else if(p.kind==='missile'){
+          // splash
+          const r = p.splash;
+          const segs = game.segGrid.queryCircle(p.x,p.y,r);
+          for(const s of segs){
+            if(s.dead || !s.train.alive) continue;
+            const d = dist(p.x,p.y,s.x,s.y);
+            if(d<=r){
+              const mult = 1 - (d/r)*0.55;
+              game.applyDamage(s, p.dmg*mult, DamageType.EXPLOSIVE, { source:p });
+            }
+          }
+          game.effects.explosions.push({x:p.x,y:p.y,r:r,t:0.55, orange:true});
+          p.life=0;
+        }
+      }
+    }
+    game.projectiles = game.projectiles.filter(p=>p.life>0);
+
+    // if active wave but no trains alive => end wave
+    if(game.waveState==='ACTIVE' && game.trains.length===0){
+      endWave();
+    }
+  }
+
+  // ---------------------------
+  // Hover detection (turret/segment) for HUD & overlays
+  // ---------------------------
+  function updateHover(){
+    game.hoverTurret = turretAt(mouseX,mouseY);
+
+    // hover segment: find closest segment within small radius (use grid)
+    const segs = game.segGrid.queryCircle(mouseX,mouseY, 24);
+    let best=null, bestD=1e9;
+    for(const s of segs){
+      if(s.dead || !s.train.alive) continue;
+      const d2=dist2(mouseX,mouseY,s.x,s.y);
+      const rr=s.radius+8;
+      if(d2<=rr*rr && d2<bestD){ best=s; bestD=d2; }
+    }
+    game.hoverSeg = best;
+
+    // If hovering, update right panel (without overriding selection logic)
+    if(!game.selectedTurret){
+      if(game.hoverTurret){
+        const t=game.hoverTurret;
+        const m=t.meta(); const s=t.stats();
+        const dps=t.dpsEstimate();
+        selSub.textContent = `${m.name} • Tier ${t.tier+1}`;
+        statsVal.textContent = `${Math.round(dps)} DPS • Range ${Math.round(s.range)}m`;
+        tierVal.textContent = `Tier ${t.tier+1}/3`;
+        const parts=[];
+        if(t.type===TurretType.MG) parts.push(`ROF ${s.rof.toFixed(1)}/s • DMG ${s.dmg.toFixed(0)} • Crit ${(s.crit*100)|0}%`);
+        if(t.type===TurretType.RAIL) parts.push(`DMG ${s.dmg.toFixed(0)} • Pierce ${s.pierce} • ArmorPierce ${(s.armorPierce*100)|0}%`);
+        if(t.type===TurretType.EMP) parts.push(`DMG ${s.dmg.toFixed(0)} • Stun ${s.stun.toFixed(2)}s`);
+        if(t.type===TurretType.LASER) parts.push(`Base ${s.dps.toFixed(0)} DPS • Ramp x${s.rampMax.toFixed(1)}`);
+        if(t.type===TurretType.MISSILE) parts.push(`DMG ${s.dmg.toFixed(0)} • Splash ${s.splash.toFixed(0)}m`);
+        statsBody.textContent = parts.join('  |  ');
+        tierBody.textContent = 'Click turret to select and upgrade.';
+      } else if(game.hoverSeg){
+        const seg=game.hoverSeg;
+        const ttype=seg.train.waveCfg.type;
+        const label = seg.kind==='engine' ? 'Engine' : (seg.repair?'Repair Car': seg.bomb?'Bomb Car':'Car');
+        selSub.textContent = `${label} • ${ttype.replace('_',' ')}`;
+        statsVal.textContent = `HP ${Math.ceil(seg.hp)}/${Math.ceil(seg.hpMax)}` + (seg.shieldMax>0?` • Shield ${Math.ceil(seg.shield)}/${Math.ceil(seg.shieldMax)}`:'');
+        const armorPct = Math.round(seg.armor*100);
+        let extra=[];
+        if(seg.stun>0) extra.push(`STUN ${seg.stun.toFixed(1)}s`);
+        if(seg.repair) extra.push('HEALS NEARBY');
+        if(seg.bomb) extra.push('EXPLODES ON DEATH');
+        if(seg.train.waveCfg.type===TrainType.BOSS) extra.push('BOSS CORE');
+        statsBody.textContent = `Armor ${armorPct}%${extra.length?` • ${extra.join(' • ')}`:''}`;
+        tierVal.textContent = '—';
+        tierBody.textContent = 'Hover segments to see HP bars. Destroy engine to kill the train.';
+      } else {
+        // return to default
+        updateRightPanel();
+      }
+    }
+  }
+
+  // ---------------------------
+  // Main Render
+  // ---------------------------
+  function render(dt){
+    // background
+    ctx.fillStyle = '#070b10';
+    ctx.fillRect(0,0,W,H);
+
+    drawTerrain();
+    drawTrack();
+
+    // placement invalid zone hint (subtle)
+    if(game.placing){
+      ctx.strokeStyle='rgba(255,92,122,0.10)';
+      ctx.lineWidth = (TRACK_SAFE_RADIUS*2);
+      ctx.beginPath();
+      const pts=game.pathPoly;
+      for(let i=0;i<pts.length;i++){
+        const p=pts[i];
+        if(i===0) ctx.moveTo(p.x,p.y);
+        else ctx.lineTo(p.x,p.y);
+      }
+      ctx.stroke();
+    }
+
+    // train segments
+    for(const tr of game.trains){
+      for(const seg of tr.segments){
+        if(seg.dead) continue;
+        drawSegment(seg);
+      }
+    }
+
+    // projectiles
+    drawProjectiles();
+
+    // turrets
+    for(const t of game.turrets){
+      drawTurret(t);
+    }
+
+    // FX
+    drawFX(dt);
+
+    // overlays: hover/selection range and HP bars
+    const hoverT = game.hoverTurret || game.selectedTurret;
+    if(hoverT){
+      const r = hoverT.stats().range;
+      ctx.strokeStyle = game.selectedTurret ? 'rgba(255,154,60,0.22)' : 'rgba(106,168,255,0.20)';
+      ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(hoverT.x,hoverT.y,r,0,Math.PI*2); ctx.stroke();
+    }
+
+    // segment HP bars only when hovering enemies (as requested)
+    if(game.hoverSeg){
+      // draw HP bars for segments near hover
+      const tr = game.hoverSeg.train;
+      for(const seg of tr.segments){
+        if(seg.dead) continue;
+        drawHPBarsForSegment(seg);
+      }
+    }
+
+    // placement ghost
+    if(game.placing && mouseIn){
+      drawPlacementGhost(mouseX,mouseY, canPlaceAt(mouseX,mouseY));
+    }
+
+    // paused overlay / defeat
+    if(game.paused){
+      ctx.fillStyle='rgba(0,0,0,0.45)';
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='rgba(230,240,255,0.92)';
+      ctx.font='800 28px '+getComputedStyle(document.body).fontFamily;
+      ctx.textAlign='center';
+      ctx.fillText(game.lives>0 ? 'PAUSED' : 'DEFENSE FAILED', W/2, H/2 - 8);
+      ctx.font='500 14px '+getComputedStyle(document.body).fontFamily;
+      ctx.fillStyle='rgba(200,215,245,0.85)';
+      ctx.fillText('Press SPACE to resume • Save/Load available', W/2, H/2 + 18);
+    }
+
+    // smoke warning overlay
+    if(game.effects.smokeTime>0){
+      const a = clamp(game.effects.smokeTime/4.8,0,1);
+      ctx.fillStyle = `rgba(20,24,30,${0.08*a})`;
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = `rgba(200,215,245,${0.65*a})`;
+      ctx.font='800 13px '+getComputedStyle(document.body).fontFamily;
+      ctx.textAlign='left';
+      ctx.fillText('SMOKE SCREEN — ACCURACY REDUCED', 16, 24);
+    }
+  }
+
+  // ---------------------------
+  // Frame Loop (Deterministic Fixed Step)
+  // ---------------------------
+  let lastT = performance.now();
+  function frame(now){
+    const realDt = Math.min(0.05, (now-lastT)/1000);
+    lastT = now;
+
+    // UI updates
+    updateHover();
+
+    // fixed step accumulator
+    if(!game.paused && game.lives>0){
+      game.acc += realDt * game.speedMul;
+      const step = game.fixedStep;
+      let guard=0;
+      while(game.acc >= step && guard < 8){
+        updateSim(step);
+        game.acc -= step;
+        guard++;
+      }
+    }
+
+    // render (use realDt for effect fading)
+    render(realDt);
+
+    // top HUD text
+    waveText.textContent = String(game.wave);
+    livesText.textContent = String(game.lives);
+    creditsText.textContent = String(game.credits);
+    scrapText.textContent = String(game.scrap);
+    energyText.textContent = String(game.energy);
+    speedText.textContent = `x${game.speedMul}`;
+
+    const running = (!game.paused && game.lives>0);
+    dotState.className = 'dot' + (running ? '' : (game.lives<=0 ? ' bad' : ' warn'));
+    stateText.textContent = running ? 'RUN' : (game.lives<=0 ? 'FAIL' : 'PAUSE');
+
+    updateCapText();
+    // ability button content refresh when selected
+    if(game.selectedTurret) updateRightPanel();
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------------------
+  // Placement / Selection UX
+  // ---------------------------
+  function refreshPlacementLabel(){
+    if(game.placing){
+      const m=TURRET_META[game.placing];
+      placeVal.textContent = m.name;
+    } else {
+      placeVal.textContent = 'None';
+    }
+  }
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  buildPathForMap(game.mapIndex);
+  mapSelect.value = String(game.mapIndex);
+  setSpeed(1);
+  setPlacing(null);
+  selectTurret(null);
+
+  // Start in BETWEEN so player can place before wave 1
+  game.waveState='BETWEEN';
+  game.betweenTimer=1.6;
+
+  // keep UI responsive
+  updateRightPanel();
+  refreshPlacementLabel();
+
+  // auto-load if exists? (safe: do not force; but helpful as option)
+  // (We won't auto-load; player can load.)
+  showToast('Deploy defenses — Wave 1 inbound.', 1.8);
+
+  requestAnimationFrame(frame);
+
 })();
 </script>
 </body>

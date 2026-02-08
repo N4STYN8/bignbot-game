@@ -2080,16 +2080,68 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
   // ---------------------------
   // Input Handling
   // ---------------------------
+  // camera (world -> screen)
+  const cam = { x: 0, y: 0, zoom: 1 };
+
   let mouseX=0, mouseY=0, mouseIn=true, mouseDown=false;
+  let mouseSX=0, mouseSY=0;
+  let isPanning=false, panMoved=false;
+  let panStartX=0, panStartY=0;
+  let camStartX=0, camStartY=0;
+
+  function screenToWorld(sx, sy){
+    return {
+      x: cam.x + (sx / cam.zoom),
+      y: cam.y + (sy / cam.zoom),
+    };
+  }
+
   canvas.addEventListener('mousemove', (e)=>{
     const r = canvas.getBoundingClientRect();
-    mouseX = (e.clientX - r.left);
-    mouseY = (e.clientY - r.top);
+    mouseSX = (e.clientX - r.left);
+    mouseSY = (e.clientY - r.top);
+    const w = screenToWorld(mouseSX, mouseSY);
+    mouseX = w.x;
+    mouseY = w.y;
+
+    if(mouseDown){
+      const dx = mouseSX - panStartX;
+      const dy = mouseSY - panStartY;
+      if(!isPanning && (Math.abs(dx) > 3 || Math.abs(dy) > 3)){
+        isPanning = true;
+        panMoved = true;
+      }
+      if(isPanning){
+        cam.x = camStartX - dx / cam.zoom;
+        cam.y = camStartY - dy / cam.zoom;
+      }
+    }
   }, {passive:true});
   canvas.addEventListener('mouseenter', ()=>mouseIn=true, {passive:true});
   canvas.addEventListener('mouseleave', ()=>mouseIn=false, {passive:true});
-  canvas.addEventListener('mousedown', (e)=>{ mouseDown=true; }, {passive:true});
-  window.addEventListener('mouseup', ()=>{ mouseDown=false; }, {passive:true});
+  canvas.addEventListener('mousedown', (e)=>{
+    if(e.button !== 0) return;
+    mouseDown=true;
+    panMoved = false;
+    isPanning = false;
+    panStartX = mouseSX;
+    panStartY = mouseSY;
+    camStartX = cam.x;
+    camStartY = cam.y;
+  }, {passive:true});
+  window.addEventListener('mouseup', ()=>{ mouseDown=false; isPanning=false; }, {passive:true});
+
+  canvas.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const zoomOld = cam.zoom;
+    const factor = Math.exp(-e.deltaY * 0.0012);
+    cam.zoom = clamp(zoomOld * factor, 0.55, 2.4);
+    // zoom around cursor
+    const wx = cam.x + (mouseSX / zoomOld);
+    const wy = cam.y + (mouseSY / zoomOld);
+    cam.x = wx - (mouseSX / cam.zoom);
+    cam.y = wy - (mouseSY / cam.zoom);
+  }, {passive:false});
 
   function canPlaceAt(x,y){
     // within bounds
@@ -2116,6 +2168,7 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
 
   canvas.addEventListener('click', ()=>{
     if(game.paused) return;
+    if(panMoved) return;
 
     // if placing
     if(game.placing){
@@ -2778,6 +2831,10 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     ctx.fillStyle = '#070b10';
     ctx.fillRect(0,0,W,H);
 
+    // world transform
+    ctx.save();
+    ctx.setTransform(cam.zoom, 0, 0, cam.zoom, -cam.x * cam.zoom, -cam.y * cam.zoom);
+
     drawTerrain();
     drawTrack();
 
@@ -2837,6 +2894,8 @@ Single-file HTML5 Canvas TD. No external libs/assets. Runs offline.
     if(game.placing && mouseIn){
       drawPlacementGhost(mouseX,mouseY, canPlaceAt(mouseX,mouseY));
     }
+
+    ctx.restore();
 
     // paused overlay / defeat
     if(game.paused){

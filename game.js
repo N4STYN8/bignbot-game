@@ -1209,7 +1209,7 @@
           { name: "Tighter Pull", cost: 50, desc: "+slow strength.", apply: t => { t.trapSlow *= 1.25; t.visual.spikes = true; } },
         ],
         [
-          { name: "Chain Knots", cost: 90, desc: "Traps can store 2 charges.", apply: t => { t.maxCharges += 1; t.visual.barrels++; } },
+          { name: "Chain Knots", cost: 90, desc: "Traps can store 2 charges.", apply: t => { t.maxCharges += 1; t.charges = Math.min(t.maxCharges, t.charges + 1); t.visual.barrels++; } },
           { name: "Siphon", cost: 90, desc: "Traps refund 20% gold on kill.", apply: t => { t.siphon = true; t.visual.antenna = true; } },
         ],
         [
@@ -1476,10 +1476,11 @@
         }
         // auto-deploy if have charge and enemy in range
         if (this.charges >= 1) {
+          const deployRange = this.range + this.trapR * 0.75;
           let found = null;
           for (const e of game.enemies) {
             if (e.hp <= 0 || e.flying || e.echo) continue;
-            if (dist2(this.x, this.y, e.x, e.y) <= this.range * this.range) { found = e; break; }
+            if (dist2(this.x, this.y, e.x, e.y) <= deployRange * deployRange) { found = e; break; }
           }
           if (found) {
             this.charges--;

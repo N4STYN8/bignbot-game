@@ -1,0 +1,2504 @@
+/* game.js
+  ORBIT ECHO: Loopborne Turretcraft
+  Pure HTML/CSS/JS. Canvas-rendered with layered glow & particles.
+  Unique twist: SKIP converts remaining intermission time into "Echo Debt" that later spawns phase-shifted enemies.
+
+  Notes:
+  - Speed multiplier affects EVERYTHING time-based via dtScaled = dt * speed.
+  - 30 waves, 10 turrets, 8+ enemy types.
+  - Turrets have 3 upgrade tiers (I/II/III) and a mod choice each tier.
+*/
+
+(() => {
+  "use strict";
+
+  /**********************
+   * Utilities
+   **********************/
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const dist2 = (ax, ay, bx, by) => {
+    const dx = ax - bx, dy = ay - by;
+    return dx * dx + dy * dy;
+  };
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+  function fmt(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    return String(Math.floor(n));
+  }
+
+  /**********************
+   * Canvas + resize
+   **********************/
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d", { alpha: true });
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = clamp(window.devicePixelRatio || 1, 1, 2);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+
+  /**********************
+   * UI refs
+   **********************/
+  const $ = (id) => document.getElementById(id);
+  const goldEl = $("gold");
+  const livesEl = $("lives");
+  const waveEl = $("wave");
+  const waveMaxEl = $("waveMax");
+  const nextInEl = $("nextIn");
+  const echoDebtEl = $("echoDebt");
+
+  const startBtn = $("startBtn");
+  const skipBtn = $("skipBtn");
+  const helpBtn = $("helpBtn");
+  const overlay = $("overlay");
+  const closeHelp = $("closeHelp");
+  const buildList = $("buildList");
+  const selectionBody = $("selectionBody");
+  const selSub = $("selSub");
+  const sellBtn = $("sellBtn");
+  const toastEl = $("toast");
+
+  const speedBtns = [...document.querySelectorAll(".segBtn")];
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.remove("hidden");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.add("hidden"), 1400);
+  }
+
+  /**********************
+   * Map (grid build areas + path polyline)
+   **********************/
+  class Map {
+    constructor() {
+      // A stylized "orbit lane" path (polyline). Enemies follow this.
+      // Coordinates are normalized (0..1) then scaled to canvas each frame.
+      this.pathN = [
+        [0.05, 0.70],
+        [0.18, 0.70],
+        [0.26, 0.56],
+        [0.34, 0.56],
+        [0.43, 0.78],
+        [0.56, 0.78],
+        [0.64, 0.46],
+        [0.75, 0.46],
+        [0.82, 0.62],
+        [0.92, 0.62],
+      ];
+
+      // Grid for placement (build tiles only). We mark a luminous "island" region.
+      this.gridSize = 44;
+      this.cols = 0;
+      this.rows = 0;
+      this.cells = []; // 0 blocked, 1 buildable, 2 path (blocked)
+      this.pathPts = []; // scaled points
+      this.segs = []; // segment lengths + cumulative
+      this.totalLen = 1;
+
+      this._rebuild();
+    }
+
+    _rebuild() {
+      // Build grid based on current canvas size
+      this.cols = Math.floor(W / this.gridSize);
+      this.rows = Math.floor(H / this.gridSize);
+      this.cells = new Array(this.cols * this.rows).fill(0);
+
+      // Mark buildable: two "ring gardens" around center-left and center-right.
+      const cx1 = W * 0.33, cy1 = H * 0.52;
+      const cx2 = W * 0.68, cy2 = H * 0.56;
+
+      for (let y = 0; y < this.rows; y++) {
+        for (let x = 0; x < this.cols; x++) {
+          const px = (x + 0.5) * this.gridSize;
+          const py = (y + 0.5) * this.gridSize;
+
+          const d1 = Math.sqrt(dist2(px, py, cx1, cy1));
+          const d2 = Math.sqrt(dist2(px, py, cx2, cy2));
+          const d3 = Math.sqrt(dist2(px, py, W * 0.52, H * 0.30));
+
+          let build = false;
+          // "Islands" with holes to feel unique
+          if (d1 < W * 0.26 && d1 > W * 0.12) build = true;
+          if (d2 < W * 0.24 && d2 > W * 0.11) build = true;
+          if (d3 < W * 0.18 && d3 > W * 0.08) build = true;
+
+          // keep some corners empty for composition
+          if (px < W * 0.12 && py < H * 0.18) build = false;
+          if (px > W * 0.92 && py > H * 0.86) build = false;
+
+          this.cells[y * this.cols + x] = build ? 1 : 0;
+        }
+      }
+
+      // Scale path
+      this.pathPts = this.pathN.map(([nx, ny]) => [nx * W, ny * H]);
+
+      // Mark path cells as blocked (2)
+      for (let i = 0; i < this.pathPts.length - 1; i++) {
+        const [ax, ay] = this.pathPts[i];
+        const [bx, by] = this.pathPts[i + 1];
+        const steps = Math.max(8, Math.floor(Math.hypot(bx - ax, by - ay) / (this.gridSize * 0.35)));
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const px = lerp(ax, bx, t);
+          const py = lerp(ay, by, t);
+          const gx = Math.floor(px / this.gridSize);
+          const gy = Math.floor(py / this.gridSize);
+          if (gx >= 0 && gy >= 0 && gx < this.cols && gy < this.rows) {
+            this.cells[gy * this.cols + gx] = 2;
+          }
+        }
+      }
+
+      // Build segment lengths for path following
+      this.segs = [];
+      this.totalLen = 0;
+      for (let i = 0; i < this.pathPts.length - 1; i++) {
+        const [ax, ay] = this.pathPts[i];
+        const [bx, by] = this.pathPts[i + 1];
+        const len = Math.hypot(bx - ax, by - ay);
+        this.segs.push({ ax, ay, bx, by, len, cum: this.totalLen });
+        this.totalLen += len;
+      }
+    }
+
+    onResize() { this._rebuild(); }
+
+    cellAt(px, py) {
+      const gx = Math.floor(px / this.gridSize);
+      const gy = Math.floor(py / this.gridSize);
+      if (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) return { gx, gy, v: 0 };
+      return { gx, gy, v: this.cells[gy * this.cols + gx] };
+    }
+
+    worldFromCell(gx, gy) {
+      return {
+        x: (gx + 0.5) * this.gridSize,
+        y: (gy + 0.5) * this.gridSize
+      };
+    }
+
+    // Path position by distance along path
+    posAt(d) {
+      d = clamp(d, 0, this.totalLen);
+      // find segment
+      let seg = this.segs[this.segs.length - 1];
+      for (let i = 0; i < this.segs.length; i++) {
+        const s = this.segs[i];
+        if (d <= s.cum + s.len) { seg = s; break; }
+      }
+      const t = seg.len > 0 ? (d - seg.cum) / seg.len : 0;
+      const x = lerp(seg.ax, seg.bx, t);
+      const y = lerp(seg.ay, seg.by, t);
+      const dx = seg.bx - seg.ax;
+      const dy = seg.by - seg.ay;
+      const ang = Math.atan2(dy, dx);
+      return { x, y, ang };
+    }
+
+    drawBase(gfx) {
+      // Background "nebula grid"
+      gfx.save();
+      gfx.globalAlpha = 0.35;
+      gfx.strokeStyle = "rgba(98,242,255,0.12)";
+      gfx.lineWidth = 1;
+      for (let x = 0; x < W; x += this.gridSize) {
+        gfx.beginPath(); gfx.moveTo(x + 0.5, 0); gfx.lineTo(x + 0.5, H); gfx.stroke();
+      }
+      for (let y = 0; y < H; y += this.gridSize) {
+        gfx.beginPath(); gfx.moveTo(0, y + 0.5); gfx.lineTo(W, y + 0.5); gfx.stroke();
+      }
+      gfx.restore();
+
+      // Buildable tile glow
+      gfx.save();
+      for (let gy = 0; gy < this.rows; gy++) {
+        for (let gx = 0; gx < this.cols; gx++) {
+          const v = this.cells[gy * this.cols + gx];
+          if (v !== 1) continue;
+          const x = gx * this.gridSize;
+          const y = gy * this.gridSize;
+
+          // soft, animated sheen
+          const t = performance.now() * 0.001;
+          const pulse = 0.35 + 0.25 * Math.sin(t * 1.2 + gx * 0.7 + gy * 0.5);
+          gfx.fillStyle = `rgba(98,242,255,${0.035 + pulse * 0.02})`;
+          gfx.fillRect(x, y, this.gridSize, this.gridSize);
+
+          gfx.strokeStyle = `rgba(154,108,255,${0.08 + pulse * 0.06})`;
+          gfx.lineWidth = 1;
+          gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+        }
+      }
+      gfx.restore();
+
+      // Path with layered glow
+      const pts = this.pathPts;
+      gfx.save();
+      gfx.lineCap = "round";
+      gfx.lineJoin = "round";
+
+      gfx.strokeStyle = "rgba(0,0,0,0.45)";
+      gfx.lineWidth = 28;
+      gfx.beginPath();
+      gfx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
+      gfx.stroke();
+
+      gfx.strokeStyle = "rgba(98,242,255,0.18)";
+      gfx.lineWidth = 20;
+      gfx.beginPath();
+      gfx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
+      gfx.stroke();
+
+      gfx.strokeStyle = "rgba(154,108,255,0.18)";
+      gfx.lineWidth = 12;
+      gfx.beginPath();
+      gfx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
+      gfx.stroke();
+
+      gfx.strokeStyle = "rgba(234,240,255,0.08)";
+      gfx.lineWidth = 2;
+      gfx.beginPath();
+      gfx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
+      gfx.stroke();
+      gfx.restore();
+
+      // Core at end
+      const end = pts[pts.length - 1];
+      const coreX = end[0], coreY = end[1];
+      gfx.save();
+      const t = performance.now() * 0.001;
+      const r = 18 + 2.5 * Math.sin(t * 2.3);
+      // halo
+      gfx.globalAlpha = 0.85;
+      const grad = gfx.createRadialGradient(coreX, coreY, 0, coreX, coreY, 70);
+      grad.addColorStop(0, "rgba(98,242,255,0.45)");
+      grad.addColorStop(0.4, "rgba(154,108,255,0.22)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.fillStyle = grad;
+      gfx.beginPath(); gfx.arc(coreX, coreY, 70, 0, Math.PI * 2); gfx.fill();
+
+      // core
+      gfx.fillStyle = "rgba(234,240,255,0.14)";
+      gfx.strokeStyle = "rgba(98,242,255,0.55)";
+      gfx.lineWidth = 2;
+      gfx.beginPath(); gfx.arc(coreX, coreY, r, 0, Math.PI * 2); gfx.fill(); gfx.stroke();
+
+      gfx.strokeStyle = "rgba(154,108,255,0.45)";
+      gfx.beginPath(); gfx.arc(coreX, coreY, r + 8, 0, Math.PI * 2); gfx.stroke();
+      gfx.restore();
+    }
+  }
+
+  /**********************
+   * Enemy definitions
+   **********************/
+  const DAMAGE = {
+    PHYS: "Physical",
+    ENGY: "Energy",
+    CHEM: "Chemical",
+    TRUE: "True",
+  };
+
+  const ENEMY_TYPES = {
+    // 8 distinct baseline types (plus Echo spawned from skip debt)
+    RUNNER: {
+      name: "Skitter",
+      hp: 52,
+      speed: 96,
+      armor: 0,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(98,242,255,0.85)",
+      reward: 7,
+      desc: "Fast, fragile."
+    },
+    BRUTE: {
+      name: "Bulwark",
+      hp: 170,
+      speed: 58,
+      armor: 0.10,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(234,240,255,0.75)",
+      reward: 12,
+      desc: "High HP, slow."
+    },
+    ARMORED: {
+      name: "Plated",
+      hp: 130,
+      speed: 64,
+      armor: 0.35,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(160,190,255,0.65)",
+      reward: 14,
+      desc: "Armor reduces Physical."
+    },
+    SHIELDED: {
+      name: "Prism Guard",
+      hp: 110,
+      speed: 62,
+      armor: 0.05,
+      shield: 85,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(154,108,255,0.8)",
+      reward: 16,
+      desc: "Shield absorbs Energy."
+    },
+    SPLITTER: {
+      name: "Mitosis",
+      hp: 95,
+      speed: 70,
+      armor: 0,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      tint: "rgba(255,207,91,0.8)",
+      reward: 18,
+      desc: "Splits into two minis on death.",
+      onDeath: (game, e) => {
+        // spawn two minis at same path distance
+        for (let i = 0; i < 2; i++) {
+          const m = game.spawnEnemy("MINI", e.pathD - 10 - i * 8);
+          m.x += rand(-6, 6);
+          m.y += rand(-6, 6);
+        }
+      }
+    },
+    REGEN: {
+      name: "Mender",
+      hp: 120,
+      speed: 60,
+      armor: 0.08,
+      shield: 0,
+      regen: 3.5, // hp per second (scaled by speed)
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(109,255,154,0.8)",
+      reward: 16,
+      desc: "Regenerates over time."
+    },
+    STEALTH: {
+      name: "Veil",
+      hp: 85,
+      speed: 82,
+      armor: 0,
+      shield: 0,
+      regen: 0,
+      stealth: true, // only targetable within reveal radius
+      flying: false,
+      onDeath: null,
+      tint: "rgba(234,240,255,0.35)",
+      reward: 15,
+      desc: "Stealth until revealed."
+    },
+    FLYING: {
+      name: "Skydart",
+      hp: 90,
+      speed: 88,
+      armor: 0.05,
+      shield: 30,
+      regen: 0,
+      stealth: false,
+      flying: true,
+      onDeath: null,
+      tint: "rgba(98,242,255,0.55)",
+      reward: 17,
+      desc: "Flying: avoids traps."
+    },
+    // Support types used by split + echo mechanic
+    MINI: {
+      name: "Sporelet",
+      hp: 38,
+      speed: 92,
+      armor: 0,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      tint: "rgba(255,207,91,0.6)",
+      reward: 4,
+      desc: "Spawned from Mitosis."
+    },
+    ECHO: {
+      name: "Echo Wisp",
+      hp: 70,
+      speed: 102,
+      armor: 0.15,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      echo: true,
+      onDeath: null,
+      tint: "rgba(154,108,255,0.45)",
+      reward: 4, // reduced reward
+      desc: "Phase-shifted debt."
+    }
+  };
+
+  // Damage interactions (simple but meaningful)
+  function applyDamageToEnemy(enemy, amount, dmgType) {
+    // Shields absorb Energy first
+    if (enemy.shield > 0 && dmgType === DAMAGE.ENGY) {
+      const s = Math.min(enemy.shield, amount);
+      enemy.shield -= s;
+      amount -= s * 0.75; // a bit of “refraction”: still leaks some through
+    }
+
+    // Armor reduces Physical
+    if (dmgType === DAMAGE.PHYS) {
+      amount *= (1 - enemy.armor);
+    }
+
+    // Echo wisps are phase-shifted: reduced control + reduced physical effectiveness
+    if (enemy.echo) {
+      if (dmgType === DAMAGE.PHYS) amount *= 0.65;
+      if (dmgType === DAMAGE.CHEM) amount *= 0.90;
+    }
+
+    enemy.hp -= amount;
+  }
+
+  class Enemy {
+    constructor(typeKey, waveScalar, startD) {
+      const base = ENEMY_TYPES[typeKey];
+      this.typeKey = typeKey;
+      this.name = base.name;
+
+      // Scaling rules: HP, armor/shield slight, speed slight.
+      this.maxHp = base.hp * waveScalar.hp;
+      this.hp = this.maxHp;
+      this.speed = base.speed * waveScalar.spd;
+
+      this.armor = clamp(base.armor + waveScalar.armor, 0, 0.70);
+      this.shield = Math.max(0, base.shield * waveScalar.shield);
+
+      this.regen = base.regen * waveScalar.regen;
+      this.stealth = !!base.stealth;
+      this.flying = !!base.flying;
+      this.echo = !!base.echo;
+
+      this.reward = Math.max(1, Math.floor(base.reward * waveScalar.reward));
+
+      this.tint = base.tint;
+      this.desc = base.desc;
+      this.onDeath = base.onDeath;
+
+      // movement along path
+      this.pathD = startD ?? 0;
+      this.x = 0; this.y = 0; this.ang = 0;
+
+      // visuals
+      this.r = this.flying ? 10 : 12;
+      this.pulse = rand(0, Math.PI * 2);
+      this.hitFlash = 0;
+
+      // DOT stacks (chemical)
+      this.dot = 0; // damage per second
+      this.dotT = 0; // time remaining
+
+      // Slow effect
+      this.slow = 0; // 0..1 percent slow
+      this.slowT = 0;
+
+      // reveal for stealth
+      this.revealed = !this.stealth;
+      this.revealT = 0;
+
+      this._dead = false;
+      this._lastHitBy = null;
+      this._noSplit = false;
+      this._noSplitT = 0;
+    }
+
+    update(game, dt) {
+      if (this._dead) return;
+      // regen
+      if (this.regen > 0 && this.hp > 0) {
+        this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
+      }
+
+      // DOT (chemical)
+      if (this.dotT > 0) {
+        this.dotT -= dt;
+        const dmg = this.dot * dt;
+        applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
+        // light shimmer
+        game.particles.spawn(this.x, this.y, 1, "chem");
+      } else {
+        this.dot = 0;
+      }
+
+      // slow decay
+      if (this.slowT > 0) {
+        this.slowT -= dt;
+        if (this.slowT <= 0) this.slow = 0;
+      }
+
+      // stealth reveal timer
+      if (this.revealT > 0) {
+        this.revealT -= dt;
+        if (this.revealT <= 0) this.revealed = false;
+      }
+      if (this._markedT > 0) {
+        this._markedT -= dt;
+        if (this._markedT <= 0) this._marked = 0;
+      }
+      if (this._noSplitT > 0) {
+        this._noSplitT -= dt;
+        if (this._noSplitT <= 0) this._noSplit = false;
+      }
+
+      // movement
+      const slowFactor = this.echo ? 1 : (1 - this.slow); // Echo ignores slow
+      this.pathD += this.speed * slowFactor * dt;
+      const p = game.map.posAt(this.pathD);
+      this.x = p.x; this.y = p.y; this.ang = p.ang;
+
+      // if reached end
+      if (this.pathD >= game.map.totalLen - 1) {
+        this.hp = 0;
+        if (!this._dead) {
+          this._dead = true;
+          game.onEnemyLeak(this);
+        }
+      }
+
+      if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt * 6);
+      this.pulse += dt * 2.0;
+    }
+
+    takeHit(game, amount, dmgType) {
+      if (this._dead) return;
+      this.hitFlash = 1;
+      applyDamageToEnemy(this, amount, dmgType);
+      // impact particles
+      game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
+      if (this.hp <= 0) {
+        if (!this._dead) {
+          this._dead = true;
+          game.onEnemyKill(this);
+        }
+      }
+    }
+
+    applySlow(pct, dur) {
+      if (this.echo) return; // phase-shift ignores slows/traps
+      this.slow = Math.max(this.slow, pct);
+      this.slowT = Math.max(this.slowT, dur);
+    }
+
+    applyDot(dps, dur) {
+      this.dot = Math.max(this.dot, dps);
+      this.dotT = Math.max(this.dotT, dur);
+    }
+
+    reveal(dur) {
+      if (!this.stealth) return;
+      this.revealed = true;
+      this.revealT = Math.max(this.revealT, dur);
+    }
+
+    draw(gfx) {
+      const t = performance.now() * 0.001;
+      const bob = this.flying ? (Math.sin(t * 4 + this.pulse) * 3) : 0;
+      const x = this.x, y = this.y + bob;
+
+      // shadow
+      gfx.save();
+      gfx.globalAlpha = 0.22;
+      gfx.fillStyle = "rgba(0,0,0,0.7)";
+      gfx.beginPath();
+      gfx.ellipse(x, this.y + 10, this.r * 1.0, this.r * 0.55, 0, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.restore();
+
+      // body glow halo
+      gfx.save();
+      const halo = gfx.createRadialGradient(x, y, 0, x, y, this.r * 2.4);
+      halo.addColorStop(0, this.tint);
+      halo.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.globalAlpha = this.echo ? 0.55 : 0.85;
+      gfx.fillStyle = halo;
+      gfx.beginPath(); gfx.arc(x, y, this.r * 2.0, 0, Math.PI * 2); gfx.fill();
+      gfx.restore();
+
+      // main body (stylized “seed” + “shell”)
+      gfx.save();
+      gfx.translate(x, y);
+      gfx.rotate(this.ang);
+
+      const stealthAlpha = this.stealth && !this.revealed ? 0.18 : 1;
+      gfx.globalAlpha = (this.echo ? 0.55 : 1) * stealthAlpha;
+
+      // outer shell
+      gfx.fillStyle = "rgba(7,10,18,0.65)";
+      gfx.strokeStyle = this.tint;
+      gfx.lineWidth = 2;
+      gfx.beginPath();
+      gfx.ellipse(0, 0, this.r, this.r * 0.85, 0.2, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.stroke();
+
+      // inner “core”
+      gfx.globalAlpha *= 0.95;
+      gfx.fillStyle = this.tint;
+      gfx.beginPath();
+      gfx.ellipse(-this.r * 0.15, 0, this.r * 0.42, this.r * 0.32, -0.6, 0, Math.PI * 2);
+      gfx.fill();
+
+      // echo distortion ring
+      if (this.echo) {
+        gfx.globalAlpha = 0.38;
+        gfx.strokeStyle = "rgba(154,108,255,0.9)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.ellipse(0, 0, this.r * 1.35, this.r * 0.55, t * 0.9, 0, Math.PI * 2);
+        gfx.stroke();
+      }
+
+      // hit flash
+      if (this.hitFlash > 0) {
+        gfx.globalAlpha = this.hitFlash * 0.7;
+        gfx.fillStyle = "rgba(234,240,255,0.9)";
+        gfx.beginPath();
+        gfx.ellipse(0, 0, this.r * 0.9, this.r * 0.75, 0.2, 0, Math.PI * 2);
+        gfx.fill();
+      }
+
+      gfx.restore();
+
+      // health bar
+      const hpPct = clamp(this.hp / this.maxHp, 0, 1);
+      gfx.save();
+      gfx.globalAlpha = 0.9 * (this.stealth && !this.revealed ? 0.45 : 1);
+      const barW = 34, barH = 5;
+      gfx.fillStyle = "rgba(0,0,0,0.55)";
+      gfx.fillRect(x - barW / 2, y - this.r - 16, barW, barH);
+      gfx.fillStyle = hpPct > 0.5 ? "rgba(109,255,154,0.85)" : (hpPct > 0.2 ? "rgba(255,207,91,0.85)" : "rgba(255,91,125,0.9)");
+      gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
+
+      // shield tick
+      if (this.shield > 0) {
+        gfx.strokeStyle = "rgba(154,108,255,0.85)";
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.arc(x, y, this.r + 3, 0, Math.PI * 2);
+        gfx.stroke();
+      }
+      gfx.restore();
+    }
+  }
+
+  /**********************
+   * Projectiles + particles
+   **********************/
+  class Particles {
+    constructor() { this.list = []; }
+    spawn(x, y, n, kind, tint) {
+      for (let i = 0; i < n; i++) {
+        const p = {
+          x, y,
+          vx: rand(-80, 80),
+          vy: rand(-80, 80),
+          r: rand(1.2, 3.0),
+          t: rand(0.20, 0.60),
+          kind,
+          tint: tint || null
+        };
+        this.list.push(p);
+      }
+    }
+    update(dt) {
+      for (let i = this.list.length - 1; i >= 0; i--) {
+        const p = this.list[i];
+        p.t -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= (1 - dt * 3.5);
+        p.vy *= (1 - dt * 3.5);
+        if (p.t <= 0) this.list.splice(i, 1);
+      }
+    }
+    draw(gfx) {
+      gfx.save();
+      for (const p of this.list) {
+        const a = clamp(p.t / 0.6, 0, 1);
+        if (p.kind === "hit") {
+          gfx.globalAlpha = a * 0.75;
+          gfx.fillStyle = p.tint || "rgba(234,240,255,0.8)";
+        } else if (p.kind === "chem") {
+          gfx.globalAlpha = a * 0.55;
+          gfx.fillStyle = "rgba(109,255,154,0.7)";
+        } else if (p.kind === "muzzle") {
+          gfx.globalAlpha = a * 0.65;
+          gfx.fillStyle = "rgba(98,242,255,0.85)";
+        } else if (p.kind === "boom") {
+          gfx.globalAlpha = a * 0.65;
+          gfx.fillStyle = "rgba(255,207,91,0.85)";
+        } else {
+          gfx.globalAlpha = a * 0.5;
+          gfx.fillStyle = "rgba(234,240,255,0.55)";
+        }
+        gfx.beginPath();
+        gfx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        gfx.fill();
+      }
+      gfx.restore();
+    }
+  }
+
+  class Projectile {
+    constructor(x, y, vx, vy, r, dmg, dmgType, pierce, ttl, style) {
+      this.x = x; this.y = y;
+      this.vx = vx; this.vy = vy;
+      this.r = r;
+      this.dmg = dmg;
+      this.dmgType = dmgType;
+      this.pierce = pierce;
+      this.ttl = ttl;
+      this.style = style; // "bullet", "venom", "mortar", "needle", "spark"
+      this.hit = new Set();
+
+      // optional behavior hooks (set by turret)
+      this.owner = null;
+      this.dotDps = 0;
+      this.dotDur = 0;
+      this.dotSlow = null;
+      this.markOnHit = 0;
+      this.stunChance = 0;
+      this.revealOnHit = false;
+      this.vsFlying = 1;
+      this._isMortar = false;
+      this._blast = 0;
+      this._blastSlow = null;
+      this._linger = false;
+      this._cluster = false;
+    }
+    _explode(game) {
+      if (this._exploded) return;
+      this._exploded = true;
+      const cx = this.x, cy = this.y;
+      const r = this._blast || 56;
+
+      // AoE damage
+      for (const e of game.enemies) {
+        if (e.hp <= 0) continue;
+        const d2 = dist2(cx, cy, e.x, e.y);
+        if (d2 <= r * r) {
+          e._lastHitBy = this.owner;
+          let dealt = this.dmg;
+          if (e.flying) dealt *= this.vsFlying;
+          e.takeHit(game, dealt, this.dmgType);
+          if (this._blastSlow) e.applySlow(this._blastSlow.pct, this._blastSlow.dur);
+        }
+      }
+
+      // cluster sub-blasts
+      if (this._cluster) {
+        for (let i = 0; i < 3; i++) {
+          const ang = rand(0, Math.PI * 2);
+          const rr = r * 0.6;
+          const ox = Math.cos(ang) * rr * 0.45;
+          const oy = Math.sin(ang) * rr * 0.45;
+          for (const e of game.enemies) {
+            if (e.hp <= 0) continue;
+            const d2 = dist2(cx + ox, cy + oy, e.x, e.y);
+            if (d2 <= (r * 0.55) * (r * 0.55)) {
+              e._lastHitBy = this.owner;
+              let dealt = this.dmg * 0.55;
+              if (e.flying) dealt *= this.vsFlying;
+              e.takeHit(game, dealt, this.dmgType);
+            }
+          }
+        }
+      }
+
+      if (this._linger) {
+        game.lingering.push({
+          x: cx, y: cy, r: r * 0.7, t: 2.2, dps: Math.max(6, this.dmg * 0.12),
+          col: "rgba(255,207,91,0.25)"
+        });
+      }
+
+      game.particles.spawn(cx, cy, 14, "boom");
+      this.ttl = 0;
+    }
+    update(game, dt) {
+      this.ttl -= dt;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+
+      // out of bounds
+      if (this.x < -80 || this.y < -80 || this.x > W + 80 || this.y > H + 80) this.ttl = 0;
+
+      // collision
+      if (this._isMortar) {
+        // mortar explodes on contact or when ttl expires
+        if (this.ttl <= 0) this._explode(game);
+        for (const e of game.enemies) {
+          if (e.hp <= 0) continue;
+          const rr = (e.r + this.r) * (e.r + this.r);
+          if (dist2(this.x, this.y, e.x, e.y) <= rr) {
+            this._explode(game);
+            break;
+          }
+        }
+        return;
+      }
+
+      for (const e of game.enemies) {
+        if (e.hp <= 0) continue;
+        // flying immunity for ground traps only; projectiles can hit flying unless specified
+        if (this.style === "trap") continue;
+
+        const rr = (e.r + this.r) * (e.r + this.r);
+        if (dist2(this.x, this.y, e.x, e.y) <= rr) {
+          if (this.hit.has(e)) continue;
+          this.hit.add(e);
+
+          e._lastHitBy = this.owner;
+          e.takeHit(game, this.dmg, this.dmgType);
+
+          // special style effects
+          if (this.style === "venom" && this.dotDps > 0) e.applyDot(this.dotDps, this.dotDur || 3.5);
+          if (this.style === "spark") e.applySlow(0.18, 1.2);
+          if (this.dotSlow) e.applySlow(this.dotSlow.pct, this.dotSlow.dur);
+          if (this.markOnHit) {
+            e._marked = Math.max(e._marked || 0, this.markOnHit);
+            e._markedT = Math.max(e._markedT || 0, 1.4);
+          }
+          if (this.stunChance && Math.random() < this.stunChance) e.applySlow(0.85, 0.35);
+          if (this.revealOnHit) e.reveal(0.7);
+
+          this.pierce--;
+          game.particles.spawn(this.x, this.y, 2, "hit", "rgba(234,240,255,0.65)");
+          if (this.pierce <= 0) {
+            this.ttl = 0;
+            break;
+          }
+        }
+      }
+    }
+    draw(gfx) {
+      gfx.save();
+      let col = "rgba(234,240,255,0.8)";
+      let glow = "rgba(98,242,255,0.35)";
+      if (this.style === "venom") { col = "rgba(109,255,154,0.85)"; glow = "rgba(109,255,154,0.35)"; }
+      if (this.style === "mortar") { col = "rgba(255,207,91,0.85)"; glow = "rgba(255,207,91,0.35)"; }
+      if (this.style === "needle") { col = "rgba(154,108,255,0.85)"; glow = "rgba(154,108,255,0.35)"; }
+      if (this.style === "spark")  { col = "rgba(98,242,255,0.85)"; glow = "rgba(98,242,255,0.35)"; }
+
+      const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 6);
+      g.addColorStop(0, glow);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.globalAlpha = 0.9;
+      gfx.fillStyle = g;
+      gfx.beginPath(); gfx.arc(this.x, this.y, this.r * 6, 0, Math.PI * 2); gfx.fill();
+
+      gfx.fillStyle = col;
+      gfx.beginPath(); gfx.arc(this.x, this.y, this.r, 0, Math.PI * 2); gfx.fill();
+      gfx.restore();
+    }
+  }
+
+  /**********************
+   * Turrets
+   **********************/
+  const TURRET_TYPES = {
+    PULSE: {
+      name: "Pulse Spindle",
+      role: "Single-target Physical",
+      cost: 55,
+      range: 150,
+      fire: 0.55,
+      dmg: 16,
+      dmgType: DAMAGE.PHYS,
+      projSpd: 420,
+      projStyle: "bullet",
+      pierce: 1,
+      canHitFlying: true,
+      desc: "Reliable kinetic bursts. Good baseline.",
+      mods: [
+        // Tier I
+        [
+          { name: "Rifled Core", cost: 45, desc: "+25% damage, +10% range.", apply: t => { t.dmg *= 1.25; t.range *= 1.10; t.visual.rings++; } },
+          { name: "Cycler", cost: 45, desc: "-18% fire interval, -8% damage.", apply: t => { t.fire *= 0.82; t.dmg *= 0.92; t.visual.barrels++; } },
+        ],
+        // Tier II
+        [
+          { name: "Shredder Tips", cost: 80, desc: "+1 pierce. Physical ignores 10% armor.", apply: t => { t.pierce += 1; t.armorPierce += 0.10; t.visual.spikes = true; } },
+          { name: "Echo Ping", cost: 80, desc: "Shots reveal Stealth near hit (brief).", apply: t => { t.revealOnHit = true; t.visual.antenna = true; } },
+        ],
+        // Tier III
+        [
+          { name: "Overpressure", cost: 140, desc: "+40% damage, +muzzle shock particles.", apply: t => { t.dmg *= 1.40; t.visual.glow = 1; } },
+          { name: "Twin Lattice", cost: 140, desc: "Fires 2 weaker shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.65; t.visual.barrels += 1; } },
+        ],
+      ]
+    },
+
+    ARC: {
+      name: "Arc Coil",
+      role: "Chain Energy",
+      cost: 85,
+      range: 135,
+      fire: 0.80,
+      dmg: 20,
+      dmgType: DAMAGE.ENGY,
+      chain: 3,
+      chainFalloff: 0.70,
+      canHitFlying: true,
+      desc: "Jumps between nearby enemies; great vs swarms.",
+      mods: [
+        [
+          { name: "Long Spark", cost: 55, desc: "+20% range, +1 chain.", apply: t => { t.range *= 1.20; t.chain += 1; t.visual.rings++; } },
+          { name: "Ion Burn", cost: 55, desc: "Adds slow on hit; -10% damage.", apply: t => { t.slowOnHit = { pct:0.20, dur:1.2 }; t.dmg *= 0.90; t.visual.glow = 1; } },
+        ],
+        [
+          { name: "Capacitor Bank", cost: 95, desc: "-15% fire interval, +10% damage.", apply: t => { t.fire *= 0.85; t.dmg *= 1.10; t.visual.barrels++; } },
+          { name: "Shield Split", cost: 95, desc: "+35% vs shields; -5% vs HP.", apply: t => { t.vsShield *= 1.35; t.vsHp *= 0.95; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Fork Storm", cost: 160, desc: "+2 chain; falloff reduced.", apply: t => { t.chain += 2; t.chainFalloff = 0.80; t.visual.rings += 1; } },
+          { name: "Lightning Net", cost: 160, desc: "Every 3rd shot hits in a small AoE.", apply: t => { t.netBurst = true; t.visual.spikes = true; } },
+        ],
+      ]
+    },
+
+    FROST: {
+      name: "Frost Vent",
+      role: "AoE Slow Cone",
+      cost: 75,
+      range: 120,
+      fire: 1.10,
+      dmg: 10,
+      dmgType: DAMAGE.ENGY,
+      cone: Math.PI / 2.2,
+      canHitFlying: false,
+      desc: "Chills enemies in a cone; keeps lines stable.",
+      mods: [
+        [
+          { name: "Wider Plume", cost: 45, desc: "+30% cone width, -10% damage.", apply: t => { t.cone *= 1.30; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Deep Chill", cost: 45, desc: "+20% slow strength.", apply: t => { t.slowPct *= 1.20; t.visual.glow = 1; } },
+        ],
+        [
+          { name: "Cryo Crystals", cost: 85, desc: "Enemies take +15% damage while slowed (mark).", apply: t => { t.chillMark = 0.15; t.visual.spikes = true; } },
+          { name: "Pressure Nozzle", cost: 85, desc: "-20% fire interval; +range.", apply: t => { t.fire *= 0.80; t.range *= 1.12; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Whiteout", cost: 140, desc: "Occasional freeze pulse (brief).", apply: t => { t.freezePulse = true; t.visual.rings += 1; } },
+          { name: "Rime Lash", cost: 140, desc: "+damage and can affect Flying lightly.", apply: t => { t.dmg *= 1.35; t.canHitFlying = true; t.visual.glow = 1; } },
+        ],
+      ]
+    },
+
+    LENS: {
+      name: "Sun Lens",
+      role: "Beam Energy",
+      cost: 95,
+      range: 165,
+      fire: 0.08, // continuous ticks
+      dmg: 5.0, // per tick
+      dmgType: DAMAGE.ENGY,
+      canHitFlying: true,
+      desc: "Continuous beam; melts shields with sustained contact.",
+      mods: [
+        [
+          { name: "Focusing Iris", cost: 60, desc: "+20% range, +10% damage.", apply: t => { t.range *= 1.20; t.dmg *= 1.10; t.visual.rings++; } },
+          { name: "Diffraction", cost: 60, desc: "Beam can split to 2nd target (half dmg).", apply: t => { t.splitBeam = true; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Heat Soak", cost: 105, desc: "Applies burn DOT (chemical).", apply: t => { t.burn = { dps: 6, dur: 2.8 }; t.visual.glow = 1; } },
+          { name: "Shield Harrow", cost: 105, desc: "+45% vs shields.", apply: t => { t.vsShield *= 1.45; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 3.2; t.visual.rings += 2; } },
+          { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t.visual.glow = 1; } },
+        ],
+      ]
+    },
+
+    MORTAR: {
+      name: "Mortar Bloom",
+      role: "AoE Explosive",
+      cost: 110,
+      range: 220,
+      fire: 1.65,
+      dmg: 48,
+      dmgType: DAMAGE.PHYS,
+      blast: 56,
+      projSpd: 260,
+      projStyle: "mortar",
+      pierce: 99, // handled by AoE
+      canHitFlying: true,
+      desc: "Lobs explosive seeds. Great vs clumps.",
+      mods: [
+        [
+          { name: "Wider Bloom", cost: 70, desc: "+25% blast radius, -10% damage.", apply: t => { t.blast *= 1.25; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Packed Charge", cost: 70, desc: "+25% damage, -10% blast.", apply: t => { t.dmg *= 1.25; t.blast *= 0.90; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Shrapnel Pods", cost: 120, desc: "Blast also slows briefly (not Echo).", apply: t => { t.blastSlow = { pct:0.18, dur:1.1 }; t.visual.glow = 1; } },
+          { name: "Airburst Fuse", cost: 120, desc: "Better vs Flying (+20%).", apply: t => { t.vsFlying *= 1.20; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Cluster Bloom", cost: 190, desc: "Splits into 3 mini blasts.", apply: t => { t.cluster = true; t.visual.barrels += 1; } },
+          { name: "Seismic Pulse", cost: 190, desc: "Leaves lingering damage zone (short).", apply: t => { t.lingering = true; t.visual.rings += 1; } },
+        ],
+      ]
+    },
+
+    VENOM: {
+      name: "Venom Spitter",
+      role: "DoT Chemical",
+      cost: 80,
+      range: 150,
+      fire: 0.70,
+      dmg: 12,
+      dmgType: DAMAGE.CHEM,
+      projSpd: 360,
+      projStyle: "venom",
+      pierce: 1,
+      canHitFlying: true,
+      desc: "Stacks damage-over-time. Strong vs armor.",
+      mods: [
+        [
+          { name: "Corrosive Mix", cost: 55, desc: "DOT duration +40%.", apply: t => { t.dotDur *= 1.40; t.visual.glow = 1; } },
+          { name: "Needle Spray", cost: 55, desc: "Fires 2 shots (weaker).", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Neurotoxin", cost: 95, desc: "DOT also slows slightly (not Echo).", apply: t => { t.dotSlow = { pct:0.12, dur:2.2 }; t.visual.rings++; } },
+          { name: "Viral Burst", cost: 95, desc: "On kill, splashes DOT to nearby enemies.", apply: t => { t.onKillSplash = true; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Caustic Fountain", cost: 160, desc: "+35% damage and +range.", apply: t => { t.dmg *= 1.35; t.range *= 1.12; t.visual.glow = 1; } },
+          { name: "Black Bile", cost: 160, desc: "DOT ignores shields fully.", apply: t => { t.dotIgnoresShields = true; t.visual.antenna = true; } },
+        ],
+      ]
+    },
+
+    NEEDLE: {
+      name: "Rail Needle",
+      role: "Sniper Physical",
+      cost: 120,
+      range: 300,
+      fire: 1.55,
+      dmg: 92,
+      dmgType: DAMAGE.PHYS,
+      projSpd: 760,
+      projStyle: "needle",
+      pierce: 2,
+      canHitFlying: true,
+      desc: "Long-range piercing shots. Deletes brutes.",
+      mods: [
+        [
+          { name: "Stabilizer", cost: 75, desc: "+20% damage; slightly slower.", apply: t => { t.dmg *= 1.20; t.fire *= 1.08; t.visual.rings++; } },
+          { name: "Quickchamber", cost: 75, desc: "-18% fire interval; -10% damage.", apply: t => { t.fire *= 0.82; t.dmg *= 0.90; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Breach Rod", cost: 135, desc: "+1 pierce; +armor pierce.", apply: t => { t.pierce += 1; t.armorPierce += 0.18; t.visual.spikes = true; } },
+          { name: "Echo Marker", cost: 135, desc: "Hits briefly increase all damage taken.", apply: t => { t.markOnHit = 0.12; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Singularity Pin", cost: 210, desc: "Chance to mini-stun (not Echo).", apply: t => { t.stunChance = 0.18; t.visual.glow = 1; } },
+          { name: "Dual Rail", cost: 210, desc: "Fires 2 needles with small spread.", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels += 1; } },
+        ],
+      ]
+    },
+
+    AURA: {
+      name: "Aura Grove",
+      role: "Support Buff",
+      cost: 90,
+      range: 170,
+      fire: 0.50,
+      dmg: 0,
+      dmgType: DAMAGE.TRUE,
+      canHitFlying: true,
+      desc: "Buffs allied turrets in range. Also reveals stealth.",
+      mods: [
+        [
+          { name: "Amplify", cost: 60, desc: "Buffs +12% damage.", apply: t => { t.buffDmg += 0.12; t.visual.rings++; } },
+          { name: "Overclock", cost: 60, desc: "Buffs +12% attack speed.", apply: t => { t.buffRate += 0.12; t.visual.glow = 1; } },
+        ],
+        [
+          { name: "Wide Canopy", cost: 105, desc: "+25% range; weaker buff.", apply: t => { t.range *= 1.25; t.buffDmg *= 0.90; t.buffRate *= 0.90; t.visual.rings++; } },
+          { name: "Revelation", cost: 105, desc: "Reveals Stealth in aura.", apply: t => { t.revealAura = true; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Harmonic Surge", cost: 170, desc: "Every 5s emits buff pulse (+brief).", apply: t => { t.pulse = true; t.visual.glow = 1; } },
+          { name: "Tether Roots", cost: 170, desc: "Adds small slow field (not Echo).", apply: t => { t.slowField = { pct:0.10, dur:0.6 }; t.visual.spikes = true; } },
+        ],
+      ]
+    },
+
+    DRONE: {
+      name: "Drone Hive",
+      role: "Autonomous Drones",
+      cost: 130,
+      range: 160,
+      fire: 2.40, // spawns drones periodically
+      dmg: 9,
+      dmgType: DAMAGE.PHYS,
+      canHitFlying: true,
+      desc: "Spawns drones that orbit and shoot. Great coverage.",
+      mods: [
+        [
+          { name: "Extra Bay", cost: 85, desc: "+1 drone active.", apply: t => { t.maxDrones += 1; t.visual.rings++; } },
+          { name: "Sharper Stings", cost: 85, desc: "+25% drone damage.", apply: t => { t.dmg *= 1.25; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Faster Swarm", cost: 145, desc: "-18% spawn interval.", apply: t => { t.fire *= 0.82; t.visual.glow = 1; } },
+          { name: "Target Link", cost: 145, desc: "Drones focus same target (burst).", apply: t => { t.link = true; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Iridescent Shell", cost: 230, desc: "Drones deal +40% to shields.", apply: t => { t.vsShield *= 1.40; t.visual.glow = 1; } },
+          { name: "Tri-Drone", cost: 230, desc: "+1 drone and +range.", apply: t => { t.maxDrones += 1; t.range *= 1.12; t.visual.rings += 1; } },
+        ],
+      ]
+    },
+
+    TRAP: {
+      name: "Gravity Trap",
+      role: "Ground Trap / Control",
+      cost: 70,
+      range: 120,
+      fire: 1.75, // places trap
+      dmg: 30,
+      dmgType: DAMAGE.TRUE,
+      canHitFlying: false,
+      desc: "Plants a gravity knot that damages + slows (not Echo).",
+      mods: [
+        [
+          { name: "Wider Knot", cost: 50, desc: "+25% trap radius.", apply: t => { t.trapR *= 1.25; t.visual.rings++; } },
+          { name: "Tighter Pull", cost: 50, desc: "+slow strength.", apply: t => { t.trapSlow *= 1.25; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Chain Knots", cost: 90, desc: "Traps can store 2 charges.", apply: t => { t.maxCharges += 1; t.visual.barrels++; } },
+          { name: "Siphon", cost: 90, desc: "Traps refund 20% gold on kill.", apply: t => { t.siphon = true; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Event Horizon", cost: 150, desc: "Trap deals DOT while inside.", apply: t => { t.trapDot = { dps: 8, dur: 2.4 }; t.visual.glow = 1; } },
+          { name: "Anchor Field", cost: 150, desc: "Traps briefly stop Splitters from splitting.", apply: t => { t.noSplit = true; t.visual.rings += 1; } },
+        ],
+      ]
+    },
+  };
+
+  class Turret {
+    constructor(typeKey, x, y) {
+      this.typeKey = typeKey;
+      const base = TURRET_TYPES[typeKey];
+
+      this.name = base.name;
+      this.role = base.role;
+      this.desc = base.desc;
+
+      this.x = x; this.y = y;
+
+      this.level = 0; // 0..3 (Upgrade I/II/III)
+      this.modsChosen = []; // store chosen mod indexes per tier
+
+      // base stats (will mutate with upgrades)
+      this.range = base.range;
+      this.fire = base.fire;
+      this.cool = rand(0, this.fire); // stagger
+      this.dmg = base.dmg;
+      this.dmgType = base.dmgType;
+      this.projSpd = base.projSpd || 0;
+      this.projStyle = base.projStyle || null;
+      this.pierce = base.pierce || 1;
+      this.chain = base.chain || 0;
+      this.chainFalloff = base.chainFalloff || 0.7;
+      this.cone = base.cone || 0;
+      this.blast = base.blast || 0;
+      this.canHitFlying = base.canHitFlying !== false;
+
+      // modifiers
+      this.vsShield = 1.0;
+      this.vsHp = 1.0;
+      this.vsFlying = 1.0;
+      this.armorPierce = 0.0;
+
+      // special flags/effects
+      this.slowPct = 0.22; // default for frost/trap
+      this.dotDur = 3.5;   // venom
+      this.dotIgnoresShields = false;
+      this.onKillSplash = false;
+
+      this.revealOnHit = false;
+      this.markOnHit = 0;
+      this.stunChance = 0;
+
+      // support
+      this.buffDmg = 0.10;
+      this.buffRate = 0.10;
+      this.revealAura = false;
+      this.pulse = false;
+      this.pulseT = 0;
+      this.slowField = null;
+
+      // drones
+      this.maxDrones = 2;
+      this.drones = [];
+      this.link = false;
+
+      // trap
+      this.trapR = 54;
+      this.trapSlow = 0.32;
+      this.maxCharges = 1;
+      this.charges = 1;
+      this.siphon = false;
+      this.trapDot = null;
+      this.noSplit = false;
+
+      // visuals (changes every upgrade)
+      this.visual = {
+        rings: 0,
+        barrels: 0,
+        spikes: false,
+        antenna: false,
+        glow: 0, // 0/1
+      };
+
+      this.targetId = -1;
+      this.aimAng = 0;
+      this.flash = 0;
+
+      this.costSpent = base.cost;
+    }
+
+    // Clone the turret and apply a mod (for UI preview)
+    static previewAfterUpgrade(turret, tierIndex, modIndex) {
+      const t = turret._clone();
+      t.applyUpgrade(tierIndex, modIndex, true);
+      return t;
+    }
+
+    _clone() {
+      const t = new Turret(this.typeKey, this.x, this.y);
+      // copy current mutated stats
+      Object.assign(t, JSON.parse(JSON.stringify(this)));
+      // restore methods/complex fields we want as-is:
+      t.drones = (this.drones || []).map(d => ({ ...d }));
+      return t;
+    }
+
+    getTierOptions(tierIndex) {
+      const base = TURRET_TYPES[this.typeKey];
+      return base.mods[tierIndex];
+    }
+
+    getUpgradeCost(tierIndex, modIndex) {
+      return this.getTierOptions(tierIndex)[modIndex].cost;
+    }
+
+    applyUpgrade(tierIndex, modIndex, previewOnly = false) {
+      if (tierIndex !== this.level) return false;
+      if (tierIndex > 2) return false;
+
+      const mod = this.getTierOptions(tierIndex)[modIndex];
+      mod.apply(this);
+
+      if (!previewOnly) {
+        this.modsChosen[tierIndex] = modIndex;
+        this.level++;
+        // visual “tier bump”
+        this.flash = 1;
+        this.costSpent += mod.cost;
+      }
+      return true;
+    }
+
+    getBuffedStats(game) {
+      // Aura Grove buffs other turrets in range
+      let dmgMul = 1, rateMul = 1;
+      for (const a of game.turrets) {
+        if (a.typeKey !== "AURA") continue;
+        const d = Math.sqrt(dist2(this.x, this.y, a.x, a.y));
+        if (d <= a.range) {
+          dmgMul *= (1 + a.buffDmg);
+          rateMul *= (1 + a.buffRate);
+        }
+      }
+      return { dmgMul, rateMul };
+    }
+
+    canTarget(enemy) {
+      if (enemy.hp <= 0) return false;
+      if (!this.canHitFlying && enemy.flying) return false;
+
+      // stealth targeting rules: must be revealed OR within reveal radius (close)
+      if (enemy.stealth && !enemy.revealed) {
+        const d = Math.sqrt(dist2(this.x, this.y, enemy.x, enemy.y));
+        if (d > 90) return false;
+      }
+      return true;
+    }
+
+    acquireTarget(game) {
+      let best = null;
+      let bestScore = -1;
+
+      for (let i = 0; i < game.enemies.length; i++) {
+        const e = game.enemies[i];
+        if (!this.canTarget(e)) continue;
+        const d2v = dist2(this.x, this.y, e.x, e.y);
+        if (d2v > this.range * this.range) continue;
+
+        // prefer enemies closer to the core (higher pathD)
+        const score = e.pathD - d2v * 0.0003;
+        if (score > bestScore) { bestScore = score; best = e; }
+      }
+      return best;
+    }
+
+    update(game, dt) {
+      if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
+
+      // Aura Grove special handling
+      if (this.typeKey === "AURA") {
+        // reveal + slow field pulses
+        if (this.revealAura) {
+          for (const e of game.enemies) {
+            if (e.hp <= 0 || !e.stealth) continue;
+            if (dist2(this.x, this.y, e.x, e.y) <= this.range * this.range) e.reveal(0.6);
+          }
+        }
+        if (this.slowField) {
+          for (const e of game.enemies) {
+            if (e.hp <= 0) continue;
+            if (dist2(this.x, this.y, e.x, e.y) <= this.range * this.range) {
+              e.applySlow(this.slowField.pct, this.slowField.dur);
+            }
+          }
+        }
+        if (this.pulse) {
+          this.pulseT -= dt;
+          if (this.pulseT <= 0) {
+            this.pulseT = 5.0;
+            game.particles.spawn(this.x, this.y, 16, "muzzle");
+          }
+        }
+        return;
+      }
+
+      // Drone hive: spawn and update drones
+      if (this.typeKey === "DRONE") {
+        // keep drone count
+        while (this.drones.length < this.maxDrones) {
+          this.drones.push({
+            ang: rand(0, Math.PI * 2),
+            r: rand(18, 28),
+            cool: rand(0.1, 0.4),
+            target: null
+          });
+        }
+        while (this.drones.length > this.maxDrones) this.drones.pop();
+
+        const buff = this.getBuffedStats(game);
+        for (const d of this.drones) {
+          d.ang += dt * 2.0;
+          const ox = Math.cos(d.ang) * (26 + d.r);
+          const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
+
+          d.cool -= dt * buff.rateMul;
+          if (d.cool <= 0) {
+            d.cool = 0.42; // drone fire cadence
+            // pick target
+            let target = null;
+            if (this.link && this.targetId !== -1) {
+              target = game.enemies.find(e => e._id === this.targetId && e.hp > 0);
+            }
+            if (!target) target = this.acquireTarget(game);
+            if (target) {
+              this.targetId = target._id;
+              const dx = (target.x - (this.x + ox));
+              const dy = (target.y - (this.y + oy));
+              const len = Math.hypot(dx, dy) || 1;
+              const spd = 520;
+              const vx = (dx / len) * spd;
+              const vy = (dy / len) * spd;
+              const dmg = this.dmg * buff.dmgMul;
+              const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, 1, 1.4, "spark");
+              game.projectiles.push(p);
+              game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
+            }
+          }
+        }
+
+        // spawn new drone periodically (handled by maxDrones upgrades), no extra fire timer needed
+        return;
+      }
+
+      // Trap: place knots periodically (charges)
+      if (this.typeKey === "TRAP") {
+        this.charges = clamp(this.charges, 0, this.maxCharges);
+        this.cool -= dt;
+        if (this.cool <= 0) {
+          this.cool = this.fire;
+          if (this.charges < this.maxCharges) this.charges++;
+        }
+        // auto-deploy if have charge and enemy in range
+        if (this.charges >= 1) {
+          let found = null;
+          for (const e of game.enemies) {
+            if (e.hp <= 0 || e.flying || e.echo) continue;
+            if (dist2(this.x, this.y, e.x, e.y) <= this.range * this.range) { found = e; break; }
+          }
+          if (found) {
+            this.charges--;
+            game.traps.push({
+              x: found.x, y: found.y,
+              r: this.trapR,
+              t: 2.2,
+              dmg: this.dmg,
+              slow: this.trapSlow,
+              dot: this.trapDot,
+              siphon: this.siphon,
+              noSplit: this.noSplit,
+              owner: this
+            });
+            game.particles.spawn(found.x, found.y, 10, "muzzle");
+          }
+        }
+        return;
+      }
+
+      // Normal turrets
+      const buff = this.getBuffedStats(game);
+      const fireInterval = this.fire / buff.rateMul;
+      this.cool -= dt;
+
+      const target = this.acquireTarget(game);
+      if (target) {
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        this.aimAng = Math.atan2(dy, dx);
+        this.targetId = target._id;
+      } else {
+        this.targetId = -1;
+      }
+
+      if (target && this.cool <= 0) {
+        this.cool = fireInterval;
+        this.flash = 1;
+
+        const dmgBase = this.dmg * buff.dmgMul;
+        const dmgType = this.dmgType;
+
+        // Fire behavior by turret type
+        switch (this.typeKey) {
+          case "PULSE":
+          case "VENOM":
+          case "NEEDLE": {
+            // projectiles
+            const shots = this.multishot || 1;
+            for (let s = 0; s < shots; s++) {
+              const spread = shots > 1 ? (s - (shots - 1) / 2) * 0.08 : 0;
+              const ang = this.aimAng + spread;
+              const spd = this.projSpd;
+              const vx = Math.cos(ang) * spd;
+              const vy = Math.sin(ang) * spd;
+
+              // small muzzle offset
+              const mx = this.x + Math.cos(ang) * 14;
+              const my = this.y + Math.sin(ang) * 14;
+
+              // physical armor pierce handled as bonus damage vs armor (approx)
+              let dmg = dmgBase;
+              if (this.armorPierce > 0 && dmgType === DAMAGE.PHYS) {
+                dmg *= (1 + this.armorPierce * 0.35);
+              }
+
+              const style = this.projStyle || "bullet";
+              const p = new Projectile(mx, my, vx, vy, style === "needle" ? 2.0 : 3.2, dmg, dmgType, this.pierce, 1.6, style);
+              p.owner = this;
+              p.revealOnHit = this.revealOnHit;
+              p.markOnHit = this.markOnHit || 0;
+              p.stunChance = this.stunChance || 0;
+              p.vsFlying = this.vsFlying || 1;
+              if (this.typeKey === "VENOM") {
+                p.dotDps = dmgBase * 0.35;
+                p.dotDur = this.dotDur;
+                if (this.dotSlow) p.dotSlow = this.dotSlow;
+              }
+              game.projectiles.push(p);
+              game.particles.spawn(mx, my, 2, "muzzle");
+
+              // reveal-on-hit is handled when projectile hits (we approximate by ray-check small near target)
+              if (this.revealOnHit) {
+                // mark an area around target now; projectile will probably hit soon
+                target.reveal(0.6);
+                for (const e of game.enemies) {
+                  if (e.stealth && dist2(e.x, e.y, target.x, target.y) < 70 * 70) e.reveal(0.6);
+                }
+              }
+            }
+            break;
+          }
+
+          case "ARC": {
+            // chain lightning: direct instant hits + visual arcs
+            const chainCount = this.chain;
+            const visited = new Set();
+            let current = target;
+            let dmg = dmgBase;
+
+            for (let hop = 0; hop < chainCount; hop++) {
+              if (!current) break;
+              visited.add(current);
+              // compute shield vs hp multipliers
+              let dealt = dmg;
+              if (current.shield > 0) dealt *= this.vsShield;
+              else dealt *= this.vsHp;
+
+              current.takeHit(game, dealt, DAMAGE.ENGY);
+
+              if (this.slowOnHit) current.applySlow(this.slowOnHit.pct, this.slowOnHit.dur);
+
+              // find next nearest within hop radius
+              let next = null;
+              let bestD2 = 99999999;
+              for (const e of game.enemies) {
+                if (e.hp <= 0 || visited.has(e)) continue;
+                if (!this.canTarget(e)) continue;
+                const d2v = dist2(current.x, current.y, e.x, e.y);
+                if (d2v < bestD2 && d2v < 110 * 110) { bestD2 = d2v; next = e; }
+              }
+
+              // add arc visual
+              game.arcs.push({
+                ax: hop === 0 ? this.x : visited.size === 1 ? this.x : current.x,
+                ay: hop === 0 ? this.y : visited.size === 1 ? this.y : current.y,
+                bx: current.x,
+                by: current.y,
+                t: 0.12
+              });
+
+              dmg *= this.chainFalloff;
+              current = next;
+            }
+
+            // Net burst every 3rd shot
+            if (this.netBurst) {
+              this._netBurstCounter = (this._netBurstCounter || 0) + 1;
+              if (this._netBurstCounter % 3 === 0) {
+                const cx = target.x, cy = target.y;
+                for (const e of game.enemies) {
+                  if (e.hp <= 0) continue;
+                  if (dist2(cx, cy, e.x, e.y) <= 60 * 60) {
+                    e.takeHit(game, dmgBase * 0.55, DAMAGE.ENGY);
+                    e.applySlow(0.12, 0.9);
+                  }
+                }
+                game.particles.spawn(cx, cy, 12, "muzzle");
+              }
+            }
+            break;
+          }
+
+          case "FROST": {
+            // cone chill: hits enemies in cone
+            const ang = this.aimAng;
+            const cosA = Math.cos(ang), sinA = Math.sin(ang);
+
+            for (const e of game.enemies) {
+              if (e.hp <= 0) continue;
+              if (e.flying && !this.canHitFlying) continue;
+              const dx = e.x - this.x, dy = e.y - this.y;
+              const d = Math.hypot(dx, dy);
+              if (d > this.range) continue;
+              const nx = dx / (d || 1), ny = dy / (d || 1);
+              const dot = nx * cosA + ny * sinA; // cos of angle
+              const th = Math.cos(this.cone / 2);
+              if (dot >= th) {
+                // damage and slow
+                const dealt = dmgBase * (e.shield > 0 ? this.vsShield : this.vsHp);
+                e.takeHit(game, dealt, DAMAGE.ENGY);
+                e.applySlow(this.slowPct, 1.4);
+                if (this.chillMark) {
+                  e._marked = Math.max(e._marked || 0, this.chillMark);
+                  e._markedT = Math.max(e._markedT || 0, 1.6);
+                }
+              }
+            }
+
+            // occasional freeze pulse
+            if (this.freezePulse) {
+              this._freezeCounter = (this._freezeCounter || 0) + 1;
+              if (this._freezeCounter % 6 === 0) {
+                for (const e of game.enemies) {
+                  if (e.hp <= 0 || e.echo) continue;
+                  if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.75) * (this.range * 0.75)) {
+                    e.applySlow(0.65, 0.45);
+                  }
+                }
+                game.particles.spawn(this.x, this.y, 10, "muzzle");
+              }
+            }
+            game.cones.push({ x: this.x, y: this.y, ang: this.aimAng, cone: this.cone, r: this.range, t: 0.10 });
+            break;
+          }
+
+          case "LENS": {
+            // beam turret handled in draw/update pass by storing target
+            // apply damage per tick (fire is small interval)
+            let dealt = dmgBase;
+            if (target.shield > 0) dealt *= this.vsShield;
+            else dealt *= this.vsHp;
+
+            // damage ramp if enabled
+            if (this.ramp) {
+              if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + 0.12, 1, 2.2);
+              else { this._rampId = target._id; this._ramp = 1; }
+              dealt *= this._ramp;
+            }
+
+            // chill mark increases damage taken (from Frost) – apply here too
+            if (target._markedT > 0) dealt *= (1 + target._marked);
+
+            target.takeHit(game, dealt, DAMAGE.ENGY);
+
+            if (this.burn) target.applyDot(this.burn.dps, this.burn.dur);
+
+            // split beam to second target
+            if (this.splitBeam) {
+              let second = null, best = 1e9;
+              for (const e of game.enemies) {
+                if (e === target || e.hp <= 0) continue;
+                if (!this.canTarget(e)) continue;
+                const d2v = dist2(target.x, target.y, e.x, e.y);
+                if (d2v < best && d2v < 120 * 120) { best = d2v; second = e; }
+              }
+              if (second) {
+                second.takeHit(game, dealt * 0.5, DAMAGE.ENGY);
+                game.beams.push({ ax: this.x, ay: this.y, bx: second.x, by: second.y, t: 0.08, col: "rgba(154,108,255,0.75)" });
+              }
+            }
+
+            // aura chip
+            if (this.auraDps) {
+              for (const e of game.enemies) {
+                if (e.hp <= 0) continue;
+                if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.65) * (this.range * 0.65)) {
+                  e.takeHit(game, this.auraDps * dt, DAMAGE.ENGY);
+                }
+              }
+            }
+
+            // main beam visual
+            game.beams.push({ ax: this.x, ay: this.y, bx: target.x, by: target.y, t: 0.09, col: "rgba(98,242,255,0.85)" });
+            game.particles.spawn(this.x + Math.cos(this.aimAng) * 14, this.y + Math.sin(this.aimAng) * 14, 1, "muzzle");
+            break;
+          }
+
+          case "MORTAR": {
+            // lob projectile; on impact do AoE. We'll simulate travel as projectile that explodes on near target.
+            const ang = this.aimAng;
+            const spd = this.projSpd;
+            const vx = Math.cos(ang) * spd;
+            const vy = Math.sin(ang) * spd;
+
+            const mx = this.x + Math.cos(ang) * 14;
+            const my = this.y + Math.sin(ang) * 14;
+
+            const p = new Projectile(mx, my, vx, vy, 4.0, dmgBase, DAMAGE.PHYS, 999, 1.6, "mortar");
+            p._isMortar = true;
+            p._blast = this.blast;
+            p._linger = !!this.lingering;
+            p._cluster = !!this.cluster;
+            p._blastSlow = this.blastSlow || null;
+            p.owner = this;
+            p.vsFlying = this.vsFlying || 1;
+            game.projectiles.push(p);
+            game.particles.spawn(mx, my, 3, "muzzle");
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+
+    draw(gfx, selected = false) {
+      const t = performance.now() * 0.001;
+      const colMap = {
+        PULSE: "rgba(98,242,255,0.9)",
+        ARC: "rgba(154,108,255,0.9)",
+        FROST: "rgba(160,190,255,0.9)",
+        LENS: "rgba(98,242,255,0.9)",
+        MORTAR: "rgba(255,207,91,0.9)",
+        VENOM: "rgba(109,255,154,0.9)",
+        NEEDLE: "rgba(154,108,255,0.9)",
+        AURA: "rgba(98,242,255,0.8)",
+        DRONE: "rgba(98,242,255,0.9)",
+        TRAP: "rgba(255,207,91,0.9)"
+      };
+      const col = colMap[this.typeKey] || "rgba(234,240,255,0.9)";
+
+      if (selected) {
+        gfx.save();
+        gfx.globalAlpha = 0.18;
+        gfx.strokeStyle = "rgba(98,242,255,0.8)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+        gfx.stroke();
+        gfx.restore();
+      }
+
+      // glow
+      if (this.visual.glow) {
+        gfx.save();
+        const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 38);
+        g.addColorStop(0, col);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        gfx.globalAlpha = 0.45;
+        gfx.fillStyle = g;
+        gfx.beginPath(); gfx.arc(this.x, this.y, 38, 0, Math.PI * 2); gfx.fill();
+        gfx.restore();
+      }
+
+      // base body
+      gfx.save();
+      gfx.translate(this.x, this.y);
+      gfx.rotate(this.aimAng);
+      gfx.fillStyle = "rgba(7,10,18,0.75)";
+      gfx.strokeStyle = col;
+      gfx.lineWidth = 2;
+      gfx.beginPath();
+      gfx.arc(0, 0, 12, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.stroke();
+
+      // barrels
+      for (let i = 0; i < this.visual.barrels + 1; i++) {
+        const off = (i - this.visual.barrels / 2) * 4;
+        gfx.fillStyle = col;
+        gfx.globalAlpha = 0.7;
+        gfx.fillRect(10, -2 + off, 8, 4);
+      }
+      gfx.globalAlpha = 1;
+
+      // spikes
+      if (this.visual.spikes) {
+        gfx.strokeStyle = col;
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(-10, -10);
+        gfx.lineTo(-16, -16);
+        gfx.moveTo(-10, 10);
+        gfx.lineTo(-16, 16);
+        gfx.stroke();
+      }
+
+      // antenna
+      if (this.visual.antenna) {
+        gfx.strokeStyle = col;
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(0, -12);
+        gfx.lineTo(0, -20);
+        gfx.stroke();
+      }
+
+      // rings
+      for (let r = 0; r < this.visual.rings; r++) {
+        gfx.globalAlpha = 0.5;
+        gfx.strokeStyle = col;
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.arc(0, 0, 14 + r * 5 + Math.sin(t * 2 + r) * 0.6, 0, Math.PI * 2);
+        gfx.stroke();
+      }
+
+      gfx.restore();
+
+      // drones
+      if (this.typeKey === "DRONE") {
+        gfx.save();
+        gfx.fillStyle = col;
+        for (const d of this.drones) {
+          const ox = Math.cos(d.ang) * (26 + d.r);
+          const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
+          gfx.globalAlpha = 0.9;
+          gfx.beginPath();
+          gfx.arc(this.x + ox, this.y + oy, 3.0, 0, Math.PI * 2);
+          gfx.fill();
+        }
+        gfx.restore();
+      }
+    }
+  }
+
+  /**********************
+   * Game
+   **********************/
+  class Game {
+    constructor() {
+      this.map = new Map();
+      this.particles = new Particles();
+      this.turrets = [];
+      this.enemies = [];
+      this.projectiles = [];
+      this.traps = [];
+      this.beams = [];
+      this.arcs = [];
+      this.cones = [];
+      this.lingering = [];
+
+      this.speed = 1;
+      this.gold = 140;
+      this.lives = 20;
+      this.wave = 0;
+      this.waveMax = 30;
+      this.hasStarted = false;
+      this.waveActive = false;
+      this.intermission = 0;
+      this.echoDebt = 0;
+      this.gameOver = false;
+      this.gameWon = false;
+
+      this.spawnQueue = [];
+      this.spawnIndex = 0;
+      this.spawnT = 0;
+      this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
+
+      this.buildKey = null;
+      this.selectedTurret = null;
+      this.hoverCell = null;
+      this.mouse = { x: 0, y: 0 };
+      this._id = 1;
+
+      this._bindUI();
+      this._buildList();
+      this.updateHUD();
+    }
+
+    _bindUI() {
+      startBtn.addEventListener("click", () => {
+        if (this.gameOver || this.gameWon) return;
+        if (!this.hasStarted) {
+          this.hasStarted = true;
+          this.startWave();
+        }
+      });
+
+      skipBtn.addEventListener("click", () => {
+        if (this.gameOver || this.gameWon) return;
+        if (this.waveActive || !this.hasStarted) return;
+        if (this.intermission > 0) {
+          this.echoDebt += this.intermission;
+          this.intermission = 0;
+          this.startWave();
+        }
+      });
+
+      helpBtn.addEventListener("click", () => {
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+      });
+      closeHelp.addEventListener("click", () => {
+        overlay.classList.add("hidden");
+        overlay.setAttribute("aria-hidden", "true");
+      });
+
+      for (const btn of speedBtns) {
+        btn.addEventListener("click", () => {
+          const s = Number(btn.dataset.speed || "1");
+          this.speed = clamp(s, 1, 4);
+          for (const b of speedBtns) b.classList.toggle("active", b === btn);
+        });
+      }
+      speedBtns[0]?.classList.add("active");
+
+      sellBtn.addEventListener("click", () => this.sellSelected());
+
+      canvas.addEventListener("mousemove", (ev) => {
+        const rect = canvas.getBoundingClientRect();
+        this.mouse.x = ev.clientX - rect.left;
+        this.mouse.y = ev.clientY - rect.top;
+        this.hoverCell = this.map.cellAt(this.mouse.x, this.mouse.y);
+      });
+
+      canvas.addEventListener("click", (ev) => {
+        if (!overlay.classList.contains("hidden")) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        const y = ev.clientY - rect.top;
+        this.onClick(x, y);
+      });
+    }
+
+    _buildList() {
+      buildList.innerHTML = "";
+      for (const [key, t] of Object.entries(TURRET_TYPES)) {
+        const item = document.createElement("div");
+        item.className = "buildItem";
+        item.dataset.key = key;
+        item.innerHTML = `
+          <div class="buildIcon"></div>
+          <div class="buildMeta">
+            <div class="buildName">${t.name}</div>
+            <div class="buildDesc">${t.desc}</div>
+            <div class="buildCost">
+              <span class="tag">${t.role}</span>
+              <span>${t.cost}g</span>
+            </div>
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          this.buildKey = key;
+          [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
+          item.classList.add("selected");
+        });
+        buildList.appendChild(item);
+      }
+    }
+
+    updateHUD() {
+      goldEl.textContent = fmt(this.gold);
+      livesEl.textContent = String(this.lives);
+      waveEl.textContent = String(this.wave);
+      waveMaxEl.textContent = String(this.waveMax);
+      echoDebtEl.textContent = this.echoDebt.toFixed(1);
+
+      if (this.gameWon) {
+        nextInEl.textContent = "Victory";
+      } else if (this.gameOver) {
+        nextInEl.textContent = "Defeat";
+      } else if (!this.hasStarted) {
+        nextInEl.textContent = "Start";
+      } else if (this.waveActive) {
+        nextInEl.textContent = "In Wave";
+      } else if (this.intermission > 0) {
+        nextInEl.textContent = `${this.intermission.toFixed(1)}s`;
+      } else {
+        nextInEl.textContent = "—";
+      }
+
+      skipBtn.disabled = !(this.hasStarted && !this.waveActive && this.intermission > 0 && !this.gameOver && !this.gameWon);
+      startBtn.disabled = this.hasStarted || this.gameOver || this.gameWon;
+    }
+
+    onResize() {
+      this.map.onResize();
+      for (const t of this.turrets) {
+        if (t.gx != null) {
+          const w = this.map.worldFromCell(t.gx, t.gy);
+          t.x = w.x; t.y = w.y;
+        }
+      }
+    }
+
+    _waveScalar(wave) {
+      const i = wave - 1;
+      return {
+        hp: 1 + i * 0.08,
+        spd: 1 + i * 0.012,
+        armor: i * 0.004,
+        shield: 1 + i * 0.04,
+        regen: 1 + i * 0.03,
+        reward: 1 + i * 0.05
+      };
+    }
+
+    _buildWave(wave) {
+      const i = wave;
+      const baseCount = 12 + i * 2;
+      const spacing = Math.max(0.25, 0.60 - i * 0.01);
+      const spawns = [];
+
+      const types = ["RUNNER", "BRUTE", "ARMORED"];
+      if (i >= 3) types.push("SHIELDED");
+      if (i >= 5) types.push("SPLITTER");
+      if (i >= 7) types.push("REGEN");
+      if (i >= 9) types.push("STEALTH");
+      if (i >= 11) types.push("FLYING");
+
+      const weights = {
+        RUNNER: 1.2,
+        BRUTE: 0.8,
+        ARMORED: 0.9,
+        SHIELDED: 0.9,
+        SPLITTER: 0.7,
+        REGEN: 0.7,
+        STEALTH: 0.6,
+        FLYING: 0.7
+      };
+
+      const pickWeighted = () => {
+        const pool = types.map(t => ({ t, w: weights[t] || 1 }));
+        const sum = pool.reduce((a, b) => a + b.w, 0);
+        let r = Math.random() * sum;
+        for (const p of pool) { r -= p.w; if (r <= 0) return p.t; }
+        return pool[pool.length - 1].t;
+      };
+
+      for (let n = 0; n < baseCount; n++) {
+        const type = pickWeighted();
+        const t = n * spacing + rand(-0.15, 0.15);
+        spawns.push({ t: Math.max(0, t), type });
+      }
+
+      if (i % 5 === 0) {
+        spawns.push({ t: 1.2, type: "BRUTE" });
+        spawns.push({ t: 2.6, type: "ARMORED" });
+      }
+
+      // Echo debt injection
+      const echoCount = Math.floor(this.echoDebt / 2.5);
+      if (echoCount > 0) {
+        this.echoDebt = Math.max(0, this.echoDebt - echoCount * 2.5);
+        const dur = baseCount * spacing + 4;
+        for (let e = 0; e < echoCount; e++) {
+          spawns.push({ t: rand(dur * 0.2, dur * 0.9), type: "ECHO" });
+        }
+      }
+
+      spawns.sort((a, b) => a.t - b.t);
+      return spawns;
+    }
+
+    startWave() {
+      if (this.waveActive || this.gameOver || this.gameWon) return;
+      if (this.wave >= this.waveMax) return;
+
+      this.wave++;
+      this.waveActive = true;
+      this.intermission = 0;
+      this.spawnT = 0;
+      this.spawnIndex = 0;
+      this.waveScalar = this._waveScalar(this.wave);
+      this.spawnQueue = this._buildWave(this.wave);
+      toast(`Wave ${this.wave} launched`);
+    }
+
+    spawnEnemy(typeKey, startD = 0) {
+      const e = new Enemy(typeKey, this.waveScalar, startD);
+      e._id = this._id++;
+      const p = this.map.posAt(startD);
+      e.x = p.x; e.y = p.y; e.ang = p.ang;
+      this.enemies.push(e);
+      return e;
+    }
+
+    onEnemyKill(enemy) {
+      // on-death effects
+      if (enemy.onDeath && !enemy._noSplit) enemy.onDeath(this, enemy);
+
+      // reward
+      this.gold += enemy.reward;
+
+      // siphon from traps
+      if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
+        const refund = Math.max(1, Math.floor(enemy.reward * 0.2));
+        this.gold += refund;
+        this.particles.spawn(enemy.x, enemy.y, 4, "muzzle");
+      }
+
+      // venom splash
+      if (enemy._lastHitBy && enemy._lastHitBy.onKillSplash) {
+        for (const e of this.enemies) {
+          if (e.hp <= 0) continue;
+          if (dist2(enemy.x, enemy.y, e.x, e.y) <= 80 * 80) {
+            e.applyDot(Math.max(4, enemy.reward * 0.6), 2.4);
+          }
+        }
+      }
+    }
+
+    onEnemyLeak(enemy) {
+      this.lives--;
+      this.particles.spawn(enemy.x, enemy.y, 8, "boom");
+      if (this.lives <= 0) {
+        this.lives = 0;
+        this.gameOver = true;
+        toast("Core lost.");
+      }
+    }
+
+    isCellOccupied(gx, gy) {
+      return this.turrets.some(t => t.gx === gx && t.gy === gy);
+    }
+
+    onClick(x, y) {
+      // select turret if clicked
+      let clickedTurret = null;
+      for (const t of this.turrets) {
+        if (dist2(x, y, t.x, t.y) <= 16 * 16) {
+          clickedTurret = t;
+          break;
+        }
+      }
+      if (clickedTurret) {
+        this.selectTurret(clickedTurret);
+        return;
+      }
+
+      // build
+      if (this.buildKey) {
+        const cell = this.map.cellAt(x, y);
+        if (cell.v !== 1) { toast("Not buildable."); return; }
+        if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
+        const t = TURRET_TYPES[this.buildKey];
+        if (this.gold < t.cost) { toast("Not enough gold."); return; }
+        this.gold -= t.cost;
+        const w = this.map.worldFromCell(cell.gx, cell.gy);
+        const turret = new Turret(this.buildKey, w.x, w.y);
+        turret.gx = cell.gx; turret.gy = cell.gy;
+        this.turrets.push(turret);
+        this.selectTurret(turret);
+        this.particles.spawn(w.x, w.y, 8, "muzzle");
+      } else {
+        this.selectTurret(null);
+      }
+    }
+
+    selectTurret(turret) {
+      this.selectedTurret = turret;
+      sellBtn.disabled = !turret;
+      if (!turret) {
+        selSub.textContent = "Select a turret";
+        selectionBody.innerHTML = `
+          <div class="emptyState">
+            <div class="emptyGlyph"></div>
+            <div class="emptyTitle">No turret selected</div>
+            <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
+          </div>
+        `;
+        return;
+      }
+      selSub.textContent = turret.role;
+
+      const tierNames = ["Base", "I", "II", "III"];
+      const dps = turret.fire > 0 ? (turret.dmg / turret.fire) : turret.dmg * 12;
+      const stats = [
+        { k: "Damage", v: turret.dmg.toFixed(1) },
+        { k: "Fire", v: `${turret.fire.toFixed(2)}s` },
+        { k: "Range", v: turret.range.toFixed(0) },
+        { k: "DPS", v: dps.toFixed(1) }
+      ];
+
+      const statCards = stats.map(s => `
+        <div class="statCard"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>
+      `).join("");
+
+      let upgradesHtml = "";
+      if (turret.level < 3) {
+        const tierIdx = turret.level;
+        const mods = turret.getTierOptions(tierIdx);
+        upgradesHtml = `
+          <div class="upgrades">
+            <div class="upTitle">Upgrade Tier ${tierNames[tierIdx + 1]}</div>
+            <div class="modRow">
+              ${mods.map((m, idx) => {
+                const preview = Turret.previewAfterUpgrade(turret, tierIdx, idx);
+                const delta = [
+                  `Dmg ${turret.dmg.toFixed(1)}→${preview.dmg.toFixed(1)}`,
+                  `Fire ${turret.fire.toFixed(2)}→${preview.fire.toFixed(2)}`,
+                  `Range ${turret.range.toFixed(0)}→${preview.range.toFixed(0)}`
+                ].join("  ");
+                return `
+                  <div class="modChoice">
+                    <div class="modTop">
+                      <div class="modName">${m.name}</div>
+                      <div class="modCost">${m.cost}g</div>
+                    </div>
+                    <div class="modDesc">${m.desc}</div>
+                    <div class="modDelta">${delta}</div>
+                    <div class="modBtnRow">
+                      <button class="btn ${this.gold >= m.cost ? "primary" : ""}" data-mod="${idx}">Upgrade</button>
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      } else {
+        upgradesHtml = `
+          <div class="upgrades">
+            <div class="upTitle">Upgrades</div>
+            <div class="tiny">Max tier reached.</div>
+          </div>
+        `;
+      }
+
+      selectionBody.innerHTML = `
+        <div class="selHeaderRow">
+          <div class="selName">${turret.name}</div>
+          <div class="selLevel">Tier ${tierNames[turret.level]}</div>
+        </div>
+        <div class="statGrid">${statCards}</div>
+        ${upgradesHtml}
+      `;
+
+      selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.mod || "0");
+          this.applyUpgrade(turret, idx);
+        });
+      });
+    }
+
+    applyUpgrade(turret, modIdx) {
+      if (!turret || turret.level >= 3) return;
+      const cost = turret.getUpgradeCost(turret.level, modIdx);
+      if (this.gold < cost) { toast("Not enough gold."); return; }
+      const ok = turret.applyUpgrade(turret.level, modIdx, false);
+      if (ok) {
+        this.gold -= cost;
+        this.selectTurret(turret);
+        this.particles.spawn(turret.x, turret.y, 10, "muzzle");
+      }
+    }
+
+    sellSelected() {
+      if (!this.selectedTurret) return;
+      const t = this.selectedTurret;
+      const refund = Math.max(1, Math.floor((t.costSpent || 0) * 0.7));
+      this.gold += refund;
+      this.turrets = this.turrets.filter(x => x !== t);
+      this.selectTurret(null);
+      this.particles.spawn(t.x, t.y, 10, "boom");
+    }
+
+    update(dt) {
+      if (this.gameOver || this.gameWon) {
+        this.updateHUD();
+        return;
+      }
+
+      const dtScaled = dt * this.speed;
+
+      // wave logic
+      if (this.waveActive) {
+        this.spawnT += dtScaled;
+        while (this.spawnIndex < this.spawnQueue.length && this.spawnT >= this.spawnQueue[this.spawnIndex].t) {
+          const s = this.spawnQueue[this.spawnIndex++];
+          this.spawnEnemy(s.type, 0);
+        }
+        if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0)) {
+          this.waveActive = false;
+          if (this.wave >= this.waveMax) {
+            this.gameWon = true;
+            toast("All waves cleared.");
+          } else {
+            this.intermission = 30;
+          }
+        }
+      } else if (this.hasStarted && this.intermission > 0) {
+        this.intermission = Math.max(0, this.intermission - dtScaled);
+        if (this.intermission <= 0 && this.wave < this.waveMax) {
+          this.startWave();
+        }
+      }
+
+      // update enemies
+      for (const e of this.enemies) e.update(this, dtScaled);
+      this.enemies = this.enemies.filter(e => e.hp > 0 || !e._dead);
+
+      // update turrets
+      for (const t of this.turrets) t.update(this, dtScaled);
+
+      // update projectiles
+      for (const p of this.projectiles) p.update(this, dtScaled);
+      this.projectiles = this.projectiles.filter(p => p.ttl > 0);
+
+      // traps
+      for (let i = this.traps.length - 1; i >= 0; i--) {
+        const tr = this.traps[i];
+        tr.t -= dtScaled;
+        if (tr.t <= 0) { this.traps.splice(i, 1); continue; }
+
+        for (const e of this.enemies) {
+          if (e.hp <= 0 || e.flying || e.echo) continue;
+          if (dist2(tr.x, tr.y, e.x, e.y) <= tr.r * tr.r) {
+            e._lastHitBy = tr.owner;
+            e._lastHitTag = "trap";
+            e.applySlow(tr.slow, 0.6);
+            if (!tr._tick) tr._tick = 0;
+            tr._tick -= dtScaled;
+            if (tr._tick <= 0) {
+              tr._tick = 0.55;
+              e.takeHit(this, tr.dmg, DAMAGE.TRUE);
+              if (tr.dot) e.applyDot(tr.dot.dps, tr.dot.dur);
+            }
+            if (tr.noSplit && e.typeKey === "SPLITTER") {
+              e._noSplit = true;
+              e._noSplitT = Math.max(e._noSplitT, 0.8);
+            }
+          }
+        }
+      }
+
+      // lingering zones
+      for (let i = this.lingering.length - 1; i >= 0; i--) {
+        const l = this.lingering[i];
+        l.t -= dtScaled;
+        if (l.t <= 0) { this.lingering.splice(i, 1); continue; }
+        for (const e of this.enemies) {
+          if (e.hp <= 0) continue;
+          if (dist2(l.x, l.y, e.x, e.y) <= l.r * l.r) {
+            e.takeHit(this, l.dps * dtScaled, DAMAGE.TRUE);
+          }
+        }
+      }
+
+      // effects timers
+      const decay = (arr) => {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          arr[i].t -= dtScaled;
+          if (arr[i].t <= 0) arr.splice(i, 1);
+        }
+      };
+      decay(this.beams);
+      decay(this.arcs);
+      decay(this.cones);
+
+      this.particles.update(dtScaled);
+      this.updateHUD();
+    }
+
+    draw(gfx) {
+      gfx.clearRect(0, 0, W, H);
+      this.map.drawBase(gfx);
+
+      // hover highlight
+      if (this.hoverCell && this.hoverCell.v === 1) {
+        const x = this.hoverCell.gx * this.map.gridSize;
+        const y = this.hoverCell.gy * this.map.gridSize;
+        gfx.save();
+        gfx.strokeStyle = "rgba(98,242,255,0.35)";
+        gfx.lineWidth = 2;
+        gfx.strokeRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
+        gfx.restore();
+      }
+
+      // lingering zones
+      for (const l of this.lingering) {
+        gfx.save();
+        gfx.globalAlpha = 0.4;
+        gfx.fillStyle = l.col || "rgba(255,207,91,0.2)";
+        gfx.beginPath(); gfx.arc(l.x, l.y, l.r, 0, Math.PI * 2); gfx.fill();
+        gfx.restore();
+      }
+
+      // traps
+      for (const tr of this.traps) {
+        gfx.save();
+        gfx.globalAlpha = 0.55;
+        gfx.strokeStyle = "rgba(98,242,255,0.45)";
+        gfx.lineWidth = 2;
+        gfx.beginPath(); gfx.arc(tr.x, tr.y, tr.r, 0, Math.PI * 2); gfx.stroke();
+        gfx.restore();
+      }
+
+      // turrets
+      for (const t of this.turrets) t.draw(gfx, t === this.selectedTurret);
+
+      // enemies
+      for (const e of this.enemies) e.draw(gfx);
+
+      // projectiles
+      for (const p of this.projectiles) p.draw(gfx);
+
+      // cones
+      for (const c of this.cones) {
+        gfx.save();
+        gfx.globalAlpha = 0.18;
+        gfx.fillStyle = "rgba(160,190,255,0.45)";
+        gfx.beginPath();
+        gfx.moveTo(c.x, c.y);
+        gfx.arc(c.x, c.y, c.r, c.ang - c.cone / 2, c.ang + c.cone / 2);
+        gfx.closePath();
+        gfx.fill();
+        gfx.restore();
+      }
+
+      // arcs
+      for (const a of this.arcs) {
+        gfx.save();
+        gfx.globalAlpha = 0.7;
+        gfx.strokeStyle = "rgba(154,108,255,0.85)";
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(a.ax, a.ay);
+        gfx.lineTo(a.bx, a.by);
+        gfx.stroke();
+        gfx.restore();
+      }
+
+      // beams
+      for (const b of this.beams) {
+        gfx.save();
+        gfx.globalAlpha = 0.7;
+        gfx.strokeStyle = b.col || "rgba(98,242,255,0.85)";
+        gfx.lineWidth = 2.5;
+        gfx.beginPath();
+        gfx.moveTo(b.ax, b.ay);
+        gfx.lineTo(b.bx, b.by);
+        gfx.stroke();
+        gfx.restore();
+      }
+
+      this.particles.draw(gfx);
+    }
+  }
+
+  // Boot
+  resize();
+  const game = new Game();
+  game.onResize();
+  window.addEventListener("resize", () => {
+    resize();
+    game.onResize();
+  });
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    game.update(dt);
+    game.draw(ctx);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();

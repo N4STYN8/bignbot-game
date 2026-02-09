@@ -1,13 +1,156 @@
-<!DOCTYPE html>
+<!-- index.html -->
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>BIGNBOT TD</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="css/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ORBIT ECHO: Loopborne Turretcraft</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <script type="module" src="js/main.js"></script>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logoMark"></div>
+          <div class="brandText">
+            <div class="title">ORBIT ECHO</div>
+            <div class="subtitle">Time-loop turretcraft • skipped time returns</div>
+          </div>
+        </div>
+
+        <div class="statRow">
+          <div class="pill"><span class="k">Gold</span> <span id="gold" class="v">0</span></div>
+          <div class="pill"><span class="k">Lives</span> <span id="lives" class="v">0</span></div>
+          <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
+          <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
+          <div class="pill warn" title="Time you skipped comes back as Echo enemies later."><span class="k">Echo Debt</span> <span id="echoDebt" class="v">0</span></div>
+        </div>
+
+        <div class="controls">
+          <button id="startBtn" class="btn primary">START</button>
+          <button id="skipBtn" class="btn" disabled>SKIP</button>
+
+          <div class="speed">
+            <div class="speedLabel">Speed</div>
+            <div class="seg" role="group" aria-label="Speed">
+              <button class="segBtn" data-speed="1">1×</button>
+              <button class="segBtn" data-speed="2">2×</button>
+              <button class="segBtn" data-speed="3">3×</button>
+              <button class="segBtn" data-speed="4">4×</button>
+            </div>
+          </div>
+
+          <button id="helpBtn" class="btn ghost">HOW TO PLAY</button>
+        </div>
+      </div>
+
+      <div class="panels">
+        <!-- Build panel -->
+        <div class="panel left">
+          <div class="panelHeader">
+            <div class="panelTitle">Build</div>
+            <div class="panelHint">Click a glowing tile to place</div>
+          </div>
+          <div id="buildList" class="buildList"></div>
+          <div class="panelFooter">
+            <div class="tiny">
+              Tip: Skipping the intermission starts the next wave immediately… but the <b>skipped time returns</b> as Echo enemies later.
+            </div>
+          </div>
+        </div>
+
+        <!-- Selection/Upgrades panel -->
+        <div class="panel right">
+          <div class="panelHeader">
+            <div class="panelTitle">Selection</div>
+            <div id="selSub" class="panelHint">Select a turret</div>
+          </div>
+
+          <div id="selectionBody" class="selectionBody">
+            <div class="emptyState">
+              <div class="emptyGlyph"></div>
+              <div class="emptyTitle">No turret selected</div>
+              <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
+            </div>
+          </div>
+
+          <div class="panelFooter">
+            <button id="sellBtn" class="btn danger" disabled>SELL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay -->
+    <div id="overlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlayCard">
+        <div class="overlayHeader">
+          <div class="overlayTitle">How to Play</div>
+          <button id="closeHelp" class="btn ghost">Close</button>
+        </div>
+        <div class="overlayBody">
+          <div class="howGrid">
+            <div class="howBlock">
+              <div class="howH">Goal</div>
+              <div class="howP">
+                Protect the Core. Enemies follow the path. If they reach the end, you lose Lives.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Waves</div>
+              <div class="howP">
+                Waves <b>do not start</b> until you press <b>START</b>. After a wave ends, the next wave begins
+                <b>30 seconds</b> after the last enemy dies. Press <b>SKIP</b> to start it immediately.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Unique Twist: Time-Loop Echo</div>
+              <div class="howP">
+                When you <b>SKIP</b>, the remaining intermission time becomes <b>Echo Debt</b>.
+                That debt returns later as <b>Echo enemies</b>—phase-shifted and hard to control.
+                Skipping is powerful… but it comes at a cost.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Turrets & Upgrades</div>
+              <div class="howP">
+                Build on glowing tiles only. Select a turret to upgrade it up to <b>III</b>.
+                Each tier changes <b>visuals</b> and <b>stats</b>, and you choose a <b>mod</b> each tier.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Speed</div>
+              <div class="howP">
+                1×/2×/3×/4× affects <b>everything time-based</b>: movement, fire rates, projectile speed, DOT, and wave timers.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Damage & Resist</div>
+              <div class="howP">
+                Enemies can have <b>Armor</b> (reduces Physical), <b>Shields</b> (absorbs Energy),
+                <b>Stealth</b>, <b>Flying</b>, <b>Regen</b>, and more. Mix turret roles.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="overlayFooter">
+          <div class="tiny">Runs locally. No frameworks. Canvas-rendered with layered glow & particles.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="game.js"></script>
 </body>
 </html>

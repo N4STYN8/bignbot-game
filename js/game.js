@@ -1,3 +1,5 @@
+console.log("🚨 NEBULA TD LIVE BUILD: bda2af0");
+document.title = "Nebula TD — LIVE bda2af0";
 /* Nebula TD
    Single-canvas sci-fi turret defense with:
    - 5 turret types + upgrades

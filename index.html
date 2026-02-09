@@ -501,10 +501,12 @@
     lives: 20, wave: 1, speedMul: 1,
     waveState: 'READY',
     betweenT: 0,
+    autoNext: 30,
     mapIndex: 0,
     path: null,
-    trains: [],
+    enemies: [],
     turrets: [],
+    projectiles: [],
     placing: null,
     selected: null,
     paused: false,
@@ -515,68 +517,48 @@
     perkDmg: 1, perkSlow:1, perkRange:1
   };
 
-  class Segment{
-    constructor(train, idx, kind){
-      this.train=train; this.idx=idx; this.kind=kind;
-      this.hp=1; this.hpMax=1; this.x=0; this.y=0; this.ang=0;
-      this.dead=false; this.backOffset=idx*26; this.stun=0; this.slow=0;
-    }
-  }
-
-  class Train{
-    constructor(cfg){
-      this.cfg=cfg; this.progress=0; this.alive=true;
-      this.segments=[];
-      const eng = new Segment(this,0,'engine');
-      eng.hpMax = cfg.engineHP; eng.hp = eng.hpMax;
-      this.segments.push(eng);
-      for(let i=0;i<cfg.cars;i++){
-        const s=new Segment(this,i+1,'car');
-        s.hpMax = cfg.carHP*(1+i*0.06); s.hp=s.hpMax;
-        this.segments.push(s);
-      }
+  class Enemy{
+    constructor(cfg, idx){
+      this.cfg=cfg;
+      this.progress = -idx*28 - 60;
+      this.hpMax = cfg.hp;
+      this.hp = this.hpMax;
+      this.speed = cfg.speed;
+      this.x=0; this.y=0; this.ang=0;
+      this.dead=false;
+      this.stun=0; this.slow=0;
+      this.spriteIdx = idx % 3;
     }
     update(dt){
-      if(!this.alive) return;
-      const engine=this.segments[0];
-      const baseSpeed = engine.stun>0 ? this.cfg.speed*0.2 : this.cfg.speed*(1-engine.slow);
-      let maxGap=0; let aliveIdx=0;
-      for(const s of this.segments){ if(s.dead) continue; const target=aliveIdx*26; maxGap=Math.max(maxGap, s.backOffset-target); aliveIdx++; }
-      const speed = maxGap>0.5 ? 0 : baseSpeed;
+      if(this.dead) return;
+      const speed = (this.stun>0) ? this.speed*0.2 : this.speed*(1-this.slow);
       this.progress += speed*dt;
-      if(this.progress>=game.path.len){ this.alive=false; game.lives--; }
-
-      const catchUp = this.cfg.speed*2.2;
-      aliveIdx=0;
-      for(const s of this.segments){
-        s.stun=Math.max(0, s.stun-dt);
-        s.slow=Math.max(0, s.slow-dt*0.3);
-        if(s.dead) continue;
-        const target=aliveIdx*26;
-        if(s.backOffset>target) s.backOffset=Math.max(target, s.backOffset-catchUp*dt);
-        else s.backOffset=target;
-        const at = game.path.getAt(this.progress - s.backOffset);
-        s.x=at.x; s.y=at.y; s.ang=at.ang;
-        aliveIdx++;
+      this.stun = Math.max(0, this.stun-dt);
+      this.slow = Math.max(0, this.slow-dt*0.3);
+      if(this.progress>=game.path.len){
+        this.dead = true;
+        game.lives--;
+        return;
       }
-      if(engine.dead){ this.alive=false; }
+      const at = game.path.getAt(this.progress);
+      this.x=at.x; this.y=at.y; this.ang=at.ang;
     }
   }
 
   function waveConfig(w){
-    const speed = 48 + w*2.2;
-    const cars = clamp(3 + Math.floor(w*0.7), 3, 16);
-    const engineHP = 220 + w*60;
-    const carHP = 90 + w*22;
-    return { speed, cars, engineHP, carHP };
+    const speed = 42 + w*2.0;
+    const count = clamp(6 + Math.floor(w*1.2), 6, 26);
+    const hp = 80 + w*28;
+    return { speed, count, hp };
   }
 
   function startWave(){
     const cfg = waveConfig(game.wave);
-    const t = new Train(cfg);
-    t.progress = -70;
-    game.trains.push(t);
+    for(let i=0;i<cfg.count;i++){
+      game.enemies.push(new Enemy(cfg, i));
+    }
     game.waveState = 'ACTIVE';
+    if(game.wave > 1) game.autoNext = 30;
   }
 
   function endWave(){
@@ -618,7 +600,7 @@
       const b=document.createElement('button');
       b.className='btn primary';
       b.textContent=p.name;
-      b.onclick=()=>{ p.apply(); showMenu(null); game.waveState='READY'; };
+      b.onclick=()=>{ p.apply(); showMenu(null); game.waveState='READY'; game.autoNext=30; };
       perkGrid.appendChild(b);
     });
     showMenu(menuPerk);
@@ -700,11 +682,10 @@
     selectTurret(null);
   };
 
-  btnStart.onclick=()=>{ if(game.waveState==='READY') startWave(); };
+  btnStart.onclick=()=>{ if(game.waveState==='READY' && game.wave===1) startWave(); };
   btnSkip.onclick=()=>{
     if(game.waveState==='ACTIVE') return;
-    if(game.wave===1 && game.waveState==='READY') startWave();
-    if(game.wave>1 && game.waveState!=='ACTIVE'){ game.credits += 40; startWave(); }
+    if(game.wave>1 && game.waveState==='READY'){ game.credits += 40; startWave(); game.autoNext=30; }
   };
   btnPause.onclick=()=>{ game.paused=!game.paused; showMenu(game.paused?menuPause:null); };
   btnSpeed.onclick=()=>{ game.speedMul = game.speedMul%3 + 1; btnSpeed.textContent='Speed x'+game.speedMul; };
@@ -720,7 +701,7 @@
   document.getElementById('btnCloseSettings').onclick=()=>{ showMenu(null); };
   document.getElementById('btnRetry').onclick=()=>{ resetGame(); showMenu(null); };
   document.getElementById('btnQuit2').onclick=()=>{ resetGame(); showMenu(menuMain); };
-  document.getElementById('btnContinue').onclick=()=>{ game.endless = toggleEndless.checked; showMenu(null); game.waveState='READY'; };
+  document.getElementById('btnContinue').onclick=()=>{ game.endless = toggleEndless.checked; showMenu(null); game.waveState='READY'; game.autoNext=30; };
   document.getElementById('btnQuit3').onclick=()=>{ resetGame(); showMenu(menuMain); };
 
   togglePerf.onchange=()=>{ game.perf = togglePerf.checked; };
@@ -796,63 +777,111 @@
     }
   }
 
-  function drawTrainSeg(s){
-    if(s.dead) return;
-    const img = imgOrNull(s.kind==='engine'?manifest.train.engine:manifest.train.cars[(s.idx%3)]);
-    ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.ang);
+  function drawEnemy(e){
+    if(e.dead) return;
+    const img = imgOrNull(manifest.train.cars[e.spriteIdx]);
+    ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(e.ang);
     if(img){
-      const scale = s.kind==='engine'?0.75:0.65; const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
+      const scale = 0.65;
+      const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
       ctx.drawImage(img, -w/2, -h/2, w, h);
     } else {
-      drawPlaceholder(-16,-10,32,20, s.kind==='engine'?'ENG':'CAR');
+      drawPlaceholder(-16,-10,32,20, 'EN');
     }
     ctx.restore();
-    const w=34; const x=s.x-w/2; const y=s.y-26;
+    const w=32; const x=e.x-w/2; const y=e.y-26;
     ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(x,y,w,4);
-    ctx.fillStyle='rgba(120,255,160,0.9)'; ctx.fillRect(x,y,w*(s.hp/s.hpMax),4);
+    ctx.fillStyle='rgba(120,255,160,0.9)'; ctx.fillRect(x,y,w*(e.hp/e.hpMax),4);
   }
 
-  function applyDamage(seg, dmg){
-    if(seg.dead) return;
-    seg.hp -= dmg;
-    if(seg.hp<=0){ seg.dead=true; if(seg.kind==='engine'){ seg.train.alive=false; game.credits+=80; game.scrap+=20; } }
+  function applyDamage(enemy, dmg){
+    if(enemy.dead) return;
+    enemy.hp -= dmg;
+    if(enemy.hp<=0){
+      enemy.dead=true;
+      game.credits += 8 + Math.floor(game.wave*0.6);
+      game.scrap += 2 + Math.floor(game.wave*0.2);
+    }
+  }
+
+  function spawnProjectile(p){
+    game.projectiles.push(p);
   }
 
   function turretLogic(dt){
-    game.grid.clear();
-    for(const tr of game.trains){ if(!tr.alive) continue; for(const s of tr.segments){ if(!s.dead) game.grid.insert(s.x,s.y,s); } }
-
     for(const t of game.turrets){
       const m=t.meta(); const s=t.stats();
       t.cool -= dt; if(t.cool>0) continue;
       const range = s.range * game.perkRange;
       const targets = game.grid.query(t.x,t.y,range);
       let best=null, bestD=1e9;
-      for(const seg of targets){ const d=dist2(t.x,t.y,seg.x,seg.y); if(d<range*range && d<bestD){ best=seg; bestD=d; } }
+      for(const e of targets){
+        const d=dist2(t.x,t.y,e.x,e.y);
+        if(d<range*range && d<bestD){ best=e; bestD=d; }
+      }
       if(!best) continue;
       t.ang = Math.atan2(best.y-t.y, best.x-t.x);
 
+      const dx = best.x - t.x, dy = best.y - t.y;
+      const distLen = Math.hypot(dx,dy) || 1;
+      const ux = dx/distLen, uy = dy/distLen;
+
       if(m.key===TurretType.LAS){
-        applyDamage(best, (s.dps*dt) * game.perkDmg);
-        t.cool = 0.05;
+        spawnProjectile({x:t.x, y:t.y, vx:ux*900, vy:uy*900, r:4, dmg:s.dps*0.12*game.perkDmg, splash:0, slow:0, stun:0, life:0.6, color:'rgba(140,220,255,0.85)'});
+        t.cool = 0.12;
       } else if(m.key===TurretType.TES){
-        applyDamage(best, s.dmg * game.perkDmg);
-        best.stun = Math.max(best.stun, s.stun);
+        spawnProjectile({x:t.x, y:t.y, vx:ux*820, vy:uy*820, r:4, dmg:s.dmg*game.perkDmg, splash:0, slow:0, stun:s.stun, life:0.7, color:'rgba(120,255,240,0.9)'});
         t.cool = 1/s.rof;
       } else if(m.key===TurretType.CAN){
-        applyDamage(best, s.dmg * game.perkDmg);
-        for(const seg of game.grid.query(best.x,best.y,s.splash)){
-          if(seg!==best && dist(best.x,best.y,seg.x,seg.y)<=s.splash) applyDamage(seg, s.dmg*0.4);
-        }
+        spawnProjectile({x:t.x, y:t.y, vx:ux*s.proj, vy:uy*s.proj, r:5, dmg:s.dmg*game.perkDmg, splash:s.splash, slow:0, stun:0, life:1.4, color:'rgba(255,160,90,0.9)'});
         t.cool = 1/s.rof;
       } else if(m.key===TurretType.SLO){
-        applyDamage(best, s.dmg * game.perkDmg);
-        best.slow = Math.max(best.slow, s.slow*game.perkSlow);
+        spawnProjectile({x:t.x, y:t.y, vx:ux*520, vy:uy*520, r:4, dmg:s.dmg*game.perkDmg, splash:0, slow:s.slow*game.perkSlow, stun:0, life:1.0, color:'rgba(120,200,255,0.9)'});
         t.cool = 1/s.rof;
       } else {
-        applyDamage(best, s.dmg * game.perkDmg);
+        spawnProjectile({x:t.x, y:t.y, vx:ux*s.proj, vy:uy*s.proj, r:3, dmg:s.dmg*game.perkDmg, splash:0, slow:0, stun:0, life:1.0, color:'rgba(255,190,120,0.9)'});
         t.cool = 1/s.rof;
       }
+    }
+  }
+
+  function updateProjectiles(dt){
+    for(const p of game.projectiles){
+      p.life -= dt;
+      if(p.life<=0) continue;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      if(p.x<-40 || p.y<-40 || p.x>W+40 || p.y>H+40){ p.life=0; continue; }
+
+      const hits = game.grid.query(p.x,p.y, 28);
+      let hit=null, bestD=1e9;
+      for(const e of hits){
+        if(e.dead) continue;
+        const d=dist2(p.x,p.y,e.x,e.y);
+        if(d < 18*18 && d<bestD){ hit=e; bestD=d; }
+      }
+      if(hit){
+        applyDamage(hit, p.dmg);
+        if(p.slow>0) hit.slow = Math.max(hit.slow, p.slow);
+        if(p.stun>0) hit.stun = Math.max(hit.stun, p.stun);
+        if(p.splash>0){
+          for(const e of game.grid.query(hit.x,hit.y,p.splash)){
+            if(e.dead || e===hit) continue;
+            if(dist(hit.x,hit.y,e.x,e.y)<=p.splash) applyDamage(e, p.dmg*0.4);
+          }
+        }
+        p.life=0;
+      }
+    }
+    game.projectiles = game.projectiles.filter(p=>p.life>0);
+  }
+
+  function drawProjectiles(){
+    for(const p of game.projectiles){
+      ctx.fillStyle = p.color || 'rgba(255,200,140,0.9)';
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fill();
     }
   }
 
@@ -868,13 +897,21 @@
 
   function update(dt){
     if(game.waveState==='ACTIVE'){
-      for(const tr of game.trains) tr.update(dt);
-      game.trains = game.trains.filter(t=>t.alive);
+      for(const e of game.enemies) e.update(dt);
+      game.enemies = game.enemies.filter(e=>!e.dead);
+      game.grid.clear();
+      for(const e of game.enemies){ game.grid.insert(e.x,e.y,e); }
       turretLogic(dt);
-      if(game.trains.length===0) endWave();
+      updateProjectiles(dt);
+      if(game.enemies.length===0) endWave();
     } else if(game.waveState==='BETWEEN'){
       game.betweenT -= dt;
       if(game.betweenT<=0) game.waveState='READY';
+    } else if(game.waveState==='READY'){
+      if(game.wave>1){
+        game.autoNext -= dt;
+        if(game.autoNext<=0){ startWave(); }
+      }
     }
     if(game.lives<=0){ showMenu(menuGameOver); }
   }
@@ -888,7 +925,8 @@
       ctx.strokeStyle = ok ? 'rgba(120,255,160,0.7)' : 'rgba(255,95,111,0.8)';
       ctx.lineWidth=2; ctx.beginPath(); ctx.arc(mouseX,mouseY,18,0,Math.PI*2); ctx.stroke();
     }
-    for(const tr of game.trains){ for(const s of tr.segments){ drawTrainSeg(s); } }
+    drawProjectiles();
+    for(const e of game.enemies){ drawEnemy(e); }
     for(const t of game.turrets) drawTurret(t);
     creditsText.textContent = game.credits;
     scrapText.textContent = game.scrap;
@@ -906,7 +944,7 @@
 
   function resetGame(){
     game.credits=200; game.scrap=40; game.energy=0; game.lives=20; game.wave=1; game.speedMul=1;
-    game.trains=[]; game.turrets=[]; game.waveState='READY'; game.placing=null; selectTurret(null);
+    game.enemies=[]; game.projectiles=[]; game.turrets=[]; game.waveState='READY'; game.placing=null; game.autoNext=30; selectTurret(null);
   }
 
   renderCards();

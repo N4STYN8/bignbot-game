@@ -1,0 +1,3 @@
+git add index.html
+git commit -m "Responsive no-scroll UI, modern HUD, skip-next-wave button"
+git push

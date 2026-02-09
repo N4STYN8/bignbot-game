@@ -70,6 +70,7 @@
   const toastEl = $("toast");
 
   const speedBtns = [...document.querySelectorAll(".segBtn")];
+  const SAVE_KEY = "orbit_echo_save_v1";
 
   function toast(msg) {
     toastEl.textContent = msg;
@@ -543,6 +544,7 @@
       this._lastHitBy = null;
       this._noSplit = false;
       this._noSplitT = 0;
+      this.scalar = waveScalar;
     }
 
     update(game, dt) {
@@ -1900,6 +1902,7 @@
       this.spawnIndex = 0;
       this.spawnT = 0;
       this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
+      this._saveT = 0;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -1907,6 +1910,7 @@
       this.mouse = { x: 0, y: 0 };
       this._id = 1;
 
+      this._load();
       this._bindUI();
       this._buildList();
       this.updateHUD();
@@ -1918,6 +1922,7 @@
         if (!this.hasStarted) {
           this.hasStarted = true;
           this.startWave();
+          this._save();
         }
       });
 
@@ -1927,12 +1932,14 @@
         if (this.waveActive) {
           // Start next wave immediately and keep current enemies/spawns.
           this.startWave();
+          this._save();
           return;
         }
         if (this.intermission > 0) {
           this.echoDebt += this.intermission;
           this.intermission = 0;
           this.startWave();
+          this._save();
         }
       });
 
@@ -2140,6 +2147,144 @@
       return e;
     }
 
+    _save() {
+      try {
+        const data = {
+          gold: this.gold,
+          lives: this.lives,
+          wave: this.wave,
+          waveMax: this.waveMax,
+          hasStarted: this.hasStarted,
+          waveActive: this.waveActive,
+          intermission: this.intermission,
+          echoDebt: this.echoDebt,
+          speed: this.speed,
+          spawnQueue: this.spawnQueue,
+          spawnIndex: this.spawnIndex,
+          spawnT: this.spawnT,
+          waveScalar: this.waveScalar,
+          turrets: this.turrets.map(t => ({
+            typeKey: t.typeKey,
+            x: t.x, y: t.y,
+            gx: t.gx, gy: t.gy,
+            level: t.level,
+            modsChosen: (t.modsChosen || []).slice(),
+            cool: t.cool,
+            charges: t.charges
+          })),
+          enemies: this.enemies.map(e => ({
+            typeKey: e.typeKey,
+            hp: e.hp,
+            shield: e.shield,
+            pathD: e.pathD,
+            slow: e.slow,
+            slowT: e.slowT,
+            dot: e.dot,
+            dotT: e.dotT,
+            revealed: e.revealed,
+            revealT: e.revealT,
+            marked: e._marked || 0,
+            markedT: e._markedT || 0,
+            noSplit: e._noSplit || false,
+            noSplitT: e._noSplitT || 0,
+            scalar: e.scalar
+          })),
+          traps: this.traps.map(tr => ({
+            x: tr.x, y: tr.y, r: tr.r, t: tr.t,
+            dmg: tr.dmg, slow: tr.slow, dot: tr.dot,
+            siphon: tr.siphon, noSplit: tr.noSplit,
+            ownerIndex: this.turrets.indexOf(tr.owner)
+          })),
+          lingering: this.lingering.map(l => ({
+            x: l.x, y: l.y, r: l.r, t: l.t, dps: l.dps, col: l.col
+          }))
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      } catch (err) {
+        // ignore storage errors (private mode, quota, etc.)
+      }
+    }
+
+    _load() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (!data) return;
+
+        this.gold = data.gold ?? this.gold;
+        this.lives = data.lives ?? this.lives;
+        this.wave = data.wave ?? this.wave;
+        this.waveMax = data.waveMax ?? this.waveMax;
+        this.hasStarted = !!data.hasStarted;
+        this.waveActive = !!data.waveActive;
+        this.intermission = data.intermission ?? this.intermission;
+        this.echoDebt = data.echoDebt ?? this.echoDebt;
+        this.speed = data.speed ?? this.speed;
+        this.spawnQueue = data.spawnQueue || [];
+        this.spawnIndex = data.spawnIndex || 0;
+        this.spawnT = data.spawnT || 0;
+        this.waveScalar = data.waveScalar || this.waveScalar;
+
+        if (Array.isArray(data.turrets)) {
+          this.turrets = [];
+          for (const s of data.turrets) {
+            const t = new Turret(s.typeKey, s.x, s.y);
+            t.gx = s.gx; t.gy = s.gy;
+            t.cool = s.cool ?? t.cool;
+            const mods = s.modsChosen || [];
+            for (let tier = 0; tier < mods.length; tier++) {
+              const idx = mods[tier];
+              if (idx == null) continue;
+              t.applyUpgrade(tier, idx, false);
+            }
+            t.flash = 0;
+            if (typeof s.charges === "number") t.charges = s.charges;
+            this.turrets.push(t);
+          }
+        }
+
+        if (Array.isArray(data.enemies)) {
+          this.enemies = [];
+          for (const s of data.enemies) {
+            const e = new Enemy(s.typeKey, s.scalar || this.waveScalar, s.pathD || 0);
+            e.hp = s.hp ?? e.hp;
+            e.shield = s.shield ?? e.shield;
+            e.pathD = s.pathD ?? e.pathD;
+            e.slow = s.slow || 0;
+            e.slowT = s.slowT || 0;
+            e.dot = s.dot || 0;
+            e.dotT = s.dotT || 0;
+            e.revealed = !!s.revealed;
+            e.revealT = s.revealT || 0;
+            e._marked = s.marked || 0;
+            e._markedT = s.markedT || 0;
+            e._noSplit = !!s.noSplit;
+            e._noSplitT = s.noSplitT || 0;
+            e._id = this._id++;
+            this.enemies.push(e);
+          }
+        }
+
+        if (Array.isArray(data.traps)) {
+          this.traps = data.traps.map(tr => ({
+            x: tr.x, y: tr.y, r: tr.r, t: tr.t,
+            dmg: tr.dmg, slow: tr.slow, dot: tr.dot,
+            siphon: tr.siphon, noSplit: tr.noSplit,
+            owner: this.turrets[tr.ownerIndex] || null
+          }));
+        }
+
+        if (Array.isArray(data.lingering)) {
+          this.lingering = data.lingering.map(l => ({
+            x: l.x, y: l.y, r: l.r, t: l.t, dps: l.dps, col: l.col
+          }));
+        }
+      } catch (err) {
+        // ignore load errors
+      }
+    }
+
     onEnemyKill(enemy) {
       // on-death effects
       if (enemy.onDeath && !enemy._noSplit) enemy.onDeath(this, enemy);
@@ -2207,6 +2352,7 @@
         this.turrets.push(turret);
         this.selectTurret(turret);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
+        this._save();
       } else {
         this.selectTurret(null);
       }
@@ -2308,6 +2454,7 @@
         this.gold -= cost;
         this.selectTurret(turret);
         this.particles.spawn(turret.x, turret.y, 10, "muzzle");
+        this._save();
       }
     }
 
@@ -2319,6 +2466,7 @@
       this.turrets = this.turrets.filter(x => x !== t);
       this.selectTurret(null);
       this.particles.spawn(t.x, t.y, 10, "boom");
+      this._save();
     }
 
     update(dt) {
@@ -2342,7 +2490,7 @@
             this.gameWon = true;
             toast("All waves cleared.");
           } else {
-            this.intermission = 30;
+            this.intermission = 15;
           }
         }
       } else if (this.hasStarted && this.intermission > 0) {
@@ -2415,6 +2563,11 @@
       decay(this.cones);
 
       this.particles.update(dtScaled);
+      this._saveT += dt;
+      if (this._saveT >= 1) {
+        this._saveT = 0;
+        this._save();
+      }
       this.updateHUD();
     }
 

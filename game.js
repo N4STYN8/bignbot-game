@@ -563,6 +563,11 @@
         applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
         // light shimmer
         game.particles.spawn(this.x, this.y, 1, "chem");
+        if (this.hp <= 0 && !this._dead) {
+          this._dead = true;
+          game.onEnemyKill(this);
+          return;
+        }
       } else {
         this.dot = 0;
       }

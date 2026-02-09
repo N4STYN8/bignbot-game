@@ -945,8 +945,8 @@
       role: "Single-target Physical",
       cost: 55,
       range: 150,
-      fire: 0.55,
-      dmg: 16,
+      fire: 0.60,
+      dmg: 15,
       dmgType: DAMAGE.PHYS,
       projSpd: 420,
       projStyle: "bullet",
@@ -956,8 +956,8 @@
       mods: [
         // Tier I
         [
-          { name: "Rifled Core", cost: 45, desc: "+25% damage, +10% range.", apply: t => { t.dmg *= 1.25; t.range *= 1.10; t.visual.rings++; } },
-          { name: "Cycler", cost: 45, desc: "-18% fire interval, -8% damage.", apply: t => { t.fire *= 0.82; t.dmg *= 0.92; t.visual.barrels++; } },
+          { name: "Rifled Core", cost: 45, desc: "+22% damage, +10% range.", apply: t => { t.dmg *= 1.22; t.range *= 1.10; t.visual.rings++; } },
+          { name: "Cycler", cost: 45, desc: "-16% fire interval, -8% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 0.92; t.visual.barrels++; } },
         ],
         // Tier II
         [
@@ -966,8 +966,8 @@
         ],
         // Tier III
         [
-          { name: "Overpressure", cost: 140, desc: "+40% damage, +muzzle shock particles.", apply: t => { t.dmg *= 1.40; t.visual.glow = 1; } },
-          { name: "Twin Lattice", cost: 140, desc: "Fires 2 weaker shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.65; t.visual.barrels += 1; } },
+          { name: "Overpressure", cost: 140, desc: "+35% damage, +muzzle shock particles.", apply: t => { t.dmg *= 1.35; t.visual.glow = 1; } },
+          { name: "Twin Lattice", cost: 140, desc: "Fires 2 weaker shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.67; t.visual.barrels += 1; } },
         ],
       ]
     },
@@ -977,8 +977,8 @@
       role: "Chain Energy",
       cost: 85,
       range: 135,
-      fire: 0.80,
-      dmg: 20,
+      fire: 0.86,
+      dmg: 18,
       dmgType: DAMAGE.ENGY,
       chain: 3,
       chainFalloff: 0.70,
@@ -987,14 +987,14 @@
       mods: [
         [
           { name: "Long Spark", cost: 55, desc: "+20% range, +1 chain.", apply: t => { t.range *= 1.20; t.chain += 1; t.visual.rings++; } },
-          { name: "Ion Burn", cost: 55, desc: "Adds slow on hit; -10% damage.", apply: t => { t.slowOnHit = { pct:0.20, dur:1.2 }; t.dmg *= 0.90; t.visual.glow = 1; } },
+          { name: "Ion Burn", cost: 55, desc: "Adds slow on hit; -12% damage.", apply: t => { t.slowOnHit = { pct:0.20, dur:1.2 }; t.dmg *= 0.88; t.visual.glow = 1; } },
         ],
         [
-          { name: "Capacitor Bank", cost: 95, desc: "-15% fire interval, +10% damage.", apply: t => { t.fire *= 0.85; t.dmg *= 1.10; t.visual.barrels++; } },
+          { name: "Capacitor Bank", cost: 95, desc: "-12% fire interval, +10% damage.", apply: t => { t.fire *= 0.88; t.dmg *= 1.10; t.visual.barrels++; } },
           { name: "Shield Split", cost: 95, desc: "+35% vs shields; -5% vs HP.", apply: t => { t.vsShield *= 1.35; t.vsHp *= 0.95; t.visual.antenna = true; } },
         ],
         [
-          { name: "Fork Storm", cost: 160, desc: "+2 chain; falloff reduced.", apply: t => { t.chain += 2; t.chainFalloff = 0.80; t.visual.rings += 1; } },
+          { name: "Fork Storm", cost: 160, desc: "+2 chain; falloff reduced.", apply: t => { t.chain += 2; t.chainFalloff = 0.78; t.visual.rings += 1; } },
           { name: "Lightning Net", cost: 160, desc: "Every 3rd shot hits in a small AoE.", apply: t => { t.netBurst = true; t.visual.spikes = true; } },
         ],
       ]
@@ -1005,24 +1005,24 @@
       role: "AoE Slow Cone",
       cost: 75,
       range: 120,
-      fire: 1.10,
-      dmg: 10,
+      fire: 1.05,
+      dmg: 9,
       dmgType: DAMAGE.ENGY,
       cone: Math.PI / 2.2,
       canHitFlying: false,
       desc: "Chills enemies in a cone; keeps lines stable.",
       mods: [
         [
-          { name: "Wider Plume", cost: 45, desc: "+30% cone width, -10% damage.", apply: t => { t.cone *= 1.30; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Wider Plume", cost: 45, desc: "+30% cone width, -8% damage.", apply: t => { t.cone *= 1.30; t.dmg *= 0.92; t.visual.rings++; } },
           { name: "Deep Chill", cost: 45, desc: "+20% slow strength.", apply: t => { t.slowPct *= 1.20; t.visual.glow = 1; } },
         ],
         [
           { name: "Cryo Crystals", cost: 85, desc: "Enemies take +15% damage while slowed (mark).", apply: t => { t.chillMark = 0.15; t.visual.spikes = true; } },
-          { name: "Pressure Nozzle", cost: 85, desc: "-20% fire interval; +range.", apply: t => { t.fire *= 0.80; t.range *= 1.12; t.visual.barrels++; } },
+          { name: "Pressure Nozzle", cost: 85, desc: "-18% fire interval; +range.", apply: t => { t.fire *= 0.82; t.range *= 1.12; t.visual.barrels++; } },
         ],
         [
           { name: "Whiteout", cost: 140, desc: "Occasional freeze pulse (brief).", apply: t => { t.freezePulse = true; t.visual.rings += 1; } },
-          { name: "Rime Lash", cost: 140, desc: "+damage and can affect Flying lightly.", apply: t => { t.dmg *= 1.35; t.canHitFlying = true; t.visual.glow = 1; } },
+          { name: "Rime Lash", cost: 140, desc: "+damage and can affect Flying lightly.", apply: t => { t.dmg *= 1.30; t.canHitFlying = true; t.visual.glow = 1; } },
         ],
       ]
     },
@@ -1033,7 +1033,7 @@
       cost: 95,
       range: 165,
       fire: 0.08, // continuous ticks
-      dmg: 5.0, // per tick
+      dmg: 4.6, // per tick
       dmgType: DAMAGE.ENGY,
       canHitFlying: true,
       desc: "Continuous beam; melts shields with sustained contact.",
@@ -1043,11 +1043,11 @@
           { name: "Diffraction", cost: 60, desc: "Beam can split to 2nd target (half dmg).", apply: t => { t.splitBeam = true; t.visual.spikes = true; } },
         ],
         [
-          { name: "Heat Soak", cost: 105, desc: "Applies burn DOT (chemical).", apply: t => { t.burn = { dps: 6, dur: 2.8 }; t.visual.glow = 1; } },
+          { name: "Heat Soak", cost: 105, desc: "Applies burn DOT (chemical).", apply: t => { t.burn = { dps: 5, dur: 2.8 }; t.visual.glow = 1; } },
           { name: "Shield Harrow", cost: 105, desc: "+45% vs shields.", apply: t => { t.vsShield *= 1.45; t.visual.antenna = true; } },
         ],
         [
-          { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 3.2; t.visual.rings += 2; } },
+          { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 2.6; t.visual.rings += 2; } },
           { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t.visual.glow = 1; } },
         ],
       ]
@@ -1058,8 +1058,8 @@
       role: "AoE Explosive",
       cost: 110,
       range: 220,
-      fire: 1.65,
-      dmg: 48,
+      fire: 1.75,
+      dmg: 44,
       dmgType: DAMAGE.PHYS,
       blast: 56,
       projSpd: 260,
@@ -1069,11 +1069,11 @@
       desc: "Lobs explosive seeds. Great vs clumps.",
       mods: [
         [
-          { name: "Wider Bloom", cost: 70, desc: "+25% blast radius, -10% damage.", apply: t => { t.blast *= 1.25; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Wider Bloom", cost: 70, desc: "+25% blast radius, -8% damage.", apply: t => { t.blast *= 1.25; t.dmg *= 0.92; t.visual.rings++; } },
           { name: "Packed Charge", cost: 70, desc: "+25% damage, -10% blast.", apply: t => { t.dmg *= 1.25; t.blast *= 0.90; t.visual.spikes = true; } },
         ],
         [
-          { name: "Shrapnel Pods", cost: 120, desc: "Blast also slows briefly (not Echo).", apply: t => { t.blastSlow = { pct:0.18, dur:1.1 }; t.visual.glow = 1; } },
+          { name: "Shrapnel Pods", cost: 120, desc: "Blast also slows briefly (not Echo).", apply: t => { t.blastSlow = { pct:0.16, dur:1.0 }; t.visual.glow = 1; } },
           { name: "Airburst Fuse", cost: 120, desc: "Better vs Flying (+20%).", apply: t => { t.vsFlying *= 1.20; t.visual.antenna = true; } },
         ],
         [
@@ -1088,8 +1088,8 @@
       role: "DoT Chemical",
       cost: 80,
       range: 150,
-      fire: 0.70,
-      dmg: 12,
+      fire: 0.72,
+      dmg: 11,
       dmgType: DAMAGE.CHEM,
       projSpd: 360,
       projStyle: "venom",
@@ -1099,14 +1099,14 @@
       mods: [
         [
           { name: "Corrosive Mix", cost: 55, desc: "DOT duration +40%.", apply: t => { t.dotDur *= 1.40; t.visual.glow = 1; } },
-          { name: "Needle Spray", cost: 55, desc: "Fires 2 shots (weaker).", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels++; } },
+          { name: "Needle Spray", cost: 55, desc: "Fires 2 shots (weaker).", apply: t => { t.multishot = 2; t.dmg *= 0.72; t.visual.barrels++; } },
         ],
         [
-          { name: "Neurotoxin", cost: 95, desc: "DOT also slows slightly (not Echo).", apply: t => { t.dotSlow = { pct:0.12, dur:2.2 }; t.visual.rings++; } },
+          { name: "Neurotoxin", cost: 95, desc: "DOT also slows slightly (not Echo).", apply: t => { t.dotSlow = { pct:0.10, dur:2.1 }; t.visual.rings++; } },
           { name: "Viral Burst", cost: 95, desc: "On kill, splashes DOT to nearby enemies.", apply: t => { t.onKillSplash = true; t.visual.spikes = true; } },
         ],
         [
-          { name: "Caustic Fountain", cost: 160, desc: "+35% damage and +range.", apply: t => { t.dmg *= 1.35; t.range *= 1.12; t.visual.glow = 1; } },
+          { name: "Caustic Fountain", cost: 160, desc: "+30% damage and +range.", apply: t => { t.dmg *= 1.30; t.range *= 1.12; t.visual.glow = 1; } },
           { name: "Black Bile", cost: 160, desc: "DOT ignores shields fully.", apply: t => { t.dotIgnoresShields = true; t.visual.antenna = true; } },
         ],
       ]
@@ -1118,7 +1118,7 @@
       cost: 120,
       range: 300,
       fire: 1.55,
-      dmg: 92,
+      dmg: 84,
       dmgType: DAMAGE.PHYS,
       projSpd: 760,
       projStyle: "needle",
@@ -1128,14 +1128,14 @@
       mods: [
         [
           { name: "Stabilizer", cost: 75, desc: "+20% damage; slightly slower.", apply: t => { t.dmg *= 1.20; t.fire *= 1.08; t.visual.rings++; } },
-          { name: "Quickchamber", cost: 75, desc: "-18% fire interval; -10% damage.", apply: t => { t.fire *= 0.82; t.dmg *= 0.90; t.visual.barrels++; } },
+          { name: "Quickchamber", cost: 75, desc: "-16% fire interval; -10% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 0.90; t.visual.barrels++; } },
         ],
         [
-          { name: "Breach Rod", cost: 135, desc: "+1 pierce; +armor pierce.", apply: t => { t.pierce += 1; t.armorPierce += 0.18; t.visual.spikes = true; } },
+          { name: "Breach Rod", cost: 135, desc: "+1 pierce; +armor pierce.", apply: t => { t.pierce += 1; t.armorPierce += 0.16; t.visual.spikes = true; } },
           { name: "Echo Marker", cost: 135, desc: "Hits briefly increase all damage taken.", apply: t => { t.markOnHit = 0.12; t.visual.antenna = true; } },
         ],
         [
-          { name: "Singularity Pin", cost: 210, desc: "Chance to mini-stun (not Echo).", apply: t => { t.stunChance = 0.18; t.visual.glow = 1; } },
+          { name: "Singularity Pin", cost: 210, desc: "Chance to mini-stun (not Echo).", apply: t => { t.stunChance = 0.16; t.visual.glow = 1; } },
           { name: "Dual Rail", cost: 210, desc: "Fires 2 needles with small spread.", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels += 1; } },
         ],
       ]
@@ -1153,16 +1153,16 @@
       desc: "Buffs allied turrets in range. Also reveals stealth.",
       mods: [
         [
-          { name: "Amplify", cost: 60, desc: "Buffs +12% damage.", apply: t => { t.buffDmg += 0.12; t.visual.rings++; } },
-          { name: "Overclock", cost: 60, desc: "Buffs +12% attack speed.", apply: t => { t.buffRate += 0.12; t.visual.glow = 1; } },
+          { name: "Amplify", cost: 60, desc: "Buffs +10% damage.", apply: t => { t.buffDmg += 0.10; t.visual.rings++; } },
+          { name: "Overclock", cost: 60, desc: "Buffs +10% attack speed.", apply: t => { t.buffRate += 0.10; t.visual.glow = 1; } },
         ],
         [
-          { name: "Wide Canopy", cost: 105, desc: "+25% range; weaker buff.", apply: t => { t.range *= 1.25; t.buffDmg *= 0.90; t.buffRate *= 0.90; t.visual.rings++; } },
+          { name: "Wide Canopy", cost: 105, desc: "+25% range; weaker buff.", apply: t => { t.range *= 1.25; t.buffDmg *= 0.92; t.buffRate *= 0.92; t.visual.rings++; } },
           { name: "Revelation", cost: 105, desc: "Reveals Stealth in aura.", apply: t => { t.revealAura = true; t.visual.antenna = true; } },
         ],
         [
           { name: "Harmonic Surge", cost: 170, desc: "Every 5s emits buff pulse (+brief).", apply: t => { t.pulse = true; t.visual.glow = 1; } },
-          { name: "Tether Roots", cost: 170, desc: "Adds small slow field (not Echo).", apply: t => { t.slowField = { pct:0.10, dur:0.6 }; t.visual.spikes = true; } },
+          { name: "Tether Roots", cost: 170, desc: "Adds small slow field (not Echo).", apply: t => { t.slowField = { pct:0.09, dur:0.6 }; t.visual.spikes = true; } },
         ],
       ]
     },
@@ -1173,21 +1173,21 @@
       cost: 130,
       range: 160,
       fire: 2.40, // spawns drones periodically
-      dmg: 9,
+      dmg: 8,
       dmgType: DAMAGE.PHYS,
       canHitFlying: true,
       desc: "Spawns drones that orbit and shoot. Great coverage.",
       mods: [
         [
           { name: "Extra Bay", cost: 85, desc: "+1 drone active.", apply: t => { t.maxDrones += 1; t.visual.rings++; } },
-          { name: "Sharper Stings", cost: 85, desc: "+25% drone damage.", apply: t => { t.dmg *= 1.25; t.visual.spikes = true; } },
+          { name: "Sharper Stings", cost: 85, desc: "+22% drone damage.", apply: t => { t.dmg *= 1.22; t.visual.spikes = true; } },
         ],
         [
-          { name: "Faster Swarm", cost: 145, desc: "-18% spawn interval.", apply: t => { t.fire *= 0.82; t.visual.glow = 1; } },
+          { name: "Faster Swarm", cost: 145, desc: "-16% spawn interval.", apply: t => { t.fire *= 0.84; t.visual.glow = 1; } },
           { name: "Target Link", cost: 145, desc: "Drones focus same target (burst).", apply: t => { t.link = true; t.visual.antenna = true; } },
         ],
         [
-          { name: "Iridescent Shell", cost: 230, desc: "Drones deal +40% to shields.", apply: t => { t.vsShield *= 1.40; t.visual.glow = 1; } },
+          { name: "Iridescent Shell", cost: 230, desc: "Drones deal +35% to shields.", apply: t => { t.vsShield *= 1.35; t.visual.glow = 1; } },
           { name: "Tri-Drone", cost: 230, desc: "+1 drone and +range.", apply: t => { t.maxDrones += 1; t.range *= 1.12; t.visual.rings += 1; } },
         ],
       ]
@@ -1198,22 +1198,22 @@
       role: "Ground Trap / Control",
       cost: 70,
       range: 120,
-      fire: 1.75, // places trap
-      dmg: 30,
+      fire: 1.85, // places trap
+      dmg: 26,
       dmgType: DAMAGE.TRUE,
       canHitFlying: false,
       desc: "Plants a gravity knot that damages + slows (not Echo).",
       mods: [
         [
           { name: "Wider Knot", cost: 50, desc: "+25% trap radius.", apply: t => { t.trapR *= 1.25; t.visual.rings++; } },
-          { name: "Tighter Pull", cost: 50, desc: "+slow strength.", apply: t => { t.trapSlow *= 1.25; t.visual.spikes = true; } },
+          { name: "Tighter Pull", cost: 50, desc: "+slow strength.", apply: t => { t.trapSlow *= 1.20; t.visual.spikes = true; } },
         ],
         [
           { name: "Chain Knots", cost: 90, desc: "Traps can store 2 charges.", apply: t => { t.maxCharges += 1; t.charges = Math.min(t.maxCharges, t.charges + 1); t.visual.barrels++; } },
           { name: "Siphon", cost: 90, desc: "Traps refund 20% gold on kill.", apply: t => { t.siphon = true; t.visual.antenna = true; } },
         ],
         [
-          { name: "Event Horizon", cost: 150, desc: "Trap deals DOT while inside.", apply: t => { t.trapDot = { dps: 8, dur: 2.4 }; t.visual.glow = 1; } },
+          { name: "Event Horizon", cost: 150, desc: "Trap deals DOT while inside.", apply: t => { t.trapDot = { dps: 7, dur: 2.4 }; t.visual.glow = 1; } },
           { name: "Anchor Field", cost: 150, desc: "Traps briefly stop Splitters from splitting.", apply: t => { t.noSplit = true; t.visual.rings += 1; } },
         ],
       ]
@@ -1266,8 +1266,8 @@
       this.stunChance = 0;
 
       // support
-      this.buffDmg = 0.10;
-      this.buffRate = 0.10;
+      this.buffDmg = 0.09;
+      this.buffRate = 0.09;
       this.revealAura = false;
       this.pulse = false;
       this.pulseT = 0;
@@ -1555,7 +1555,7 @@
               p.stunChance = this.stunChance || 0;
               p.vsFlying = this.vsFlying || 1;
               if (this.typeKey === "VENOM") {
-                p.dotDps = dmgBase * 0.35;
+                p.dotDps = dmgBase * 0.32;
                 p.dotDur = this.dotDur;
                 if (this.dotSlow) p.dotSlow = this.dotSlow;
               }
@@ -1686,7 +1686,7 @@
 
             // damage ramp if enabled
             if (this.ramp) {
-              if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + 0.12, 1, 2.2);
+              if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + 0.10, 1, 2.0);
               else { this._rampId = target._id; this._ramp = 1; }
               dealt *= this._ramp;
             }

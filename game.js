@@ -113,6 +113,7 @@
       };
       this.sfxVol = 0.6;
       this._last = {};
+      this._errorShown = false;
     }
 
     _pickSource(sources) {
@@ -201,7 +202,14 @@
         if (!this.bgm) {
           this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
         }
-        this.bgm.play().catch(() => {});
+        this.bgm.play().catch(() => {
+          if (!this._errorShown) {
+            this._errorShown = true;
+            toast("Audio blocked. Click once on the game, then toggle Audio.");
+          }
+        });
+        // Quick confirm beep
+        this.play("build");
       } else {
         if (this.bgm) this.bgm.pause();
       }
@@ -217,7 +225,12 @@
       const sources = this.sfx[name];
       if (!sources) return;
       const a = this._makeAudio(sources, false, this.sfxVol);
-      a.play().catch(() => {});
+      a.play().catch(() => {
+        if (!this._errorShown) {
+          this._errorShown = true;
+          toast("Audio blocked. Click once on the game, then toggle Audio.");
+        }
+      });
     }
 
     playLimited(name, cooldownMs) {

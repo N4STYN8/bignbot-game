@@ -542,6 +542,8 @@
 
       this._dead = false;
       this._lastHitBy = null;
+      this._marked = 0;
+      this._markedT = 0;
       this._noSplit = false;
       this._noSplitT = 0;
       this.scalar = waveScalar;

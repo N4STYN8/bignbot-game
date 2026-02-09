@@ -79,10 +79,11 @@
     constructor() {
       this.enabled = false;
       this.unlocked = false;
-      this.bgm = this._createAudio([
+      this.bgmSources = [
         "assets/music/bgm.wav",
         "assets/music/bgm.mp3"
-      ], true, 0.32);
+      ];
+      this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
       this.bgm.loop = true;
       this.bgm.volume = 0.32;
       this.sfx = {
@@ -106,18 +107,24 @@
       this._last = {};
     }
 
-    _createAudio(sources, loop = false, volume = 1) {
-      const a = new Audio();
+    _pickSource(sources) {
+      const probe = document.createElement("audio");
+      let fallback = sources[0];
+      for (const src of sources) {
+        const ext = src.split(".").pop().toLowerCase();
+        const mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : "";
+        if (!mime) { fallback = src; continue; }
+        const can = probe.canPlayType(mime);
+        if (can && can !== "no") return src;
+      }
+      return fallback;
+    }
+
+    _makeAudio(sources, loop = false, volume = 1) {
+      const a = new Audio(this._pickSource(sources));
       a.loop = loop;
       a.volume = volume;
-      let idx = 0;
-      const trySrc = () => {
-        if (idx >= sources.length) return;
-        a.src = sources[idx++];
-        a.load();
-      };
-      a.addEventListener("error", trySrc);
-      trySrc();
+      a.load();
       return a;
     }
 
@@ -161,6 +168,8 @@
       this.savePref();
       if (!this.unlocked) return;
       if (this.enabled) {
+        this.bgm.src = this._pickSource(this.bgmSources);
+        this.bgm.load();
         this.bgm.play().catch(() => {});
       } else {
         this.bgm.pause();
@@ -176,7 +185,7 @@
       if (!this.enabled) return;
       const sources = this.sfx[name];
       if (!sources) return;
-      const a = this._createAudio(sources, false, this.sfxVol);
+      const a = this._makeAudio(sources, false, this.sfxVol);
       a.play().catch(() => {});
     }
 

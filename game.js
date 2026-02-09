@@ -1922,7 +1922,16 @@
 
       skipBtn.addEventListener("click", () => {
         if (this.gameOver || this.gameWon) return;
-        if (this.waveActive || !this.hasStarted) return;
+        if (!this.hasStarted) return;
+        if (this.waveActive) {
+          // Start next wave immediately, even if the current wave is still active.
+          // We stop any remaining spawns from this wave and roll into the next.
+          this.spawnIndex = this.spawnQueue.length;
+          this.waveActive = false;
+          this.intermission = 0;
+          this.startWave();
+          return;
+        }
         if (this.intermission > 0) {
           this.echoDebt += this.intermission;
           this.intermission = 0;
@@ -2013,7 +2022,12 @@
         nextInEl.textContent = "—";
       }
 
-      skipBtn.disabled = !(this.hasStarted && !this.waveActive && this.intermission > 0 && !this.gameOver && !this.gameWon);
+      skipBtn.disabled = !(
+        this.hasStarted &&
+        !this.gameOver &&
+        !this.gameWon &&
+        (this.waveActive || this.intermission > 0)
+      );
       startBtn.disabled = this.hasStarted || this.gameOver || this.gameWon;
     }
 
@@ -2030,19 +2044,19 @@
     _waveScalar(wave) {
       const i = wave - 1;
       return {
-        hp: 1 + i * 0.08,
-        spd: 1 + i * 0.012,
-        armor: i * 0.004,
-        shield: 1 + i * 0.04,
-        regen: 1 + i * 0.03,
+        hp: 1 + i * 0.06,
+        spd: 1 + i * 0.008,
+        armor: i * 0.003,
+        shield: 1 + i * 0.03,
+        regen: 1 + i * 0.02,
         reward: 1 + i * 0.05
       };
     }
 
     _buildWave(wave) {
       const i = wave;
-      const baseCount = 12 + i * 2;
-      const spacing = Math.max(0.25, 0.60 - i * 0.01);
+      const baseCount = 10 + Math.floor(i * 1.6);
+      const spacing = Math.max(0.30, 0.70 - i * 0.01);
       const spawns = [];
 
       const types = ["RUNNER", "BRUTE", "ARMORED"];

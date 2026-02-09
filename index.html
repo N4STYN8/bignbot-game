@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,23 +7,23 @@
 <title>IRONLINE TD</title>
 <style>
   :root{
-    --bg:#0e0b08;
-    --hud:#1d140c;
+    --bg:#0b0a08;
+    --hud:#1b140c;
     --panel:#2a1d12;
-    --panel2:#14100b;
+    --panel2:#18110b;
     --line:#6b4c2d;
     --text:#ffeccc;
     --muted:#d2bf9b;
     --accent:#ffb55a;
-    --accent2:#8fe1ff;
+    --accent2:#7fd0ff;
     --good:#78ffb1;
     --bad:#ff5f6f;
     --warn:#ffd36a;
     --shadow: 0 12px 26px rgba(0,0,0,.55);
     --glow: 0 0 18px rgba(255,181,90,.35);
-    --glow2: 0 0 18px rgba(143,225,255,.25);
-    --topH: 64px;
-    --dockH: 220px;
+    --glow2: 0 0 18px rgba(127,208,255,.25);
+    --topH: 68px;
+    --dockH: 240px;
     --font: "Bahnschrift","Franklin Gothic Medium","Trebuchet MS","Segoe UI",Arial,sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
@@ -42,10 +43,8 @@
   .chip .k{color:var(--muted); font-size:11px; letter-spacing:.12em; text-transform:uppercase;}
   .chip .v{font-weight:800; font-size:16px; font-family:var(--mono);}
   .chip .icon{width:18px; height:18px; display:inline-block; margin-right:2px;}
-
   #playfield{flex:1; position:relative; background:#0e0b08;}
   #gameCanvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
-
   #dock{
     height:var(--dockH);
     display:flex; gap:12px; padding:10px 12px;
@@ -54,49 +53,42 @@
     box-shadow: 0 -12px 26px rgba(0,0,0,.6);
     z-index:10;
   }
-
   .panel{background:linear-gradient(180deg, rgba(60,40,22,.95), rgba(22,16,10,.98)); border:1px solid rgba(170,125,70,.45); border-radius:12px; padding:10px; box-shadow: var(--shadow), var(--glow);}
   .panelTitle{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
   .dockCol{display:flex; flex-direction:column; gap:8px;}
   #cards{display:grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap:8px;}
-  .card{min-height:120px; padding:8px; border-radius:12px; border:1px solid rgba(170,125,70,.45); background:linear-gradient(180deg, rgba(70,48,28,.98), rgba(26,18,12,.98)); box-shadow: var(--shadow); cursor:pointer; user-select:none; position:relative;}
+  .card{min-height:124px; padding:8px; border-radius:12px; border:1px solid rgba(170,125,70,.45); background:linear-gradient(180deg, rgba(70,48,28,.98), rgba(26,18,12,.98)); box-shadow: var(--shadow); cursor:pointer; user-select:none; position:relative;}
   .card.selected{border-color: rgba(255,181,90,.9); box-shadow: var(--shadow), var(--glow);}
   .card .name{font-weight:800;}
   .card .desc{font-size:12px; color:var(--muted); margin-top:4px; min-height:34px;}
   .badge{display:inline-block; padding:3px 8px; border-radius:999px; background:rgba(255,181,90,.16); border:1px solid rgba(255,181,90,.30); font-family:var(--mono); font-size:11px;}
   .card .hot{position:absolute; top:6px; right:6px; font-size:11px; color:#fff; background:rgba(0,0,0,.35); padding:2px 6px; border-radius:8px;}
-
   .btn{height:38px; padding:0 12px; border-radius:10px; border:1px solid rgba(185,140,80,.55); background:linear-gradient(180deg, rgba(86,56,30,.98), rgba(28,20,12,.98)); color:var(--text); font-weight:700; letter-spacing:.02em; cursor:pointer; box-shadow: var(--shadow);}
-  .btn:hover{filter:brightness(1.08); border-color: rgba(255,200,140,.7);}
-  .btn.primary{border-color: rgba(255,181,90,.75); box-shadow: var(--shadow), var(--glow);}
+  .btn:hover{filter:brightness(1.08); border-color: rgba(255,200,140,.7);} 
+  .btn.primary{border-color: rgba(255,181,90,.75); box-shadow: var(--shadow), var(--glow);} 
   .btn.ghost{background:linear-gradient(180deg, rgba(50,36,22,.85), rgba(22,16,10,.92));}
-  .btn[disabled]{opacity:.45; cursor:not-allowed; filter:saturate(.4);}
-
+  .btn[disabled]{opacity:.45; cursor:not-allowed; filter:saturate(.4);} 
+  .split{display:grid; grid-template-columns: 1fr 1fr; gap:8px;}
+  .statRow{display:flex; justify-content:space-between; font-size:13px; color:var(--muted);} 
+  .big{font-size:18px; font-weight:900;} 
   #menus{position:fixed; inset:0; pointer-events:none;}
   .menu{position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); pointer-events:auto;}
   .menu.active{display:flex;}
-  .menuBox{width:min(720px, 92vw); background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:14px; padding:16px; box-shadow: var(--shadow), var(--glow);}
+  .menuBox{width:min(720px, 92vw); background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:14px; padding:16px; box-shadow: var(--shadow), var(--glow);} 
   .menuBox h2{margin:0 0 8px 0; font-size:20px;}
-  .menuBox p{color:var(--muted);}
+  .menuBox p{color:var(--muted);} 
   .menuGrid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;}
-
-  .toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px; border-radius:10px; border:1px solid rgba(185,140,80,.45); background:rgba(0,0,0,.25);}
+  .toggle{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px; border-radius:10px; border:1px solid rgba(185,140,80,.45); background:rgba(0,0,0,.25);} 
   .slider{width:100%;}
-
-  #helpPanel{position:absolute; right:12px; top:76px; width:280px; background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:12px; padding:10px; display:none; box-shadow: var(--shadow), var(--glow);}
-  #helpPanel.active{display:block;}
-
-  .split{display:grid; grid-template-columns: 1fr 1fr; gap:8px;}
-  .statRow{display:flex; justify-content:space-between; font-size:13px; color:var(--muted);}
-  .big{font-size:18px; font-weight:900;}
-
+  #helpPanel{position:absolute; right:12px; top:76px; width:300px; background:linear-gradient(180deg, rgba(60,40,22,.98), rgba(22,16,10,.98)); border:1px solid rgba(185,140,80,.55); border-radius:12px; padding:10px; display:none; box-shadow: var(--shadow), var(--glow);} 
+  #helpPanel.active{display:block;} 
   @media (max-width: 1100px){
-    #dock{height:260px;}
-    #cards{grid-template-columns: repeat(3, minmax(0,1fr));}
+    #dock{height:260px;} 
+    #cards{grid-template-columns: repeat(3, minmax(0,1fr));} 
   }
   @media (max-width: 760px){
-    #dock{height:320px; flex-direction:column; overflow:auto;}
-    #cards{grid-template-columns: repeat(2, minmax(0,1fr));}
+    #dock{height:340px; flex-direction:column; overflow:auto;} 
+    #cards{grid-template-columns: repeat(2, minmax(0,1fr));} 
   }
 </style>
 </head>
@@ -113,7 +105,6 @@
       <div class="chip"><img class="icon" id="icoHeart"/><span class="k">Lives</span><span class="v" id="livesText">20</span></div>
     </div>
   </div>
-
   <div id="playfield">
     <canvas id="gameCanvas"></canvas>
     <div id="helpPanel">
@@ -128,13 +119,11 @@
       </div>
     </div>
   </div>
-
   <div id="dock">
     <div class="panel dockCol" style="flex:2; min-width:340px;">
       <div class="panelTitle">Turrets</div>
       <div id="cards"></div>
     </div>
-
     <div class="panel dockCol" style="flex:1; min-width:260px;">
       <div class="panelTitle">Selected Turret</div>
       <div id="selName" class="big">None</div>
@@ -147,7 +136,6 @@
       <div class="statRow"><span>DPS</span><span id="selDps">-</span></div>
       <div class="statRow"><span>Range</span><span id="selRange">-</span></div>
     </div>
-
     <div class="panel dockCol" style="flex:1; min-width:260px;">
       <div class="panelTitle">Wave Controls</div>
       <button class="btn primary" id="btnStart">Start Wave (Space)</button>
@@ -163,797 +151,3 @@
     </div>
   </div>
 </div>
-
-<div id="menus">
-  <div class="menu active" id="menuMain">
-    <div class="menuBox">
-      <h2>IRONLINE TD</h2>
-      <p>Gritty sci-fi tower defense. Stop the train.</p>
-      <div class="menuGrid">
-        <button class="btn primary" id="btnPlay">Play</button>
-        <button class="btn" id="btnSettingsMain">Settings</button>
-        <button class="btn" id="btnCredits">Credits</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu" id="menuPause">
-    <div class="menuBox">
-      <h2>Paused</h2>
-      <div class="menuGrid">
-        <button class="btn primary" id="btnResume">Resume</button>
-        <button class="btn" id="btnRestart">Restart</button>
-        <button class="btn" id="btnSettingsPause">Settings</button>
-        <button class="btn" id="btnQuit">Quit to Menu</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu" id="menuSettings">
-    <div class="menuBox">
-      <h2>Settings</h2>
-      <div class="toggle"><span>Master Volume</span><input id="volMaster" type="range" min="0" max="100" value="70" class="slider"/></div>
-      <div class="toggle"><span>SFX Volume</span><input id="volSfx" type="range" min="0" max="100" value="70" class="slider"/></div>
-      <div class="toggle"><span>Screen Shake</span><input id="toggleShake" type="checkbox"/></div>
-      <div class="toggle"><span>Damage Numbers</span><input id="toggleDmg" type="checkbox" checked/></div>
-      <div class="toggle"><span>Performance Mode</span><input id="togglePerf" type="checkbox"/></div>
-      <div style="margin-top:10px; display:flex; gap:8px;">
-        <button class="btn primary" id="btnCloseSettings">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu" id="menuGameOver">
-    <div class="menuBox">
-      <h2>Game Over</h2>
-      <p>Your base was destroyed.</p>
-      <div class="menuGrid">
-        <button class="btn primary" id="btnRetry">Retry</button>
-        <button class="btn" id="btnQuit2">Quit to Menu</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu" id="menuVictory">
-    <div class="menuBox">
-      <h2>Victory</h2>
-      <p>You defeated all scheduled waves.</p>
-      <div class="toggle"><span>Endless Mode</span><input id="toggleEndless" type="checkbox"/></div>
-      <div class="menuGrid" style="margin-top:10px;">
-        <button class="btn primary" id="btnContinue">Continue</button>
-        <button class="btn" id="btnQuit3">Quit to Menu</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="menu" id="menuPerk">
-    <div class="menuBox">
-      <h2>Choose a Perk</h2>
-      <div id="perkGrid" class="menuGrid"></div>
-    </div>
-  </div>
-</div>
-
-<script>
-(() => {
-  'use strict';
-
-  const manifest = {
-    ui: {
-      panelTop: 'assets/ui/panel_top.png',
-      panelBottom: 'assets/ui/panel_bottom.png',
-      cardFrame: 'assets/ui/card_frame.png',
-      btnPrimary: 'assets/ui/button_primary.png',
-      btnSecondary: 'assets/ui/button_secondary.png'
-    },
-    icons: {
-      credits: 'assets/icons/credits.png',
-      scrap: 'assets/icons/scrap.png',
-      energy: 'assets/icons/energy.png',
-      heart: 'assets/icons/heart.png',
-      wave: 'assets/icons/wave.png'
-    },
-    track: {
-      ground: 'assets/track/ground_tile.png',
-      rail: 'assets/track/rail.png',
-      tie: 'assets/track/tie.png'
-    },
-    train: {
-      engine: 'assets/train/engine.png',
-      cars: [
-        'assets/train/car_1.png',
-        'assets/train/car_2.png',
-        'assets/train/car_3.png'
-      ],
-      wreck: 'assets/train/wreck.png'
-    },
-    turrets: {
-      gatling: ['assets/turrets/gatling_lv1.png','assets/turrets/gatling_lv2.png','assets/turrets/gatling_lv3.png','assets/turrets/gatling_lv4.png','assets/turrets/gatling_lv5.png'],
-      laser:   ['assets/turrets/laser_lv1.png','assets/turrets/laser_lv2.png','assets/turrets/laser_lv3.png','assets/turrets/laser_lv4.png','assets/turrets/laser_lv5.png'],
-      tesla:   ['assets/turrets/tesla_lv1.png','assets/turrets/tesla_lv2.png','assets/turrets/tesla_lv3.png','assets/turrets/tesla_lv4.png','assets/turrets/tesla_lv5.png'],
-      cannon:  ['assets/turrets/cannon_lv1.png','assets/turrets/cannon_lv2.png','assets/turrets/cannon_lv3.png','assets/turrets/cannon_lv4.png','assets/turrets/cannon_lv5.png'],
-      slow:    ['assets/turrets/slow_lv1.png','assets/turrets/slow_lv2.png','assets/turrets/slow_lv3.png','assets/turrets/slow_lv4.png','assets/turrets/slow_lv5.png']
-    },
-    vfx: {
-      muzzle: 'assets/vfx/muzzle_orange.png',
-      beam: 'assets/vfx/beam_blue.png',
-      explosion: 'assets/vfx/explosion.png'
-    }
-  };
-
-  const images = new Map();
-  function loadImage(src){
-    if(images.has(src)) return images.get(src);
-    const img = new Image();
-    img.loaded = false;
-    img.missing = false;
-    img.onload = () => { img.loaded = true; };
-    img.onerror = () => { img.missing = true; };
-    img.src = src;
-    images.set(src, img);
-    return img;
-  }
-  function imgOrNull(src){
-    if(!src) return null;
-    const img = loadImage(src);
-    if(img.loaded && !img.missing) return img;
-    return null;
-  }
-
-  (function preload(){
-    const flat = [];
-    const push = (v) => { if(Array.isArray(v)) v.forEach(push); else if(typeof v === 'string') flat.push(v); else if(v && typeof v === 'object') Object.values(v).forEach(push); };
-    push(manifest);
-    flat.forEach(loadImage);
-  })();
-
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  let W=0,H=0,dpr=1;
-  function resize(){
-    const r = canvas.getBoundingClientRect();
-    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    W = Math.floor(r.width); H = Math.floor(r.height);
-    canvas.width = Math.floor(W*dpr); canvas.height = Math.floor(H*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  window.addEventListener('resize', resize, {passive:true});
-  resize();
-
-  const creditsText = document.getElementById('creditsText');
-  const scrapText = document.getElementById('scrapText');
-  const energyText = document.getElementById('energyText');
-  const waveText = document.getElementById('waveText');
-  const livesText = document.getElementById('livesText');
-  document.getElementById('icoCredits').src = manifest.icons.credits;
-  document.getElementById('icoScrap').src = manifest.icons.scrap;
-  document.getElementById('icoEnergy').src = manifest.icons.energy;
-  document.getElementById('icoHeart').src = manifest.icons.heart;
-  document.getElementById('icoWave').src = manifest.icons.wave;
-
-  const cardsEl = document.getElementById('cards');
-  const selName = document.getElementById('selName');
-  const selStats = document.getElementById('selStats');
-  const selLvl = document.getElementById('selLvl');
-  const selDps = document.getElementById('selDps');
-  const selRange = document.getElementById('selRange');
-  const btnUpgrade = document.getElementById('btnUpgrade');
-  const btnSell = document.getElementById('btnSell');
-  const btnStart = document.getElementById('btnStart');
-  const btnSkip = document.getElementById('btnSkip');
-  const btnPause = document.getElementById('btnPause');
-  const btnSpeed = document.getElementById('btnSpeed');
-  const btnHelp = document.getElementById('btnHelp');
-  const helpPanel = document.getElementById('helpPanel');
-  const mapSelect = document.getElementById('mapSelect');
-
-  const menuMain = document.getElementById('menuMain');
-  const menuPause = document.getElementById('menuPause');
-  const menuSettings = document.getElementById('menuSettings');
-  const menuGameOver = document.getElementById('menuGameOver');
-  const menuVictory = document.getElementById('menuVictory');
-  const menuPerk = document.getElementById('menuPerk');
-  const perkGrid = document.getElementById('perkGrid');
-  const togglePerf = document.getElementById('togglePerf');
-  const toggleDmg = document.getElementById('toggleDmg');
-  const toggleShake = document.getElementById('toggleShake');
-  const toggleEndless = document.getElementById('toggleEndless');
-
-  function showMenu(el){
-    [menuMain,menuPause,menuSettings,menuGameOver,menuVictory,menuPerk].forEach(m=>m.classList.remove('active'));
-    if(el) el.classList.add('active');
-  }
-
-  const TIER_MAX = 4;
-  const POWER_CAP = 3;
-  const TRACK_SAFE = 30;
-  const TURRET_MIN = 18;
-
-  const TurretType = Object.freeze({ GAT:'gatling', LAS:'laser', TES:'tesla', CAN:'cannon', SLO:'slow' });
-
-  const TURRETS = [
-    { key:TurretType.GAT, name:'Gatling', desc:'Fast bullets, strong DPS.', hot:'1', power:false,
-      cost:{c:55,s:8},
-      tiers:[
-        {dmg:6, rof:12, range:150, proj:520},
-        {dmg:8, rof:14, range:160, proj:560},
-        {dmg:11,rof:16, range:170, proj:600},
-        {dmg:14,rof:19, range:185, proj:640},
-        {dmg:18,rof:22, range:200, proj:680},
-      ],
-      sprite: manifest.turrets.gatling
-    },
-    { key:TurretType.LAS, name:'Laser', desc:'Beam, ramps damage.', hot:'2', power:true,
-      cost:{c:140,s:24},
-      tiers:[
-        {dps:22, range:200},
-        {dps:30, range:215},
-        {dps:40, range:230},
-        {dps:52, range:245},
-        {dps:68, range:265},
-      ],
-      sprite: manifest.turrets.laser
-    },
-    { key:TurretType.TES, name:'Tesla', desc:'Chains, stuns briefly.', hot:'3', power:true,
-      cost:{c:120,s:20},
-      tiers:[
-        {dmg:16, rof:1.2, range:170, chain:2, stun:0.35},
-        {dmg:20, rof:1.3, range:180, chain:3, stun:0.4},
-        {dmg:24, rof:1.45,range:190, chain:3, stun:0.45},
-        {dmg:30, rof:1.6, range:205, chain:4, stun:0.5},
-        {dmg:38, rof:1.75,range:220, chain:4, stun:0.6},
-      ],
-      sprite: manifest.turrets.tesla
-    },
-    { key:TurretType.CAN, name:'Cannon', desc:'Splash damage.', hot:'4', power:true,
-      cost:{c:150,s:26},
-      tiers:[
-        {dmg:40, rof:0.6, range:190, splash:44, proj:320},
-        {dmg:55, rof:0.65,range:200, splash:50, proj:340},
-        {dmg:72, rof:0.7, range:215, splash:58, proj:360},
-        {dmg:95, rof:0.78,range:230, splash:66, proj:380},
-        {dmg:125,rof:0.86,range:245, splash:76, proj:400},
-      ],
-      sprite: manifest.turrets.cannon
-    },
-    { key:TurretType.SLO, name:'Cryo', desc:'Slow + debuff.', hot:'5', power:false,
-      cost:{c:85,s:14},
-      tiers:[
-        {dmg:8, rof:2.0, range:165, slow:0.25},
-        {dmg:10,rof:2.2, range:175, slow:0.30},
-        {dmg:13,rof:2.4, range:185, slow:0.35},
-        {dmg:16,rof:2.6, range:200, slow:0.40},
-        {dmg:20,rof:2.8, range:215, slow:0.45},
-      ],
-      sprite: manifest.turrets.slow
-    }
-  ];
-
-  const MAPS = [
-    {name:'Dust Basin', pts:[{x:0.05,y:0.15},{x:0.25,y:0.15},{x:0.25,y:0.40},{x:0.10,y:0.40},{x:0.10,y:0.60},{x:0.40,y:0.60},{x:0.40,y:0.25},{x:0.65,y:0.25},{x:0.65,y:0.70},{x:0.90,y:0.70}]},
-    {name:'Switchback', pts:[{x:0.08,y:0.85},{x:0.30,y:0.85},{x:0.30,y:0.60},{x:0.12,y:0.60},{x:0.12,y:0.35},{x:0.42,y:0.35},{x:0.42,y:0.75},{x:0.70,y:0.75},{x:0.70,y:0.45},{x:0.90,y:0.45}]},
-    {name:'Broken Yard', pts:[{x:0.05,y:0.45},{x:0.28,y:0.45},{x:0.28,y:0.20},{x:0.52,y:0.20},{x:0.52,y:0.55},{x:0.20,y:0.55},{x:0.20,y:0.75},{x:0.65,y:0.75},{x:0.65,y:0.35},{x:0.92,y:0.35}]}
-  ];
-
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by; return dx*dx+dy*dy;};
-  const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
-
-  class Path{
-    constructor(poly){
-      this.pts = poly;
-      this.len = 0; this.segLen=[];
-      for(let i=0;i<poly.length-1;i++){
-        const a=poly[i], b=poly[i+1];
-        const l=Math.hypot(b.x-a.x,b.y-a.y);
-        this.segLen.push(l); this.len+=l;
-      }
-      this.pref=[0]; let s=0; for(const l of this.segLen){s+=l; this.pref.push(s);}
-    }
-    getAt(s){
-      s = clamp(s,0,this.len);
-      let i=0; while(i<this.segLen.length && this.pref[i+1]<s) i++;
-      const a=this.pts[i], b=this.pts[i+1];
-      const t=(s-this.pref[i])/(this.segLen[i]||1);
-      const x=a.x+(b.x-a.x)*t; const y=a.y+(b.y-a.y)*t;
-      const ang=Math.atan2(b.y-a.y,b.x-a.x);
-      return {x,y,ang};
-    }
-    distanceToPoint(x,y){
-      let d=1e9;
-      for(let i=0;i<this.pts.length-1;i++){
-        const a=this.pts[i], b=this.pts[i+1];
-        const vx=b.x-a.x, vy=b.y-a.y;
-        const wx=x-a.x, wy=y-a.y;
-        const c1=vx*wx+vy*wy;
-        if(c1<=0){ d=Math.min(d, Math.hypot(x-a.x,y-a.y)); continue; }
-        const c2=vx*vx+vy*vy;
-        if(c2<=c1){ d=Math.min(d, Math.hypot(x-b.x,y-b.y)); continue; }
-        const t=c1/c2; const px=a.x+t*vx, py=a.y+t*vy;
-        d=Math.min(d, Math.hypot(x-px,y-py));
-      }
-      return d;
-    }
-  }
-
-  class SpatialGrid{
-    constructor(cs){this.cs=cs; this.map=new Map();}
-    _key(ix,iy){return (ix<<16) ^ (iy&0xffff);}
-    clear(){this.map.clear();}
-    insert(x,y,obj){
-      const ix=Math.floor(x/this.cs), iy=Math.floor(y/this.cs);
-      const k=this._key(ix,iy);
-      let arr=this.map.get(k); if(!arr){arr=[]; this.map.set(k,arr);} arr.push(obj);
-    }
-    query(x,y,r){
-      const cs=this.cs; const ix0=Math.floor((x-r)/cs), ix1=Math.floor((x+r)/cs);
-      const iy0=Math.floor((y-r)/cs), iy1=Math.floor((y+r)/cs);
-      const out=[];
-      for(let iy=iy0; iy<=iy1; iy++) for(let ix=ix0; ix<=ix1; ix++){
-        const arr=this.map.get(this._key(ix,iy)); if(arr) out.push(...arr);
-      }
-      return out;
-    }
-  }
-
-  const game = {
-    credits: 200, scrap: 40, energy: 0,
-    lives: 20, wave: 1, speedMul: 1,
-    waveState: 'READY',
-    betweenT: 0,
-    autoNext: 30,
-    mapIndex: 0,
-    path: null,
-    enemies: [],
-    turrets: [],
-    projectiles: [],
-    placing: null,
-    selected: null,
-    paused: false,
-    perf: false,
-    dmgNumbers: true,
-    grid: new SpatialGrid(80),
-    endless: false,
-    perkDmg: 1, perkSlow:1, perkRange:1
-  };
-
-  class Enemy{
-    constructor(cfg, idx){
-      this.cfg=cfg;
-      this.progress = -idx*28 - 60;
-      this.hpMax = cfg.hp;
-      this.hp = this.hpMax;
-      this.speed = cfg.speed;
-      this.x=0; this.y=0; this.ang=0;
-      this.dead=false;
-      this.stun=0; this.slow=0;
-      this.spriteIdx = idx % 3;
-    }
-    update(dt){
-      if(this.dead) return;
-      const speed = (this.stun>0) ? this.speed*0.2 : this.speed*(1-this.slow);
-      this.progress += speed*dt;
-      this.stun = Math.max(0, this.stun-dt);
-      this.slow = Math.max(0, this.slow-dt*0.3);
-      if(this.progress>=game.path.len){
-        this.dead = true;
-        game.lives--;
-        return;
-      }
-      const at = game.path.getAt(this.progress);
-      this.x=at.x; this.y=at.y; this.ang=at.ang;
-    }
-  }
-
-  function waveConfig(w){
-    const speed = 42 + w*2.0;
-    const count = clamp(6 + Math.floor(w*1.2), 6, 26);
-    const hp = 80 + w*28;
-    return { speed, count, hp };
-  }
-
-  function startWave(){
-    const cfg = waveConfig(game.wave);
-    for(let i=0;i<cfg.count;i++){
-      game.enemies.push(new Enemy(cfg, i));
-    }
-    game.waveState = 'ACTIVE';
-    if(game.wave > 1) game.autoNext = 30;
-  }
-
-  function endWave(){
-    game.energy += 2 + Math.floor(game.wave/2);
-    game.wave++;
-    if(game.wave>12 && !game.endless){ showMenu(menuVictory); return; }
-    game.waveState = 'PERK';
-    openPerkMenu();
-  }
-
-  class Turret{
-    constructor(type,x,y){
-      this.type=type; this.x=x; this.y=y; this.level=0; this.cool=0; this.ang=0;
-    }
-    meta(){ return TURRETS.find(t=>t.key===this.type); }
-    stats(){ return this.meta().tiers[this.level]; }
-  }
-
-  function turretCost(t){
-    const base = t.meta().cost;
-    return { c: Math.round(base.c * (0.75 + t.level*0.35)), s: Math.round(base.s * (0.75 + t.level*0.35)) };
-  }
-
-  const perks = [
-    {id:'dmg', name:'+10% Turret Damage', apply:()=>{ game.perkDmg*=1.1; }},
-    {id:'slow', name:'+10% Slow Strength', apply:()=>{ game.perkSlow*=1.1; }},
-    {id:'credits', name:'+80 Credits', apply:()=>{ game.credits+=80; }},
-    {id:'scrap', name:'+30 Scrap', apply:()=>{ game.scrap+=30; }},
-    {id:'range', name:'+8% Range', apply:()=>{ game.perkRange*=1.08; }}
-  ];
-  function openPerkMenu(){
-    perkGrid.innerHTML='';
-    const picks = [];
-    while(picks.length<3){
-      const p=perks[Math.floor(Math.random()*perks.length)];
-      if(!picks.includes(p)) picks.push(p);
-    }
-    picks.forEach(p=>{
-      const b=document.createElement('button');
-      b.className='btn primary';
-      b.textContent=p.name;
-      b.onclick=()=>{ p.apply(); showMenu(null); game.waveState='READY'; game.autoNext=30; };
-      perkGrid.appendChild(b);
-    });
-    showMenu(menuPerk);
-  }
-
-  let mouseX=0, mouseY=0, mouseIn=false;
-  canvas.addEventListener('mousemove', e=>{
-    const r=canvas.getBoundingClientRect();
-    mouseX = (e.clientX - r.left); mouseY = (e.clientY - r.top); mouseIn=true;
-  }, {passive:true});
-  canvas.addEventListener('mouseleave', ()=>mouseIn=false, {passive:true});
-
-  function canPlaceAt(x,y){
-    if(x<18||y<18||x>W-18||y>H-18) return false;
-    if(game.path.distanceToPoint(x,y) < TRACK_SAFE) return false;
-    for(const t of game.turrets){ if(dist2(x,y,t.x,t.y) < (TURRET_MIN*2)*(TURRET_MIN*2)) return false; }
-    return true;
-  }
-
-  function turretAt(x,y){
-    let best=null, bestD=1e9;
-    for(const t of game.turrets){
-      const d=dist2(x,y,t.x,t.y); if(d<22*22 && d<bestD){best=t; bestD=d;}
-    }
-    return best;
-  }
-
-  canvas.addEventListener('click', ()=>{
-    if(game.paused || menuMain.classList.contains('active')) return;
-    if(game.placing){
-      const meta = TURRETS.find(t=>t.key===game.placing);
-      const powerCount = game.turrets.filter(t=>TURRETS.find(x=>x.key===t.type).power).length;
-      if(meta.power && powerCount>=POWER_CAP) return;
-      if(!canPlaceAt(mouseX,mouseY)) return;
-      if(game.credits<meta.cost.c || game.scrap<meta.cost.s) return;
-      game.credits-=meta.cost.c; game.scrap-=meta.cost.s;
-      const t = new Turret(game.placing, mouseX, mouseY);
-      game.turrets.push(t);
-      game.placing=null; selectTurret(t);
-      return;
-    }
-    const t = turretAt(mouseX,mouseY);
-    if(t){ selectTurret(t); }
-    else selectTurret(null);
-  });
-
-  function selectTurret(t){
-    game.selected = t;
-    if(!t){
-      selName.textContent='None'; selStats.textContent='Click a turret to see stats.';
-      selLvl.textContent='-'; selDps.textContent='-'; selRange.textContent='-';
-      btnUpgrade.disabled=true; btnSell.disabled=true; return;
-    }
-    const m=t.meta(); const s=t.stats();
-    selName.textContent=m.name;
-    selLvl.textContent=(t.level+1)+'/5';
-    const dps = m.key===TurretType.LAS ? s.dps : (s.dmg*s.rof);
-    selDps.textContent=Math.round(dps);
-    selRange.textContent=Math.round(s.range);
-    selStats.textContent=m.desc;
-    btnSell.disabled=false;
-    btnUpgrade.disabled=(t.level>=TIER_MAX);
-  }
-
-  btnUpgrade.onclick=()=>{
-    const t=game.selected; if(!t) return;
-    if(t.level>=TIER_MAX) return;
-    const c=turretCost(t);
-    if(game.credits<c.c || game.scrap<c.s) return;
-    game.credits-=c.c; game.scrap-=c.s; t.level++;
-    selectTurret(t);
-  };
-  btnSell.onclick=()=>{
-    const t=game.selected; if(!t) return;
-    const meta=t.meta();
-    const refund = Math.round(meta.cost.c*0.6 + t.level*20);
-    game.credits += refund;
-    game.turrets = game.turrets.filter(x=>x!==t);
-    selectTurret(null);
-  };
-
-  btnStart.onclick=()=>{ if(game.waveState==='READY' && game.wave===1) startWave(); };
-  btnSkip.onclick=()=>{
-    if(game.waveState==='ACTIVE') return;
-    if(game.wave>1 && game.waveState==='READY'){ game.credits += 40; startWave(); game.autoNext=30; }
-  };
-  btnPause.onclick=()=>{ game.paused=!game.paused; showMenu(game.paused?menuPause:null); };
-  btnSpeed.onclick=()=>{ game.speedMul = game.speedMul%3 + 1; btnSpeed.textContent='Speed x'+game.speedMul; };
-  btnHelp.onclick=()=>{ helpPanel.classList.toggle('active'); };
-
-  document.getElementById('btnPlay').onclick=()=>{ showMenu(null); };
-  document.getElementById('btnSettingsMain').onclick=()=>{ showMenu(menuSettings); };
-  document.getElementById('btnCredits').onclick=()=>{ alert('Built by Codex.'); };
-  document.getElementById('btnResume').onclick=()=>{ game.paused=false; showMenu(null); };
-  document.getElementById('btnRestart').onclick=()=>{ resetGame(); showMenu(null); };
-  document.getElementById('btnSettingsPause').onclick=()=>{ showMenu(menuSettings); };
-  document.getElementById('btnQuit').onclick=()=>{ resetGame(); showMenu(menuMain); };
-  document.getElementById('btnCloseSettings').onclick=()=>{ showMenu(null); };
-  document.getElementById('btnRetry').onclick=()=>{ resetGame(); showMenu(null); };
-  document.getElementById('btnQuit2').onclick=()=>{ resetGame(); showMenu(menuMain); };
-  document.getElementById('btnContinue').onclick=()=>{ game.endless = toggleEndless.checked; showMenu(null); game.waveState='READY'; game.autoNext=30; };
-  document.getElementById('btnQuit3').onclick=()=>{ resetGame(); showMenu(menuMain); };
-
-  togglePerf.onchange=()=>{ game.perf = togglePerf.checked; };
-  toggleDmg.onchange=()=>{ game.dmgNumbers = toggleDmg.checked; };
-  toggleShake.onchange=()=>{};
-
-  window.addEventListener('keydown', (e)=>{
-    if(e.key==='p' || e.key==='P'){ game.paused=!game.paused; showMenu(game.paused?menuPause:null); }
-    if(e.key===' ') { e.preventDefault(); if(game.waveState==='READY') startWave(); }
-    if(e.key==='u' || e.key==='U') btnUpgrade.onclick();
-    if(e.key==='x' || e.key==='X') btnSell.onclick();
-    if(e.key==='Escape') game.placing=null;
-    if(e.key>='1' && e.key<='5'){
-      const idx = Number(e.key)-1; const meta=TURRETS[idx]; if(meta){ selectCard(meta.key); }
-    }
-  });
-
-  function selectCard(type){
-    game.placing=type; selectTurret(null);
-    [...cardsEl.children].forEach(c=>c.classList.toggle('selected', c.dataset.key===type));
-  }
-
-  function renderCards(){
-    cardsEl.innerHTML='';
-    TURRETS.forEach(t=>{
-      const el=document.createElement('div');
-      el.className='card'; el.dataset.key=t.key;
-      el.innerHTML=`<div class=\"hot\">${t.hot}</div><div class=\"name\">${t.name}</div><div class=\"desc\">${t.desc}</div><div style=\"margin-top:6px;\"><span class=\"badge\">${t.cost.c}C + ${t.cost.s}S</span></div>`;
-      el.onclick=()=>selectCard(t.key);
-      cardsEl.appendChild(el);
-    });
-  }
-
-  MAPS.forEach((m,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=m.name; mapSelect.appendChild(opt); });
-  mapSelect.onchange=()=>{ game.mapIndex=Number(mapSelect.value); buildMap(); };
-
-  function drawPlaceholder(x,y,w,h,label){
-    ctx.fillStyle='rgba(40,30,20,0.9)'; ctx.fillRect(x,y,w,h);
-    ctx.strokeStyle='rgba(255,181,90,0.6)'; ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle='rgba(255,235,200,0.8)'; ctx.font='10px var(--font)'; ctx.fillText(label, x+4, y+h/2);
-  }
-
-  function drawTrack(){
-    const pts = game.path.pts;
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.strokeStyle='rgba(50,36,22,1)'; ctx.lineWidth=40; ctx.beginPath();
-    pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.stroke();
-    ctx.strokeStyle='rgba(120,90,60,0.9)'; ctx.lineWidth=6; ctx.beginPath();
-    pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.stroke();
-    for(let s=0; s<game.path.len; s+=26){
-      const at = game.path.getAt(s);
-      const nx = -Math.sin(at.ang), ny = Math.cos(at.ang);
-      ctx.strokeStyle='rgba(90,70,50,0.9)'; ctx.lineWidth=4;
-      ctx.beginPath(); ctx.moveTo(at.x+nx*14, at.y+ny*14); ctx.lineTo(at.x-nx*14, at.y-ny*14); ctx.stroke();
-    }
-  }
-
-  function drawTurret(t){
-    const meta=t.meta();
-    const sprite = meta.sprite[t.level];
-    const img = imgOrNull(sprite);
-    ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.ang);
-    if(img){
-      const scale=0.7; const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
-      ctx.drawImage(img, -w/2, -h/2, w, h);
-    } else {
-      drawPlaceholder(-18,-18,36,36,'T'+(t.level+1));
-    }
-    ctx.restore();
-    if(game.selected===t){
-      ctx.strokeStyle='rgba(255,181,90,0.6)'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(t.x,t.y,20,0,Math.PI*2); ctx.stroke();
-    }
-  }
-
-  function drawEnemy(e){
-    if(e.dead) return;
-    const img = imgOrNull(manifest.train.cars[e.spriteIdx]);
-    ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(e.ang);
-    if(img){
-      const scale = 0.65;
-      const w=img.naturalWidth*scale, h=img.naturalHeight*scale;
-      ctx.drawImage(img, -w/2, -h/2, w, h);
-    } else {
-      drawPlaceholder(-16,-10,32,20, 'EN');
-    }
-    ctx.restore();
-    const w=32; const x=e.x-w/2; const y=e.y-26;
-    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(x,y,w,4);
-    ctx.fillStyle='rgba(120,255,160,0.9)'; ctx.fillRect(x,y,w*(e.hp/e.hpMax),4);
-  }
-
-  function applyDamage(enemy, dmg){
-    if(enemy.dead) return;
-    enemy.hp -= dmg;
-    if(enemy.hp<=0){
-      enemy.dead=true;
-      game.credits += 8 + Math.floor(game.wave*0.6);
-      game.scrap += 2 + Math.floor(game.wave*0.2);
-    }
-  }
-
-  function spawnProjectile(p){
-    game.projectiles.push(p);
-  }
-
-  function turretLogic(dt){
-    for(const t of game.turrets){
-      const m=t.meta(); const s=t.stats();
-      t.cool -= dt; if(t.cool>0) continue;
-      const range = s.range * game.perkRange;
-      const targets = game.grid.query(t.x,t.y,range);
-      let best=null, bestD=1e9;
-      for(const e of targets){
-        const d=dist2(t.x,t.y,e.x,e.y);
-        if(d<range*range && d<bestD){ best=e; bestD=d; }
-      }
-      if(!best) continue;
-      t.ang = Math.atan2(best.y-t.y, best.x-t.x);
-
-      const dx = best.x - t.x, dy = best.y - t.y;
-      const distLen = Math.hypot(dx,dy) || 1;
-      const ux = dx/distLen, uy = dy/distLen;
-
-      if(m.key===TurretType.LAS){
-        spawnProjectile({x:t.x, y:t.y, vx:ux*900, vy:uy*900, r:4, dmg:s.dps*0.12*game.perkDmg, splash:0, slow:0, stun:0, life:0.6, color:'rgba(140,220,255,0.85)'});
-        t.cool = 0.12;
-      } else if(m.key===TurretType.TES){
-        spawnProjectile({x:t.x, y:t.y, vx:ux*820, vy:uy*820, r:4, dmg:s.dmg*game.perkDmg, splash:0, slow:0, stun:s.stun, life:0.7, color:'rgba(120,255,240,0.9)'});
-        t.cool = 1/s.rof;
-      } else if(m.key===TurretType.CAN){
-        spawnProjectile({x:t.x, y:t.y, vx:ux*s.proj, vy:uy*s.proj, r:5, dmg:s.dmg*game.perkDmg, splash:s.splash, slow:0, stun:0, life:1.4, color:'rgba(255,160,90,0.9)'});
-        t.cool = 1/s.rof;
-      } else if(m.key===TurretType.SLO){
-        spawnProjectile({x:t.x, y:t.y, vx:ux*520, vy:uy*520, r:4, dmg:s.dmg*game.perkDmg, splash:0, slow:s.slow*game.perkSlow, stun:0, life:1.0, color:'rgba(120,200,255,0.9)'});
-        t.cool = 1/s.rof;
-      } else {
-        spawnProjectile({x:t.x, y:t.y, vx:ux*s.proj, vy:uy*s.proj, r:3, dmg:s.dmg*game.perkDmg, splash:0, slow:0, stun:0, life:1.0, color:'rgba(255,190,120,0.9)'});
-        t.cool = 1/s.rof;
-      }
-    }
-  }
-
-  function updateProjectiles(dt){
-    for(const p of game.projectiles){
-      p.life -= dt;
-      if(p.life<=0) continue;
-      p.x += p.vx*dt;
-      p.y += p.vy*dt;
-      if(p.x<-40 || p.y<-40 || p.x>W+40 || p.y>H+40){ p.life=0; continue; }
-
-      const hits = game.grid.query(p.x,p.y, 28);
-      let hit=null, bestD=1e9;
-      for(const e of hits){
-        if(e.dead) continue;
-        const d=dist2(p.x,p.y,e.x,e.y);
-        if(d < 18*18 && d<bestD){ hit=e; bestD=d; }
-      }
-      if(hit){
-        applyDamage(hit, p.dmg);
-        if(p.slow>0) hit.slow = Math.max(hit.slow, p.slow);
-        if(p.stun>0) hit.stun = Math.max(hit.stun, p.stun);
-        if(p.splash>0){
-          for(const e of game.grid.query(hit.x,hit.y,p.splash)){
-            if(e.dead || e===hit) continue;
-            if(dist(hit.x,hit.y,e.x,e.y)<=p.splash) applyDamage(e, p.dmg*0.4);
-          }
-        }
-        p.life=0;
-      }
-    }
-    game.projectiles = game.projectiles.filter(p=>p.life>0);
-  }
-
-  function drawProjectiles(){
-    for(const p of game.projectiles){
-      ctx.fillStyle = p.color || 'rgba(255,200,140,0.9)';
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fill();
-    }
-  }
-
-  let last=performance.now();
-  function loop(now){
-    const dt = Math.min(0.033, (now-last)/1000) * game.speedMul; last=now;
-    if(!game.paused && !menuMain.classList.contains('active') && !menuSettings.classList.contains('active') && !menuPause.classList.contains('active') && !menuPerk.classList.contains('active') && !menuVictory.classList.contains('active') && !menuGameOver.classList.contains('active')){
-      update(dt);
-    }
-    render();
-    requestAnimationFrame(loop);
-  }
-
-  function update(dt){
-    if(game.waveState==='ACTIVE'){
-      for(const e of game.enemies) e.update(dt);
-      game.enemies = game.enemies.filter(e=>!e.dead);
-      game.grid.clear();
-      for(const e of game.enemies){ game.grid.insert(e.x,e.y,e); }
-      turretLogic(dt);
-      updateProjectiles(dt);
-      if(game.enemies.length===0) endWave();
-    } else if(game.waveState==='BETWEEN'){
-      game.betweenT -= dt;
-      if(game.betweenT<=0) game.waveState='READY';
-    } else if(game.waveState==='READY'){
-      if(game.wave>1){
-        game.autoNext -= dt;
-        if(game.autoNext<=0){ startWave(); }
-      }
-    }
-    if(game.lives<=0){ showMenu(menuGameOver); }
-  }
-
-  function render(){
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle='#1a140c'; ctx.fillRect(0,0,W,H);
-    drawTrack();
-    if(game.placing && mouseIn){
-      const ok = canPlaceAt(mouseX,mouseY);
-      ctx.strokeStyle = ok ? 'rgba(120,255,160,0.7)' : 'rgba(255,95,111,0.8)';
-      ctx.lineWidth=2; ctx.beginPath(); ctx.arc(mouseX,mouseY,18,0,Math.PI*2); ctx.stroke();
-    }
-    drawProjectiles();
-    for(const e of game.enemies){ drawEnemy(e); }
-    for(const t of game.turrets) drawTurret(t);
-    creditsText.textContent = game.credits;
-    scrapText.textContent = game.scrap;
-    energyText.textContent = game.energy;
-    waveText.textContent = game.wave;
-    livesText.textContent = game.lives;
-  }
-
-  function buildMap(){
-    const m=MAPS[game.mapIndex];
-    const margin=40;
-    const pts = m.pts.map(p=>({x: margin + p.x*(W-margin*2), y: margin + p.y*(H-margin*2)}));
-    game.path = new Path(pts);
-  }
-
-  function resetGame(){
-    game.credits=200; game.scrap=40; game.energy=0; game.lives=20; game.wave=1; game.speedMul=1;
-    game.enemies=[]; game.projectiles=[]; game.turrets=[]; game.waveState='READY'; game.placing=null; game.autoNext=30; selectTurret(null);
-  }
-
-  renderCards();
-  buildMap();
-  requestAnimationFrame(loop);
-})();
-</script>
-</body>
-</html>
-
-
-

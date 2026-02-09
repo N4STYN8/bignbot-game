@@ -61,6 +61,7 @@
   const startBtn = $("startBtn");
   const skipBtn = $("skipBtn");
   const helpBtn = $("helpBtn");
+  const audioBtn = $("audioBtn");
   const overlay = $("overlay");
   const closeHelp = $("closeHelp");
   const buildList = $("buildList");
@@ -71,6 +72,105 @@
 
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
+  const AUDIO_KEY = "orbit_echo_audio_v1";
+
+  class AudioSystem {
+    constructor() {
+      this.enabled = false;
+      this.unlocked = false;
+      this.bgm = new Audio("assets/music/bgm.wav");
+      this.bgm.loop = true;
+      this.bgm.volume = 0.32;
+      this.sfx = {
+        build: "assets/sfx/sfx_build.wav",
+        upgrade: "assets/sfx/sfx_upgrade.wav",
+        sell: "assets/sfx/sfx_sell.wav",
+        wave: "assets/sfx/sfx_wave.wav",
+        skip: "assets/sfx/sfx_skip.wav",
+        leak: "assets/sfx/sfx_leak.wav",
+        win: "assets/sfx/sfx_win.wav",
+        lose: "assets/sfx/sfx_lose.wav",
+        shot: "assets/sfx/sfx_shot.wav",
+        hit: "assets/sfx/sfx_hit.wav",
+        kill: "assets/sfx/sfx_kill.wav",
+        beam: "assets/sfx/sfx_beam.wav",
+        mortar: "assets/sfx/sfx_mortar.wav",
+        trap: "assets/sfx/sfx_trap.wav",
+        drone: "assets/sfx/sfx_drone.wav"
+      };
+      this.sfxVol = 0.6;
+      this._last = {};
+    }
+
+    _setButton() {
+      if (!audioBtn) return;
+      audioBtn.classList.toggle("muted", !this.enabled);
+      const label = audioBtn.querySelector(".audioLabel");
+      if (label) label.textContent = this.enabled ? "AUDIO: ON" : "AUDIO: OFF";
+    }
+
+    loadPref() {
+      try {
+        const raw = localStorage.getItem(AUDIO_KEY);
+        this.enabled = raw === "1";
+      } catch (err) {
+        this.enabled = false;
+      }
+      this._setButton();
+    }
+
+    savePref() {
+      try {
+        localStorage.setItem(AUDIO_KEY, this.enabled ? "1" : "0");
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    unlock() {
+      if (this.unlocked) return;
+      this.unlocked = true;
+      // try to prime audio; if blocked, it will no-op
+      this.bgm.play().then(() => {
+        if (!this.enabled) this.bgm.pause();
+      }).catch(() => {});
+    }
+
+    setEnabled(on) {
+      this.enabled = !!on;
+      this._setButton();
+      this.savePref();
+      if (!this.unlocked) return;
+      if (this.enabled) {
+        this.bgm.play().catch(() => {});
+      } else {
+        this.bgm.pause();
+      }
+    }
+
+    toggle() {
+      this.unlock();
+      this.setEnabled(!this.enabled);
+    }
+
+    play(name) {
+      if (!this.enabled) return;
+      const src = this.sfx[name];
+      if (!src) return;
+      const a = new Audio(src);
+      a.volume = this.sfxVol;
+      a.play().catch(() => {});
+    }
+
+    playLimited(name, cooldownMs) {
+      if (!this.enabled) return;
+      const now = performance.now();
+      const last = this._last[name] || 0;
+      if (now - last < cooldownMs) return;
+      this._last[name] = now;
+      this.play(name);
+    }
+  }
 
   function toast(msg) {
     toastEl.textContent = msg;
@@ -617,6 +717,7 @@
       applyDamageToEnemy(this, amount, dmgType);
       // impact particles
       game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
+      game.audio?.playLimited("hit", 120);
       if (this.hp <= 0) {
         if (!this._dead) {
           this._dead = true;
@@ -1467,6 +1568,7 @@
               const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, 1, 1.4, "spark");
               game.projectiles.push(p);
               game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
+              game.audio.playLimited("drone", 160);
             }
           }
         }
@@ -1505,6 +1607,7 @@
               owner: this
             });
             game.particles.spawn(found.x, found.y, 10, "muzzle");
+            game.audio.playLimited("trap", 220);
           }
         }
         return;
@@ -1537,6 +1640,7 @@
           case "PULSE":
           case "VENOM":
           case "NEEDLE": {
+            game.audio.playLimited("shot", 120);
             // projectiles
             const shots = this.multishot || 1;
             for (let s = 0; s < shots; s++) {
@@ -1584,6 +1688,7 @@
           }
 
           case "ARC": {
+            game.audio.playLimited("shot", 160);
             // chain lightning: direct instant hits + visual arcs
             const chainCount = this.chain;
             const visited = new Set();
@@ -1644,6 +1749,7 @@
           }
 
           case "FROST": {
+            game.audio.playLimited("shot", 180);
             // cone chill: hits enemies in cone
             const ang = this.aimAng;
             const cosA = Math.cos(ang), sinA = Math.sin(ang);
@@ -1687,6 +1793,7 @@
           }
 
           case "LENS": {
+            game.audio.playLimited("beam", 110);
             // beam turret handled in draw/update pass by storing target
             // apply damage per tick (fire is small interval)
             let dealt = dmgBase;
@@ -1739,6 +1846,7 @@
           }
 
           case "MORTAR": {
+            game.audio.playLimited("mortar", 240);
             // lob projectile; on impact do AoE. We'll simulate travel as projectile that explodes on near target.
             const ang = this.aimAng;
             const spd = this.projSpd;
@@ -1884,6 +1992,7 @@
     constructor() {
       this.map = new Map();
       this.particles = new Particles();
+      this.audio = new AudioSystem();
       this.turrets = [];
       this.enemies = [];
       this.projectiles = [];
@@ -1917,6 +2026,7 @@
       this.mouse = { x: 0, y: 0 };
       this._id = 1;
 
+      this.audio.loadPref();
       this._load();
       this._bindUI();
       this._buildList();
@@ -1929,6 +2039,7 @@
         if (!this.hasStarted) {
           this.hasStarted = true;
           this.startWave();
+          this.audio.play("wave");
           this._save();
         }
       });
@@ -1939,6 +2050,7 @@
         if (this.waveActive) {
           // Start next wave immediately and keep current enemies/spawns.
           this.startWave();
+          this.audio.play("skip");
           this._save();
           return;
         }
@@ -1946,9 +2058,12 @@
           this.echoDebt += this.intermission;
           this.intermission = 0;
           this.startWave();
+          this.audio.play("skip");
           this._save();
         }
       });
+
+      audioBtn?.addEventListener("click", () => this.audio.toggle());
 
       helpBtn.addEventListener("click", () => {
         overlay.classList.remove("hidden");
@@ -1979,11 +2094,14 @@
 
       canvas.addEventListener("click", (ev) => {
         if (!overlay.classList.contains("hidden")) return;
+        this.audio.unlock();
         const rect = canvas.getBoundingClientRect();
         const x = ev.clientX - rect.left;
         const y = ev.clientY - rect.top;
         this.onClick(x, y);
       });
+
+      window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
     }
 
     _buildList() {
@@ -2142,6 +2260,7 @@
         this.spawnQueue = this.spawnQueue.concat(newSpawns);
       }
       toast(`Wave ${this.wave} launched`);
+      this.audio.play("wave");
     }
 
     spawnEnemy(typeKey, startD = 0, scalarOverride = null) {
@@ -2298,6 +2417,7 @@
 
       // reward
       this.gold += enemy.reward;
+      this.audio.playLimited("kill", 140);
 
       // siphon from traps
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
@@ -2320,10 +2440,12 @@
     onEnemyLeak(enemy) {
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
+      this.audio.play("leak");
       if (this.lives <= 0) {
         this.lives = 0;
         this.gameOver = true;
         toast("Core lost.");
+        this.audio.play("lose");
       }
     }
 
@@ -2359,6 +2481,7 @@
         this.turrets.push(turret);
         this.selectTurret(turret);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
+        this.audio.play("build");
         this._save();
       } else {
         this.selectTurret(null);
@@ -2461,6 +2584,7 @@
         this.gold -= cost;
         this.selectTurret(turret);
         this.particles.spawn(turret.x, turret.y, 10, "muzzle");
+        this.audio.play("upgrade");
         this._save();
       }
     }
@@ -2473,6 +2597,7 @@
       this.turrets = this.turrets.filter(x => x !== t);
       this.selectTurret(null);
       this.particles.spawn(t.x, t.y, 10, "boom");
+      this.audio.play("sell");
       this._save();
     }
 
@@ -2496,6 +2621,7 @@
           if (this.wave >= this.waveMax) {
             this.gameWon = true;
             toast("All waves cleared.");
+            this.audio.play("win");
           } else {
             this.intermission = 15;
           }

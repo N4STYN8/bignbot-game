@@ -155,6 +155,65 @@ body{
 .btn.ghost{
   background: rgba(11,16,34,.45);
 }
+.audioBtn{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding-right:14px;
+}
+.audioIcon{
+  width:14px;
+  height:14px;
+  display:inline-block;
+  border-radius:3px;
+  background:
+    linear-gradient(180deg, rgba(98,242,255,.85), rgba(154,108,255,.85));
+  position:relative;
+  box-shadow: 0 0 0 1px rgba(98,242,255,.25) inset;
+}
+.audioIcon::before{
+  content:"";
+  position:absolute;
+  left:-6px;
+  top:3px;
+  width:0; height:0;
+  border-top:4px solid transparent;
+  border-bottom:4px solid transparent;
+  border-right:6px solid rgba(98,242,255,.85);
+}
+.audioIcon::after{
+  content:"";
+  position:absolute;
+  right:-6px;
+  top:3px;
+  width:8px;
+  height:8px;
+  border:2px solid rgba(154,108,255,.85);
+  border-left:0;
+  border-bottom:0;
+  transform: rotate(45deg);
+  opacity:.85;
+}
+.audioBtn.muted .audioIcon{
+  background: rgba(148,160,196,.45);
+  box-shadow: 0 0 0 1px rgba(148,160,196,.35) inset;
+}
+.audioBtn.muted .audioIcon::before{
+  border-right-color: rgba(148,160,196,.7);
+}
+.audioBtn.muted .audioIcon::after{
+  right:2px;
+  top:2px;
+  width:10px;
+  height:10px;
+  border:0;
+  opacity:1;
+  background:
+    linear-gradient(135deg, transparent 45%, rgba(255,91,125,.95) 45%, rgba(255,91,125,.95) 55%, transparent 55%);
+}
+.audioBtn .audioIcon::marker{
+  content:"";
+}
 
 .speed{
   display:flex;

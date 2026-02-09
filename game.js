@@ -1884,7 +1884,7 @@
       this.lingering = [];
 
       this.speed = 1;
-      this.gold = 140;
+      this.gold = 220;
       this.lives = 20;
       this.wave = 0;
       this.waveMax = 30;
@@ -1924,11 +1924,7 @@
         if (this.gameOver || this.gameWon) return;
         if (!this.hasStarted) return;
         if (this.waveActive) {
-          // Start next wave immediately, even if the current wave is still active.
-          // We stop any remaining spawns from this wave and roll into the next.
-          this.spawnIndex = this.spawnQueue.length;
-          this.waveActive = false;
-          this.intermission = 0;
+          // Start next wave immediately and keep current enemies/spawns.
           this.startWave();
           return;
         }
@@ -2053,7 +2049,7 @@
       };
     }
 
-    _buildWave(wave) {
+    _buildWave(wave, scalar) {
       const i = wave;
       const baseCount = 10 + Math.floor(i * 1.6);
       const spacing = Math.max(0.30, 0.70 - i * 0.01);
@@ -2088,12 +2084,12 @@
       for (let n = 0; n < baseCount; n++) {
         const type = pickWeighted();
         const t = n * spacing + rand(-0.15, 0.15);
-        spawns.push({ t: Math.max(0, t), type });
+        spawns.push({ t: Math.max(0, t), type, scalar });
       }
 
       if (i % 5 === 0) {
-        spawns.push({ t: 1.2, type: "BRUTE" });
-        spawns.push({ t: 2.6, type: "ARMORED" });
+        spawns.push({ t: 1.2, type: "BRUTE", scalar });
+        spawns.push({ t: 2.6, type: "ARMORED", scalar });
       }
 
       // Echo debt injection
@@ -2102,7 +2098,7 @@
         this.echoDebt = Math.max(0, this.echoDebt - echoCount * 2.5);
         const dur = baseCount * spacing + 4;
         for (let e = 0; e < echoCount; e++) {
-          spawns.push({ t: rand(dur * 0.2, dur * 0.9), type: "ECHO" });
+          spawns.push({ t: rand(dur * 0.2, dur * 0.9), type: "ECHO", scalar });
         }
       }
 
@@ -2111,21 +2107,31 @@
     }
 
     startWave() {
-      if (this.waveActive || this.gameOver || this.gameWon) return;
+      if (this.gameOver || this.gameWon) return;
       if (this.wave >= this.waveMax) return;
 
       this.wave++;
-      this.waveActive = true;
-      this.intermission = 0;
-      this.spawnT = 0;
-      this.spawnIndex = 0;
-      this.waveScalar = this._waveScalar(this.wave);
-      this.spawnQueue = this._buildWave(this.wave);
+      const scalar = this._waveScalar(this.wave);
+      this.waveScalar = scalar;
+      const newSpawns = this._buildWave(this.wave, scalar);
+
+      if (!this.waveActive) {
+        this.waveActive = true;
+        this.intermission = 0;
+        this.spawnT = 0;
+        this.spawnIndex = 0;
+        this.spawnQueue = newSpawns;
+      } else {
+        const offset = this.spawnT + 0.2;
+        for (const s of newSpawns) s.t += offset;
+        this.spawnQueue = this.spawnQueue.concat(newSpawns);
+      }
       toast(`Wave ${this.wave} launched`);
     }
 
-    spawnEnemy(typeKey, startD = 0) {
-      const e = new Enemy(typeKey, this.waveScalar, startD);
+    spawnEnemy(typeKey, startD = 0, scalarOverride = null) {
+      const scalar = scalarOverride || this.waveScalar;
+      const e = new Enemy(typeKey, scalar, startD);
       e._id = this._id++;
       const p = this.map.posAt(startD);
       e.x = p.x; e.y = p.y; e.ang = p.ang;
@@ -2327,7 +2333,7 @@
         this.spawnT += dtScaled;
         while (this.spawnIndex < this.spawnQueue.length && this.spawnT >= this.spawnQueue[this.spawnIndex].t) {
           const s = this.spawnQueue[this.spawnIndex++];
-          this.spawnEnemy(s.type, 0);
+          this.spawnEnemy(s.type, 0, s.scalar);
         }
         if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0)) {
           this.waveActive = false;

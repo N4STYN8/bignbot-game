@@ -60,6 +60,7 @@
 
   const startBtn = $("startBtn");
   const skipBtn = $("skipBtn");
+  const resetBtn = $("resetBtn");
   const helpBtn = $("helpBtn");
   const audioBtn = $("audioBtn");
   const overlay = $("overlay");
@@ -78,28 +79,46 @@
     constructor() {
       this.enabled = false;
       this.unlocked = false;
-      this.bgm = new Audio("assets/music/bgm.wav");
+      this.bgm = this._createAudio([
+        "assets/music/bgm.wav",
+        "assets/music/bgm.mp3"
+      ], true, 0.32);
       this.bgm.loop = true;
       this.bgm.volume = 0.32;
       this.sfx = {
-        build: "assets/sfx/sfx_build.wav",
-        upgrade: "assets/sfx/sfx_upgrade.wav",
-        sell: "assets/sfx/sfx_sell.wav",
-        wave: "assets/sfx/sfx_wave.wav",
-        skip: "assets/sfx/sfx_skip.wav",
-        leak: "assets/sfx/sfx_leak.wav",
-        win: "assets/sfx/sfx_win.wav",
-        lose: "assets/sfx/sfx_lose.wav",
-        shot: "assets/sfx/sfx_shot.wav",
-        hit: "assets/sfx/sfx_hit.wav",
-        kill: "assets/sfx/sfx_kill.wav",
-        beam: "assets/sfx/sfx_beam.wav",
-        mortar: "assets/sfx/sfx_mortar.wav",
-        trap: "assets/sfx/sfx_trap.wav",
-        drone: "assets/sfx/sfx_drone.wav"
+        build: ["assets/sfx/sfx_build.wav", "assets/sfx/sfx_build.mp3"],
+        upgrade: ["assets/sfx/sfx_upgrade.wav", "assets/sfx/sfx_upgrade.mp3"],
+        sell: ["assets/sfx/sfx_sell.wav", "assets/sfx/sfx_sell.mp3"],
+        wave: ["assets/sfx/sfx_wave.wav", "assets/sfx/sfx_wave.mp3"],
+        skip: ["assets/sfx/sfx_skip.wav", "assets/sfx/sfx_skip.mp3"],
+        leak: ["assets/sfx/sfx_leak.wav", "assets/sfx/sfx_leak.mp3"],
+        win: ["assets/sfx/sfx_win.wav", "assets/sfx/sfx_win.mp3"],
+        lose: ["assets/sfx/sfx_lose.wav", "assets/sfx/sfx_lose.mp3"],
+        shot: ["assets/sfx/sfx_shot.wav", "assets/sfx/sfx_shot.mp3"],
+        hit: ["assets/sfx/sfx_hit.wav", "assets/sfx/sfx_hit.mp3"],
+        kill: ["assets/sfx/sfx_kill.wav", "assets/sfx/sfx_kill.mp3"],
+        beam: ["assets/sfx/sfx_beam.wav", "assets/sfx/sfx_beam.mp3"],
+        mortar: ["assets/sfx/sfx_mortar.wav", "assets/sfx/sfx_mortar.mp3"],
+        trap: ["assets/sfx/sfx_trap.wav", "assets/sfx/sfx_trap.mp3"],
+        drone: ["assets/sfx/sfx_drone.wav", "assets/sfx/sfx_drone.mp3"]
       };
       this.sfxVol = 0.6;
       this._last = {};
+    }
+
+    _createAudio(sources, loop = false, volume = 1) {
+      const a = new Audio();
+      a.loop = loop;
+      a.volume = volume;
+      let idx = 0;
+      const trySrc = () => {
+        if (idx >= sources.length) return;
+        a.src = sources[idx++];
+        a.load();
+      };
+      a.addEventListener("error", trySrc);
+      trySrc();
+      return a;
     }
 
     _setButton() {
@@ -155,10 +174,9 @@
 
     play(name) {
       if (!this.enabled) return;
-      const src = this.sfx[name];
-      if (!src) return;
-      const a = new Audio(src);
-      a.volume = this.sfxVol;
+      const sources = this.sfx[name];
+      if (!sources) return;
+      const a = this._createAudio(sources, false, this.sfxVol);
       a.play().catch(() => {});
     }
 
@@ -2061,6 +2079,13 @@
           this.audio.play("skip");
           this._save();
         }
+      });
+
+      resetBtn?.addEventListener("click", () => {
+        const ok = window.confirm("Reset the game? This will clear your saved progress.");
+        if (!ok) return;
+        try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+        window.location.reload();
       });
 
       audioBtn?.addEventListener("click", () => this.audio.toggle());

@@ -89,28 +89,27 @@
       this.enabled = false;
       this.unlocked = false;
       this.bgmSources = [
-        "assets/music/bgm.wav",
         "assets/music/bgm.mp3"
       ];
       this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
       this.bgm.loop = true;
       this.bgm.volume = 0.32;
       this.sfx = {
-        build: ["assets/sfx/sfx_build.wav", "assets/sfx/sfx_build.mp3"],
-        upgrade: ["assets/sfx/sfx_upgrade.wav", "assets/sfx/sfx_upgrade.mp3"],
-        sell: ["assets/sfx/sfx_sell.wav", "assets/sfx/sfx_sell.mp3"],
-        wave: ["assets/sfx/sfx_wave.wav", "assets/sfx/sfx_wave.mp3"],
-        skip: ["assets/sfx/sfx_skip.wav", "assets/sfx/sfx_skip.mp3"],
-        leak: ["assets/sfx/sfx_leak.wav", "assets/sfx/sfx_leak.mp3"],
-        win: ["assets/sfx/sfx_win.wav", "assets/sfx/sfx_win.mp3"],
-        lose: ["assets/sfx/sfx_lose.wav", "assets/sfx/sfx_lose.mp3"],
-        shot: ["assets/sfx/sfx_shot.wav", "assets/sfx/sfx_shot.mp3"],
-        hit: ["assets/sfx/sfx_hit.wav", "assets/sfx/sfx_hit.mp3"],
-        kill: ["assets/sfx/sfx_kill.wav", "assets/sfx/sfx_kill.mp3"],
-        beam: ["assets/sfx/sfx_beam.wav", "assets/sfx/sfx_beam.mp3"],
-        mortar: ["assets/sfx/sfx_mortar.wav", "assets/sfx/sfx_mortar.mp3"],
-        trap: ["assets/sfx/sfx_trap.wav", "assets/sfx/sfx_trap.mp3"],
-        drone: ["assets/sfx/sfx_drone.wav", "assets/sfx/sfx_drone.mp3"]
+        build: ["assets/sfx/sfx_build.mp3"],
+        upgrade: ["assets/sfx/sfx_upgrade.mp3"],
+        sell: ["assets/sfx/sfx_sell.mp3"],
+        wave: ["assets/sfx/sfx_wave.mp3"],
+        skip: ["assets/sfx/sfx_skip.mp3"],
+        leak: ["assets/sfx/sfx_leak.mp3"],
+        win: ["assets/sfx/sfx_win.mp3"],
+        lose: ["assets/sfx/sfx_lose.mp3"],
+        shot: ["assets/sfx/sfx_shot.mp3"],
+        hit: ["assets/sfx/sfx_hit.mp3"],
+        kill: ["assets/sfx/sfx_kill.mp3"],
+        beam: ["assets/sfx/sfx_beam.mp3"],
+        mortar: ["assets/sfx/sfx_mortar.mp3"],
+        trap: ["assets/sfx/sfx_trap.mp3"],
+        drone: ["assets/sfx/sfx_drone.mp3"]
       };
       this.sfxVol = 0.6;
       this._last = {};
@@ -129,11 +128,33 @@
       return fallback;
     }
 
+    _orderSources(sources) {
+      const probe = document.createElement("audio");
+      const ranked = [];
+      for (const src of sources) {
+        const ext = src.split(".").pop().toLowerCase();
+        const mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : "";
+        const can = mime ? probe.canPlayType(mime) : "maybe";
+        const score = can === "probably" ? 2 : can === "maybe" ? 1 : 0;
+        ranked.push({ src, score });
+      }
+      ranked.sort((a, b) => b.score - a.score);
+      return ranked.map(r => r.src);
+    }
+
     _makeAudio(sources, loop = false, volume = 1) {
-      const a = new Audio(this._pickSource(sources));
+      const ordered = this._orderSources(sources);
+      const a = new Audio();
       a.loop = loop;
       a.volume = volume;
-      a.load();
+      let idx = 0;
+      const setSrc = () => {
+        if (idx >= ordered.length) return;
+        a.src = ordered[idx++];
+        a.load();
+      };
+      a.addEventListener("error", setSrc);
+      setSrc();
       return a;
     }
 
@@ -177,11 +198,12 @@
       this.savePref();
       if (!this.unlocked) return;
       if (this.enabled) {
-        this.bgm.src = this._pickSource(this.bgmSources);
-        this.bgm.load();
+        if (!this.bgm) {
+          this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
+        }
         this.bgm.play().catch(() => {});
       } else {
-        this.bgm.pause();
+        if (this.bgm) this.bgm.pause();
       }
     }
 

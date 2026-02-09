@@ -23,6 +23,15 @@
   };
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const mulberry32 = (seed) => {
+    let t = seed >>> 0;
+    return () => {
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  };
 
   function fmt(n) {
     if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
@@ -210,10 +219,56 @@
    * Map (grid build areas + path polyline)
    **********************/
   class Map {
-    constructor() {
+    constructor(seed = Date.now()) {
+      this.seed = seed >>> 0;
       // A stylized "orbit lane" path (polyline). Enemies follow this.
       // Coordinates are normalized (0..1) then scaled to canvas each frame.
-      this.pathN = [
+      this.pathN = [];
+      this.layoutN = null;
+
+      // Grid for placement (build tiles only). We mark a luminous "island" region.
+      this.gridSize = 44;
+      this.cols = 0;
+      this.rows = 0;
+      this.cells = []; // 0 blocked, 1 buildable, 2 path (blocked)
+      this.pathPts = []; // scaled points
+      this.segs = []; // segment lengths + cumulative
+      this.totalLen = 1;
+
+      this._buildLayout();
+      this._buildPathN();
+      this._rebuild();
+    }
+
+    setSeed(seed) {
+      this.seed = (seed >>> 0);
+      this._buildLayout();
+      this._buildPathN();
+      this._rebuild();
+    }
+
+    _buildLayout() {
+      const rng = mulberry32(this.seed ^ 0xA5A5A5A5);
+      const jitter = () => (rng() * 0.10 - 0.05);
+      const ringJ = () => (rng() * 0.08 - 0.04);
+      this.layoutN = {
+        c1x: 0.33 + jitter(),
+        c1y: 0.52 + jitter(),
+        c2x: 0.68 + jitter(),
+        c2y: 0.56 + jitter(),
+        c3x: 0.52 + jitter(),
+        c3y: 0.30 + jitter(),
+        r1o: 0.26 + ringJ(),
+        r1i: 0.12 + ringJ(),
+        r2o: 0.24 + ringJ(),
+        r2i: 0.11 + ringJ(),
+        r3o: 0.18 + ringJ(),
+        r3i: 0.08 + ringJ()
+      };
+    }
+
+    _buildPathN() {
+      const base = [
         [0.05, 0.70],
         [0.18, 0.70],
         [0.26, 0.56],
@@ -225,17 +280,13 @@
         [0.82, 0.62],
         [0.92, 0.62],
       ];
-
-      // Grid for placement (build tiles only). We mark a luminous "island" region.
-      this.gridSize = 44;
-      this.cols = 0;
-      this.rows = 0;
-      this.cells = []; // 0 blocked, 1 buildable, 2 path (blocked)
-      this.pathPts = []; // scaled points
-      this.segs = []; // segment lengths + cumulative
-      this.totalLen = 1;
-
-      this._rebuild();
+      const rng = mulberry32(this.seed ^ 0x3C6EF372);
+      this.pathN = base.map(([x, y], i) => {
+        if (i === 0 || i === base.length - 1) return [x, y];
+        const jx = (rng() * 0.06 - 0.03);
+        const jy = (rng() * 0.06 - 0.03);
+        return [clamp(x + jx, 0.05, 0.95), clamp(y + jy, 0.10, 0.90)];
+      });
     }
 
     _rebuild() {
@@ -245,8 +296,17 @@
       this.cells = new Array(this.cols * this.rows).fill(0);
 
       // Mark buildable: two "ring gardens" around center-left and center-right.
-      const cx1 = W * 0.33, cy1 = H * 0.52;
-      const cx2 = W * 0.68, cy2 = H * 0.56;
+      const l = this.layoutN || {
+        c1x: 0.33, c1y: 0.52,
+        c2x: 0.68, c2y: 0.56,
+        c3x: 0.52, c3y: 0.30,
+        r1o: 0.26, r1i: 0.12,
+        r2o: 0.24, r2i: 0.11,
+        r3o: 0.18, r3i: 0.08
+      };
+      const cx1 = W * l.c1x, cy1 = H * l.c1y;
+      const cx2 = W * l.c2x, cy2 = H * l.c2y;
+      const cx3 = W * l.c3x, cy3 = H * l.c3y;
 
       for (let y = 0; y < this.rows; y++) {
         for (let x = 0; x < this.cols; x++) {
@@ -255,13 +315,13 @@
 
           const d1 = Math.sqrt(dist2(px, py, cx1, cy1));
           const d2 = Math.sqrt(dist2(px, py, cx2, cy2));
-          const d3 = Math.sqrt(dist2(px, py, W * 0.52, H * 0.30));
+          const d3 = Math.sqrt(dist2(px, py, cx3, cy3));
 
           let build = false;
           // "Islands" with holes to feel unique
-          if (d1 < W * 0.26 && d1 > W * 0.12) build = true;
-          if (d2 < W * 0.24 && d2 > W * 0.11) build = true;
-          if (d3 < W * 0.18 && d3 > W * 0.08) build = true;
+          if (d1 < W * l.r1o && d1 > W * l.r1i) build = true;
+          if (d2 < W * l.r2o && d2 > W * l.r2i) build = true;
+          if (d3 < W * l.r3o && d3 > W * l.r3i) build = true;
 
           // keep some corners empty for composition
           if (px < W * 0.12 && py < H * 0.18) build = false;
@@ -2017,7 +2077,8 @@
    **********************/
   class Game {
     constructor() {
-      this.map = new Map();
+      this.mapSeed = (Date.now() ^ ((Math.random() * 0xFFFFFFFF) | 0)) >>> 0;
+      this.map = new Map(this.mapSeed);
       this.particles = new Particles();
       this.audio = new AudioSystem();
       this.turrets = [];
@@ -2310,6 +2371,7 @@
     _save() {
       try {
         const data = {
+          mapSeed: this.mapSeed,
           gold: this.gold,
           lives: this.lives,
           wave: this.wave,
@@ -2372,6 +2434,10 @@
         const data = JSON.parse(raw);
         if (!data) return;
 
+        if (typeof data.mapSeed === "number") {
+          this.mapSeed = data.mapSeed >>> 0;
+          this.map.setSeed(this.mapSeed);
+        }
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;

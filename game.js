@@ -2040,8 +2040,8 @@
     _waveScalar(wave) {
       const i = wave - 1;
       return {
-        hp: 1 + i * 0.06,
-        spd: 1 + i * 0.008,
+        hp: (1 + i * 0.06) * (wave === 1 ? 0.85 : 1),
+        spd: (1 + i * 0.008) * (wave === 1 ? 0.92 : 1),
         armor: i * 0.003,
         shield: 1 + i * 0.03,
         regen: 1 + i * 0.02,
@@ -2051,8 +2051,8 @@
 
     _buildWave(wave, scalar) {
       const i = wave;
-      const baseCount = 10 + Math.floor(i * 1.6);
-      const spacing = Math.max(0.30, 0.70 - i * 0.01);
+      const baseCount = (wave === 1) ? 9 : (10 + Math.floor(i * 1.6));
+      const spacing = (wave === 1) ? 0.78 : Math.max(0.30, 0.70 - i * 0.01);
       const spawns = [];
 
       const types = ["RUNNER", "BRUTE", "ARMORED"];

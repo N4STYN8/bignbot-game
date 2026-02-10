@@ -150,8 +150,10 @@ body{
 .pill.warn .v{color: var(--warn)}
 .anomalyBar{
   pointer-events:none;
-  align-self:center;
-  margin-top:2px;
+  position:absolute;
+  top:72px;
+  left:50%;
+  transform: translateX(-50%);
   padding:8px 14px;
   border-radius:999px;
   border:1px solid rgba(98,242,255,.35);
@@ -912,7 +914,7 @@ body{
 .settingsBtn{
   position:absolute;
   right:16px;
-  bottom:16px;
+  top:16px;
   width:42px;
   height:42px;
   border-radius: 12px;

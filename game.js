@@ -598,25 +598,37 @@
           const t = performance.now() * 0.001;
           const pulse = 0.35 + 0.25 * Math.sin(t * 1.2 + gx * 0.7 + gy * 0.5);
           if (v === 3) {
-            gfx.fillStyle = `rgba(255,207,91,${0.06 + pulse * 0.04})`;
+            const goldPulse = 0.55 + 0.35 * Math.sin(t * 2.4 + gx * 0.6 + gy * 0.4);
+            gfx.fillStyle = `rgba(255,207,91,${0.16 + goldPulse * 0.18})`;
           } else {
             gfx.fillStyle = `rgba(98,242,255,${0.035 + pulse * 0.02})`;
           }
           gfx.fillRect(x, y, this.gridSize, this.gridSize);
 
           gfx.strokeStyle = v === 3
-            ? `rgba(255,207,91,${0.25 + pulse * 0.12})`
+            ? `rgba(255,207,91,${0.45 + pulse * 0.2})`
             : `rgba(154,108,255,${0.08 + pulse * 0.06})`;
           gfx.lineWidth = 1;
           gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
 
+          if (v === 3) {
+            gfx.save();
+            gfx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 3.1 + gx + gy);
+            gfx.strokeStyle = "rgba(255,207,91,0.9)";
+            gfx.lineWidth = 2;
+            gfx.beginPath();
+            gfx.arc(x + this.gridSize * 0.5, y + this.gridSize * 0.5, this.gridSize * 0.35, 0, Math.PI * 2);
+            gfx.stroke();
+            gfx.restore();
+          }
+
           // hologram scanlines (diagonal shimmer)
           gfx.save();
-          gfx.globalAlpha = 0.10 + pulse * 0.05;
+          gfx.globalAlpha = v === 3 ? 0.22 + pulse * 0.12 : 0.10 + pulse * 0.05;
           gfx.beginPath();
           gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
           gfx.clip();
-          gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.45)" : "rgba(98,242,255,0.35)";
+          gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.8)" : "rgba(98,242,255,0.35)";
           gfx.lineWidth = 1;
           const step = 6;
           const drift = (t * 22 + (gx + gy) * 3) % (this.gridSize * 2);
@@ -632,20 +644,39 @@
         }
       }
 
-      // Power-up tiles (3-5 random buildable cells)
+      // Power-up tiles (3-5 buildable cells adjacent to path)
       const buildable = [];
+      const nearTrack = [];
+      const isNearTrack = (gx, gy) => {
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let ox = -1; ox <= 1; ox++) {
+            if (!ox && !oy) continue;
+            const nx = gx + ox;
+            const ny = gy + oy;
+            if (nx < 0 || ny < 0 || nx >= this.cols || ny >= this.rows) continue;
+            if (this.cells[ny * this.cols + nx] === 2) return true;
+          }
+        }
+        return false;
+      };
       for (let i = 0; i < this.cells.length; i++) {
-        if (this.cells[i] === 1) buildable.push(i);
+        if (this.cells[i] === 1) {
+          buildable.push(i);
+          const gx = i % this.cols;
+          const gy = (i / this.cols) | 0;
+          if (isNearTrack(gx, gy)) nearTrack.push(i);
+        }
       }
       if (!this.powerCells || this.powerCells.length === 0) {
         const count = 3 + ((Math.random() * 3) | 0);
-        for (let i = buildable.length - 1; i > 0; i--) {
+        const pool = nearTrack.length ? nearTrack : buildable;
+        for (let i = pool.length - 1; i > 0; i--) {
           const j = (Math.random() * (i + 1)) | 0;
-          const tmp = buildable[i];
-          buildable[i] = buildable[j];
-          buildable[j] = tmp;
+          const tmp = pool[i];
+          pool[i] = pool[j];
+          pool[j] = tmp;
         }
-        this.powerCells = buildable.slice(0, Math.min(count, buildable.length));
+        this.powerCells = pool.slice(0, Math.min(count, pool.length));
       }
       for (const idx of this.powerCells) {
         if (idx >= 0 && idx < this.cells.length && this.cells[idx] === 1) {

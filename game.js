@@ -75,6 +75,131 @@
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
   const SKIP_GOLD_PER_SEC = 2;
+  const START_GOLD = 220;
+  const START_LIVES = 20;
+
+  const MAP_PRESETS = [
+    {
+      name: "Orbit Lane",
+      pathN: [
+        [0.05, 0.70],
+        [0.18, 0.70],
+        [0.26, 0.56],
+        [0.34, 0.56],
+        [0.43, 0.78],
+        [0.56, 0.78],
+        [0.64, 0.46],
+        [0.75, 0.46],
+        [0.82, 0.62],
+        [0.92, 0.62],
+      ],
+      islands: [
+        { cx: 0.33, cy: 0.52, rO: 0.26, rI: 0.12 },
+        { cx: 0.68, cy: 0.56, rO: 0.24, rI: 0.11 },
+        { cx: 0.52, cy: 0.30, rO: 0.18, rI: 0.08 },
+      ]
+    },
+    {
+      name: "Crescent Drift",
+      pathN: [
+        [0.05, 0.62],
+        [0.20, 0.62],
+        [0.30, 0.44],
+        [0.40, 0.44],
+        [0.52, 0.68],
+        [0.66, 0.68],
+        [0.74, 0.38],
+        [0.84, 0.38],
+        [0.90, 0.56],
+        [0.95, 0.56],
+      ],
+      islands: [
+        { cx: 0.30, cy: 0.50, rO: 0.24, rI: 0.11 },
+        { cx: 0.66, cy: 0.54, rO: 0.22, rI: 0.10 },
+        { cx: 0.52, cy: 0.28, rO: 0.16, rI: 0.07 },
+      ]
+    },
+    {
+      name: "Split Arc",
+      pathN: [
+        [0.05, 0.74],
+        [0.16, 0.74],
+        [0.26, 0.58],
+        [0.36, 0.58],
+        [0.46, 0.40],
+        [0.60, 0.40],
+        [0.72, 0.62],
+        [0.82, 0.62],
+        [0.90, 0.48],
+        [0.96, 0.48],
+      ],
+      islands: [
+        { cx: 0.30, cy: 0.60, rO: 0.25, rI: 0.11 },
+        { cx: 0.70, cy: 0.50, rO: 0.23, rI: 0.10 },
+        { cx: 0.52, cy: 0.24, rO: 0.16, rI: 0.07 },
+      ]
+    },
+    {
+      name: "Glass Helix",
+      pathN: [
+        [0.05, 0.58],
+        [0.16, 0.58],
+        [0.26, 0.72],
+        [0.36, 0.72],
+        [0.46, 0.52],
+        [0.60, 0.52],
+        [0.70, 0.30],
+        [0.82, 0.30],
+        [0.90, 0.52],
+        [0.96, 0.52],
+      ],
+      islands: [
+        { cx: 0.34, cy: 0.60, rO: 0.24, rI: 0.11 },
+        { cx: 0.68, cy: 0.46, rO: 0.22, rI: 0.10 },
+        { cx: 0.54, cy: 0.26, rO: 0.17, rI: 0.08 },
+      ]
+    },
+    {
+      name: "Pulse Gate",
+      pathN: [
+        [0.05, 0.66],
+        [0.18, 0.66],
+        [0.28, 0.50],
+        [0.38, 0.50],
+        [0.48, 0.70],
+        [0.62, 0.70],
+        [0.72, 0.52],
+        [0.82, 0.52],
+        [0.90, 0.64],
+        [0.96, 0.64],
+      ],
+      islands: [
+        { cx: 0.30, cy: 0.52, rO: 0.25, rI: 0.11 },
+        { cx: 0.70, cy: 0.58, rO: 0.23, rI: 0.10 },
+        { cx: 0.52, cy: 0.32, rO: 0.17, rI: 0.08 },
+      ]
+    },
+    {
+      name: "Nova Bend",
+      pathN: [
+        [0.05, 0.72],
+        [0.18, 0.72],
+        [0.30, 0.60],
+        [0.40, 0.60],
+        [0.50, 0.78],
+        [0.62, 0.78],
+        [0.74, 0.60],
+        [0.84, 0.60],
+        [0.90, 0.70],
+        [0.96, 0.70],
+      ],
+      islands: [
+        { cx: 0.30, cy: 0.56, rO: 0.24, rI: 0.11 },
+        { cx: 0.70, cy: 0.62, rO: 0.23, rI: 0.10 },
+        { cx: 0.52, cy: 0.30, rO: 0.18, rI: 0.08 },
+      ]
+    }
+  ];
 
   class AudioSystem {
     constructor() {
@@ -246,21 +371,11 @@
    * Map (grid build areas + path polyline)
    **********************/
   class Map {
-    constructor() {
+    constructor(preset) {
+      this.preset = preset || MAP_PRESETS[0];
       // A stylized "orbit lane" path (polyline). Enemies follow this.
       // Coordinates are normalized (0..1) then scaled to canvas each frame.
-      this.pathN = [
-        [0.05, 0.70],
-        [0.18, 0.70],
-        [0.26, 0.56],
-        [0.34, 0.56],
-        [0.43, 0.78],
-        [0.56, 0.78],
-        [0.64, 0.46],
-        [0.75, 0.46],
-        [0.82, 0.62],
-        [0.92, 0.62],
-      ];
+      this.pathN = this.preset.pathN;
 
       // Grid for placement (build tiles only). We mark a luminous "island" region.
       this.gridSize = 44;
@@ -274,6 +389,12 @@
       this._rebuild();
     }
 
+    setPreset(preset) {
+      this.preset = preset || MAP_PRESETS[0];
+      this.pathN = this.preset.pathN;
+      this._rebuild();
+    }
+
     _rebuild() {
       // Build grid based on current canvas size
       this.cols = Math.floor(W / this.gridSize);
@@ -281,9 +402,13 @@
       this.cells = new Array(this.cols * this.rows).fill(0);
 
       // Mark buildable: two "ring gardens" around center-left and center-right.
-      const cx1 = W * 0.33, cy1 = H * 0.52;
-      const cx2 = W * 0.68, cy2 = H * 0.56;
-      const cx3 = W * 0.52, cy3 = H * 0.30;
+      const islands = this.preset.islands;
+      const c1 = islands[0];
+      const c2 = islands[1];
+      const c3 = islands[2];
+      const cx1 = W * c1.cx, cy1 = H * c1.cy;
+      const cx2 = W * c2.cx, cy2 = H * c2.cy;
+      const cx3 = W * c3.cx, cy3 = H * c3.cy;
 
       for (let y = 0; y < this.rows; y++) {
         for (let x = 0; x < this.cols; x++) {
@@ -296,9 +421,9 @@
 
           let build = false;
           // "Islands" with holes to feel unique
-          if (d1 < W * 0.26 && d1 > W * 0.12) build = true;
-          if (d2 < W * 0.24 && d2 > W * 0.11) build = true;
-          if (d3 < W * 0.18 && d3 > W * 0.08) build = true;
+          if (d1 < W * c1.rO && d1 > W * c1.rI) build = true;
+          if (d2 < W * c2.rO && d2 > W * c2.rI) build = true;
+          if (d3 < W * c3.rO && d3 > W * c3.rI) build = true;
 
           // keep some corners empty for composition
           if (px < W * 0.12 && py < H * 0.18) build = false;
@@ -1977,7 +2102,7 @@
         gfx.restore();
       }
 
-      // base body
+      // base body (unique per turret)
       gfx.save();
       gfx.translate(this.x, this.y);
       gfx.rotate(this.aimAng);
@@ -1985,11 +2110,113 @@
       gfx.strokeStyle = col;
       gfx.lineWidth = 2;
       gfx.beginPath();
-      gfx.arc(0, 0, 12, 0, Math.PI * 2);
-      gfx.fill();
-      gfx.stroke();
+      switch (this.typeKey) {
+        case "PULSE": {
+          gfx.arc(0, 0, 12, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.arc(0, 0, 6, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "ARC": {
+          gfx.moveTo(0, -12);
+          gfx.lineTo(10, 0);
+          gfx.lineTo(0, 12);
+          gfx.lineTo(-10, 0);
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "FROST": {
+          for (let i = 0; i < 6; i++) {
+            const ang = (Math.PI * 2 * i) / 6;
+            const r = 12;
+            if (i === 0) gfx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r);
+            else gfx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+          }
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "LENS": {
+          gfx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.ellipse(0, 0, 7, 4, 0, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "MORTAR": {
+          gfx.rect(-10, -10, 20, 20);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "VENOM": {
+          gfx.moveTo(0, -12);
+          gfx.bezierCurveTo(9, -10, 12, -2, 0, 12);
+          gfx.bezierCurveTo(-12, -2, -9, -10, 0, -12);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "NEEDLE": {
+          gfx.moveTo(12, 0);
+          gfx.lineTo(-10, 6);
+          gfx.lineTo(-10, -6);
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "AURA": {
+          gfx.arc(0, 0, 10, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(0, -14);
+          gfx.lineTo(3, -6);
+          gfx.lineTo(-3, -6);
+          gfx.closePath();
+          gfx.stroke();
+          break;
+        }
+        case "DRONE": {
+          gfx.arc(0, 0, 10, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(-12, 0);
+          gfx.lineTo(12, 0);
+          gfx.moveTo(0, -12);
+          gfx.lineTo(0, 12);
+          gfx.stroke();
+          break;
+        }
+        case "TRAP": {
+          gfx.rect(-12, -8, 24, 16);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(-8, 0);
+          gfx.lineTo(8, 0);
+          gfx.stroke();
+          break;
+        }
+        default: {
+          gfx.arc(0, 0, 12, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+      }
 
-      // barrels
+      // barrels (upgrade visual)
       for (let i = 0; i < this.visual.barrels + 1; i++) {
         const off = (i - this.visual.barrels / 2) * 4;
         gfx.fillStyle = col;
@@ -1998,7 +2225,7 @@
       }
       gfx.globalAlpha = 1;
 
-      // spikes
+      // spikes (upgrade visual)
       if (this.visual.spikes) {
         gfx.strokeStyle = col;
         gfx.lineWidth = 2;
@@ -2010,7 +2237,7 @@
         gfx.stroke();
       }
 
-      // antenna
+      // antenna (upgrade visual)
       if (this.visual.antenna) {
         gfx.strokeStyle = col;
         gfx.lineWidth = 2;
@@ -2020,7 +2247,7 @@
         gfx.stroke();
       }
 
-      // rings
+      // rings (upgrade visual)
       for (let r = 0; r < this.visual.rings; r++) {
         gfx.globalAlpha = 0.5;
         gfx.strokeStyle = col;
@@ -2054,7 +2281,8 @@
    **********************/
   class Game {
     constructor() {
-      this.map = new Map();
+      this.mapIndex = 0;
+      this.map = new Map(MAP_PRESETS[this.mapIndex]);
       this.particles = new Particles();
       this.audio = new AudioSystem();
       this.turrets = [];
@@ -2067,8 +2295,8 @@
       this.lingering = [];
 
       this.speed = 1;
-      this.gold = 220;
-      this.lives = 20;
+      this.gold = START_GOLD;
+      this.lives = START_LIVES;
       this.wave = 0;
       this.waveMax = 30;
       this.hasStarted = false;
@@ -2351,6 +2579,7 @@
     _save() {
       try {
         const data = {
+          mapIndex: this.mapIndex,
           gold: this.gold,
           lives: this.lives,
           wave: this.wave,
@@ -2413,6 +2642,10 @@
         const data = JSON.parse(raw);
         if (!data) return;
 
+        if (typeof data.mapIndex === "number") {
+          this.mapIndex = clamp(data.mapIndex | 0, 0, MAP_PRESETS.length - 1);
+          this.map.setPreset(MAP_PRESETS[this.mapIndex]);
+        }
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;
@@ -2694,8 +2927,20 @@
         if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0)) {
           this.waveActive = false;
           if (this.wave >= this.waveMax) {
-            this.gameWon = true;
-            toast("All waves cleared.");
+            if (this.mapIndex < MAP_PRESETS.length - 1) {
+              this.mapIndex++;
+              this.map.setPreset(MAP_PRESETS[this.mapIndex]);
+              this._resetRun();
+              toast(`Map cleared. Next map: ${MAP_PRESETS[this.mapIndex].name}`);
+              this._save();
+            } else {
+              // last map cleared: generate a random map (from presets)
+              const next = MAP_PRESETS[(Math.random() * MAP_PRESETS.length) | 0];
+              this.map.setPreset(next);
+              this._resetRun();
+              toast(`New random map: ${next.name}`);
+              this._save();
+            }
             this.audio.play("win");
           } else {
             this.intermission = 15;
@@ -2884,3 +3129,34 @@
   }
   requestAnimationFrame(loop);
 })();
+    _resetRun() {
+      this.turrets = [];
+      this.enemies = [];
+      this.projectiles = [];
+      this.traps = [];
+      this.beams = [];
+      this.arcs = [];
+      this.cones = [];
+      this.lingering = [];
+
+      this.gold = START_GOLD;
+      this.lives = START_LIVES;
+      this.wave = 0;
+      this.hasStarted = false;
+      this.waveActive = false;
+      this.intermission = 0;
+      this.echoDebt = 0;
+      this.gameOver = false;
+      this.gameWon = false;
+
+      this.spawnQueue = [];
+      this.spawnIndex = 0;
+      this.spawnT = 0;
+      this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
+
+      this.buildKey = null;
+      this.selectedTurret = null;
+      this.hoverCell = null;
+      this._id = 1;
+      this.updateHUD();
+    }

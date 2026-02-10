@@ -55,6 +55,7 @@ body{
   display:flex;
   gap:18px;
   align-items:center;
+  flex-wrap:wrap;
   padding:14px 14px 10px 14px;
 }
 
@@ -122,6 +123,8 @@ body{
   display:flex;
   align-items:center;
   gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
 .btn{
@@ -292,6 +295,7 @@ body{
   pointer-events:auto;
   width: 360px;
   max-width: 34vw;
+  min-width: 260px;
   height: 100%;
   display:flex;
   flex-direction:column;
@@ -572,4 +576,27 @@ body{
 @media (max-width: 1100px){
   .panel{width: 320px}
   .howGrid{grid-template-columns: 1fr}
+}
+
+@media (max-width: 900px){
+  .panels{
+    flex-direction:column;
+    height:auto;
+  }
+  .panel{
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+  .panel + .panel{margin-top:12px}
+  #hud{overflow:auto}
+}
+
+@media (max-width: 700px){
+  .topbar{gap:10px}
+  .brand{width:100%}
+  .statRow{width:100%}
+  .controls{width:100%; justify-content:flex-start}
+  .audioSliders{width:100%; justify-content:space-between}
+  .audioCtl input[type="range"]{width:120px}
 }

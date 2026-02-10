@@ -386,7 +386,8 @@ body{
   justify-content:space-between;
   gap:12px;
   padding: 8px 14px 14px 14px;
-  height: calc(100% - 74px);
+  flex:1;
+  min-height:0;
 }
 
 .panel{

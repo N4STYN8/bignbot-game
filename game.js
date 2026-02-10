@@ -57,6 +57,8 @@
   const waveMaxEl = $("waveMax");
   const nextInEl = $("nextIn");
   const echoDebtEl = $("echoDebt");
+  const skipBonusEl = $("skipBonus");
+  const skipBonusPill = $("skipBonusPill");
 
   const startBtn = $("startBtn");
   const skipBtn = $("skipBtn");
@@ -95,7 +97,7 @@
   const speedBtn = $("speedBtn");
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
-  const START_GOLD = 220;
+  const START_GOLD = 330;
   const START_LIVES = 20;
 
   const MAP_PRESETS = [
@@ -3081,6 +3083,15 @@
         const y = ev.clientY - rect.top;
         this.onClick(x, y);
       });
+      canvas.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        if (overlay && !overlay.classList.contains("hidden")) return;
+        if (settingsModal && !settingsModal.classList.contains("hidden")) return;
+        this.buildKey = null;
+        this.selectTurret(null);
+        this.collapseEnabled = true;
+        [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
+      });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
 
@@ -3212,6 +3223,22 @@
       echoDebtEl.textContent = echoInfo.short;
       const echoPill = echoDebtEl?.closest(".pill");
       if (echoPill) echoPill.setAttribute("title", echoInfo.detail);
+      if (skipBonusEl) {
+        const ratePct = Math.round((this.skipBuff.rateMul - 1) * 100);
+        const dmgPct = Math.round((this.skipBuff.dmgMul - 1) * 100);
+        if (this.skipBuff.t > 0 && (ratePct > 0 || dmgPct > 0)) {
+          skipBonusEl.textContent = `+${ratePct}% R / +${dmgPct}% D`;
+          if (skipBonusPill) {
+            skipBonusPill.setAttribute(
+              "title",
+              `Skip bonus active: +${ratePct}% rate, +${dmgPct}% damage for ${this.skipBuff.t.toFixed(1)}s.`
+            );
+          }
+        } else {
+          skipBonusEl.textContent = "—";
+          if (skipBonusPill) skipBonusPill.setAttribute("title", "Skip bonus inactive.");
+        }
+      }
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {
@@ -3514,39 +3541,50 @@
 
     _waveScalar(wave) {
       const i = wave - 1;
-      const earlyHp = wave === 1 ? 0.88 : wave === 2 ? 0.95 : 1;
-      const earlySpd = wave === 1 ? 0.92 : wave === 2 ? 0.97 : 1;
+      const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.90 : wave === 3 ? 0.96 : 1;
+      const earlySpd = wave === 1 ? 0.90 : wave === 2 ? 0.95 : 1;
+      const late = Math.max(0, wave - 8);
+      const latePow = Math.pow(late, 1.08) * 0.012;
       return {
-        hp: (1 + i * 0.09) * earlyHp,
-        spd: (1 + i * 0.012) * earlySpd,
-        armor: i * 0.004,
-        shield: 1 + i * 0.045,
-        regen: 1 + i * 0.03,
+        hp: (1 + i * 0.085 + latePow) * earlyHp,
+        spd: (1 + i * 0.011) * earlySpd,
+        armor: i * 0.0045 + Math.max(0, wave - 12) * 0.002,
+        shield: 1 + i * 0.05 + Math.max(0, wave - 10) * 0.01,
+        regen: 1 + i * 0.03 + Math.max(0, wave - 12) * 0.01,
         reward: 1 + i * 0.05
       };
     }
 
     _buildWave(wave, scalar) {
       const i = wave;
-      const baseCount = (wave === 1) ? 8 : (wave === 2 ? 10 : (10 + Math.floor(i * 1.6)));
-      const spacing = (wave === 1) ? 0.82 : (wave === 2 ? 0.76 : Math.max(0.30, 0.70 - i * 0.01));
+      const baseCount = (wave === 1) ? 6
+        : (wave === 2 ? 8
+        : (wave === 3 ? 10
+        : (wave === 4 ? 12
+        : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6))));
+      const spacing = (wave === 1) ? 0.95
+        : (wave === 2 ? 0.88
+        : (wave === 3 ? 0.82
+        : (wave === 4 ? 0.76
+        : Math.max(0.28, 0.66 - i * 0.012))));
       const spawns = [];
 
-      const types = ["RUNNER", "BRUTE", "ARMORED"];
-      if (i >= 3) types.push("SHIELDED");
-      if (i >= 5) types.push("SPLITTER");
-      if (i >= 7) types.push("REGEN");
-      if (i >= 9) types.push("STEALTH");
-      if (i >= 11) types.push("FLYING");
+      const types = ["RUNNER", "BRUTE"];
+      if (i >= 3) types.push("ARMORED");
+      if (i >= 6) types.push("SHIELDED");
+      if (i >= 7) types.push("SPLITTER");
+      if (i >= 9) types.push("REGEN");
+      if (i >= 11) types.push("STEALTH");
+      if (i >= 13) types.push("FLYING");
 
       const weights = {
-        RUNNER: 1.2,
-        BRUTE: 0.8,
-        ARMORED: 0.9,
-        SHIELDED: 0.9,
+        RUNNER: i <= 4 ? 1.6 : 1.1,
+        BRUTE: i <= 4 ? 0.7 : 0.85,
+        ARMORED: i <= 7 ? 0.55 : 0.9,
+        SHIELDED: i <= 9 ? 0.55 : 0.9,
         SPLITTER: 0.7,
-        REGEN: 0.7,
-        STEALTH: 0.6,
+        REGEN: 0.75,
+        STEALTH: 0.65,
         FLYING: 0.7
       };
 
@@ -3559,11 +3597,14 @@
       };
 
       for (let n = 0; n < baseCount; n++) {
-        const type = pickWeighted();
+        let type = pickWeighted();
+        if (i >= 12 && n % 7 === 0) type = "ARMORED";
+        if (i >= 12 && n % 9 === 0) type = "SHIELDED";
+        if (i >= 14 && n % 11 === 0) type = "REGEN";
         const t = n * spacing + rand(-0.15, 0.15);
         let eliteTag = null;
-        if (wave >= 6) {
-          const eliteChance = Math.min(0.18, 0.10 + (wave - 6) * 0.008);
+        if (wave >= 7) {
+          const eliteChance = Math.min(0.22, 0.10 + (wave - 7) * 0.01);
           if (Math.random() < eliteChance) {
             eliteTag = pick(["HARDENED", "VOLATILE", "PHASELINK"]);
           }
@@ -3573,8 +3614,10 @@
 
       if (i % 5 === 0) {
         spawns.push({ t: 1.2, type: "BRUTE", scalar });
-        spawns.push({ t: 2.6, type: "ARMORED", scalar });
-        spawns.push({ t: 3.2, type: "BOSS_PROJECTOR", scalar, miniboss: true });
+        if (i >= 6) spawns.push({ t: 2.3, type: "ARMORED", scalar });
+        if (i >= 10) spawns.push({ t: 2.8, type: "SHIELDED", scalar });
+        if (i >= 12) spawns.push({ t: 3.0, type: "REGEN", scalar });
+        spawns.push({ t: 3.4, type: "BOSS_PROJECTOR", scalar, miniboss: true });
       }
 
       spawns.sort((a, b) => a.t - b.t);

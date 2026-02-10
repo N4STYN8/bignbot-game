@@ -2638,14 +2638,14 @@
 
     _waveScalar(wave) {
       const i = wave - 1;
-      const earlyHp = wave === 1 ? 0.86 : wave === 2 ? 0.94 : 1;
-      const earlySpd = wave === 1 ? 0.90 : wave === 2 ? 0.96 : 1;
+      const earlyHp = wave === 1 ? 0.88 : wave === 2 ? 0.95 : 1;
+      const earlySpd = wave === 1 ? 0.92 : wave === 2 ? 0.97 : 1;
       return {
-        hp: (1 + i * 0.07) * earlyHp,
-        spd: (1 + i * 0.008) * earlySpd,
-        armor: i * 0.003,
-        shield: 1 + i * 0.03,
-        regen: 1 + i * 0.02,
+        hp: (1 + i * 0.09) * earlyHp,
+        spd: (1 + i * 0.012) * earlySpd,
+        armor: i * 0.004,
+        shield: 1 + i * 0.045,
+        regen: 1 + i * 0.03,
         reward: 1 + i * 0.05
       };
     }

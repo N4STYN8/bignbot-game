@@ -75,10 +75,6 @@
   const toastEl = $("toast");
   const leftPanel = document.querySelector(".panel.left");
   const rightPanel = document.querySelector(".panel.right");
-  const panelState = {
-    left: { manualCollapsed: false },
-    right: { manualCollapsed: false }
-  };
 
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
@@ -2572,15 +2568,13 @@
           if (action === "pin") {
             const pinned = panel.classList.toggle("pinned");
             btn.setAttribute("aria-pressed", pinned ? "true" : "false");
-            const state = panelState[panelKey];
             if (pinned) {
-              state.manualCollapsed = false;
               panel.classList.remove("collapsed");
+            } else {
+              // when unpinned, collapse if not in use
+              if (panelKey === "left") panel.classList.toggle("collapsed", !this.buildKey);
+              if (panelKey === "right") panel.classList.toggle("collapsed", !this.selectedTurret);
             }
-          } else if (action === "toggle") {
-            const state = panelState[panelKey];
-            state.manualCollapsed = !state.manualCollapsed;
-            panel.classList.toggle("collapsed", state.manualCollapsed);
           }
         });
       });
@@ -2639,12 +2633,10 @@
 
       // auto-collapse panels unless pinned
       if (leftPanel && !leftPanel.classList.contains("pinned")) {
-        const manual = panelState.left.manualCollapsed;
-        leftPanel.classList.toggle("collapsed", manual ? true : !this.buildKey);
+        leftPanel.classList.toggle("collapsed", !this.buildKey);
       }
       if (rightPanel && !rightPanel.classList.contains("pinned")) {
-        const manual = panelState.right.manualCollapsed;
-        rightPanel.classList.toggle("collapsed", manual ? true : !this.selectedTurret);
+        rightPanel.classList.toggle("collapsed", !this.selectedTurret);
       }
 
       if (this.gameWon) {

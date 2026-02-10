@@ -377,23 +377,6 @@ body{
 .panelBtn[aria-pressed="true"] .pinIcon{
   transform: rotate(-35deg);
 }
-.collapseIcon{
-  position:relative;
-  width:12px;
-  height:12px;
-  display:block;
-}
-.collapseIcon::before,
-.collapseIcon::after{
-  content:"";
-  position:absolute;
-  left:2px;
-  right:2px;
-  height:2px;
-  background: rgba(98,242,255,.9);
-}
-.collapseIcon::before{ top:3px; }
-.collapseIcon::after{ top:7px; }
 .panel.collapsed{
   width: 64px;
   min-width: 64px;

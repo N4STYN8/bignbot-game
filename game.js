@@ -73,6 +73,8 @@
   const selSub = $("selSub");
   const sellBtn = $("sellBtn");
   const toastEl = $("toast");
+  const leftPanel = document.querySelector(".panel.left");
+  const rightPanel = document.querySelector(".panel.right");
 
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
@@ -2556,6 +2558,27 @@
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
+
+      document.querySelectorAll(".panelBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const panelKey = btn.dataset.panel;
+          const action = btn.dataset.action;
+          const panel = panelKey === "left" ? leftPanel : rightPanel;
+          if (!panel) return;
+          if (action === "pin") {
+            const pinned = panel.classList.toggle("pinned");
+            btn.setAttribute("aria-pressed", pinned ? "true" : "false");
+          } else if (action === "toggle") {
+            panel.classList.toggle("collapsed");
+          }
+        });
+      });
+
+      // First load tooltip
+      if (!localStorage.getItem("orbit_echo_tip_v1")) {
+        toast("Tip: Place a turret, then press START. Pin panels to keep them open.");
+        localStorage.setItem("orbit_echo_tip_v1", "1");
+      }
     }
 
     togglePause() {
@@ -2602,6 +2625,14 @@
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
       echoDebtEl.textContent = "—";
+
+      // auto-collapse panels unless pinned
+      if (leftPanel && !leftPanel.classList.contains("pinned")) {
+        leftPanel.classList.toggle("collapsed", !this.buildKey);
+      }
+      if (rightPanel && !rightPanel.classList.contains("pinned")) {
+        rightPanel.classList.toggle("collapsed", !this.selectedTurret);
+      }
 
       if (this.gameWon) {
         nextInEl.textContent = "Victory";

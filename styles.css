@@ -311,6 +311,7 @@ body{
   padding:14px 14px 10px 14px;
   border-bottom:1px solid rgba(28,42,90,.7);
   background: linear-gradient(180deg, rgba(11,16,34,.70), rgba(11,16,34,.35));
+  position:relative;
 }
 .panelTitle{
   font-weight:900;
@@ -322,6 +323,46 @@ body{
   margin-top:6px;
   color: var(--muted);
   font-size:12px;
+}
+.panelActions{
+  position:absolute;
+  right:10px;
+  top:10px;
+  display:flex;
+  gap:6px;
+}
+.panelBtn{
+  border:1px solid rgba(28,42,90,.85);
+  background: rgba(11,16,34,.55);
+  color:var(--muted);
+  padding:4px 8px;
+  border-radius: 8px;
+  cursor:pointer;
+  font-size:10px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.panelBtn[aria-pressed="true"]{
+  color: var(--text);
+  border-color: rgba(98,242,255,.55);
+}
+.panel.collapsed{
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+}
+.panel.collapsed .panelHint,
+.panel.collapsed .panelFooter,
+.panel.collapsed .buildList,
+.panel.collapsed .selectionBody{
+  display:none;
+}
+.panel.collapsed .panelHeader{
+  padding-bottom:14px;
+}
+.panel.collapsed .panelTitle{
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 .panelFooter{
   padding:12px 14px;

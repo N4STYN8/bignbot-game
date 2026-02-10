@@ -61,6 +61,7 @@
   const startBtn = $("startBtn");
   const skipBtn = $("skipBtn");
   const resetBtn = $("resetBtn");
+  const pauseBtn = $("pauseBtn");
   const helpBtn = $("helpBtn");
   const audioBtn = $("audioBtn");
   const musicVol = $("musicVol");
@@ -207,6 +208,7 @@
       this.enabled = false;
       this.unlocked = false;
       this.bgmSources = [
+        "assets/music/bgm.wav",
         "assets/music/bgm.mp3"
       ];
       this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
@@ -214,7 +216,7 @@
       this.bgm.volume = 0.32;
       this.sfx = {
         build: ["assets/sfx/sfx_build.mp3"],
-        upgrade: ["assets/sfx/sfx_upgrade.mp3"],
+        upgrade: ["assets/sfx/sfx_upgrade.wav", "assets/sfx/sfx_upgrade.mp3"],
         sell: ["assets/sfx/sfx_sell.mp3"],
         wave: ["assets/sfx/sfx_wave.mp3"],
         skip: ["assets/sfx/sfx_skip.mp3"],
@@ -223,7 +225,7 @@
         lose: ["assets/sfx/sfx_lose.mp3"],
         shot: ["assets/sfx/sfx_shot.mp3"],
         hit: ["assets/sfx/sfx_hit.mp3"],
-        kill: ["assets/sfx/sfx_kill.mp3"],
+        kill: ["assets/sfx/sfx_kill.wav", "assets/sfx/sfx_kill.mp3"],
         beam: ["assets/sfx/sfx_beam.mp3"],
         mortar: ["assets/sfx/sfx_mortar.mp3"],
         trap: ["assets/sfx/sfx_trap.mp3"],
@@ -967,6 +969,7 @@
       const t = performance.now() * 0.001;
       const bob = this.flying ? (Math.sin(t * 4 + this.pulse) * 3) : 0;
       const x = this.x, y = this.y + bob;
+      const squash = 1 + this.hitFlash * 0.18;
 
       // shadow
       gfx.save();
@@ -990,6 +993,7 @@
       // main body (stylized “seed” + “shell”)
       gfx.save();
       gfx.translate(x, y);
+      gfx.scale(squash, 1 / squash);
       gfx.rotate(this.ang);
 
       const stealthAlpha = this.stealth && !this.revealed ? 0.18 : 1;
@@ -1715,6 +1719,7 @@
       this.targetId = -1;
       this.aimAng = 0;
       this.flash = 0;
+      this.recoil = 0;
 
       this.costSpent = base.cost;
     }
@@ -1806,6 +1811,7 @@
 
     update(game, dt) {
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
+      if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 5.0);
 
       // Aura Grove special handling
       if (this.typeKey === "AURA") {
@@ -1937,6 +1943,7 @@
       if (target && this.cool <= 0) {
         this.cool = fireInterval;
         this.flash = 1;
+        this.recoil = 1;
 
         const dmgBase = this.dmg * buff.dmgMul;
         const dmgType = this.dmgType;
@@ -2225,7 +2232,10 @@
 
       // base body (unique per turret)
       gfx.save();
-      gfx.translate(this.x, this.y);
+      const recoil = this.recoil * 3.0;
+      const rx = Math.cos(this.aimAng) * -recoil;
+      const ry = Math.sin(this.aimAng) * -recoil;
+      gfx.translate(this.x + rx, this.y + ry);
       gfx.rotate(this.aimAng);
       gfx.fillStyle = "rgba(7,10,18,0.75)";
       gfx.strokeStyle = col;
@@ -2406,6 +2416,7 @@
       this.map = new Map(MAP_PRESETS[this.mapIndex]);
       this.particles = new Particles();
       this.audio = new AudioSystem();
+      this.explosions = [];
       this.turrets = [];
       this.enemies = [];
       this.projectiles = [];
@@ -2426,7 +2437,9 @@
       this.echoDebt = 0;
       this.gameOver = false;
       this.gameWon = false;
+      this.paused = false;
       this._gameOverPrompted = false;
+      if (pauseBtn) pauseBtn.textContent = "PAUSE";
 
       this.spawnQueue = [];
       this.spawnIndex = 0;
@@ -2468,6 +2481,7 @@
       skipBtn.addEventListener("click", () => {
         if (this.gameOver || this.gameWon) return;
         if (!this.hasStarted) return;
+        if (this.paused) return;
         if (this.waveActive) {
           // Start next wave immediately and keep current enemies/spawns.
           this.startWave();
@@ -2482,6 +2496,8 @@
           this._save();
         }
       });
+
+      pauseBtn?.addEventListener("click", () => this.togglePause());
 
       musicVol?.addEventListener("input", () => {
         const v = Number(musicVol.value || "0") / 100;
@@ -2541,6 +2557,18 @@
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
+    }
+
+    togglePause() {
+      if (this.gameOver || this.gameWon) return;
+      this.paused = !this.paused;
+      if (pauseBtn) pauseBtn.textContent = this.paused ? "RESUME" : "PAUSE";
+      if (this.paused) {
+        if (this.audio?.bgm) this.audio.bgm.pause();
+      } else {
+        if (this.audio?.enabled) this.audio.bgm?.play().catch(() => {});
+      }
+      this.updateHUD();
     }
 
     _buildList() {
@@ -2869,6 +2897,8 @@
       this.gameOver = false;
       this.gameWon = false;
       this._gameOverPrompted = false;
+      this.paused = false;
+      if (pauseBtn) pauseBtn.textContent = "PAUSE";
 
       this.spawnQueue = [];
       this.spawnIndex = 0;
@@ -2889,6 +2919,16 @@
       // reward
       this.gold += enemy.reward;
       this.audio.playLimited("kill", 140);
+
+      // explosion animation
+      this.explosions.push({
+        x: enemy.x,
+        y: enemy.y,
+        r: enemy.flying ? 10 : 14,
+        t: 0.28,
+        max: 38,
+        col: enemy.tint || "rgba(255,207,91,0.85)"
+      });
 
       // siphon from traps
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
@@ -3085,6 +3125,10 @@
         this.updateHUD();
         return;
       }
+      if (this.paused) {
+        this.updateHUD();
+        return;
+      }
 
       const dtScaled = dt * this.speed;
 
@@ -3185,6 +3229,7 @@
       decay(this.beams);
       decay(this.arcs);
       decay(this.cones);
+      decay(this.explosions);
 
       this.particles.update(dtScaled);
       this._saveT += dt;
@@ -3277,7 +3322,32 @@
         gfx.restore();
       }
 
+      // explosions
+      for (const ex of this.explosions) {
+        const k = 1 - Math.max(0, ex.t) / 0.28;
+        const r = ex.r + (ex.max - ex.r) * k;
+        gfx.save();
+        gfx.globalAlpha = 0.55 * (1 - k);
+        gfx.strokeStyle = ex.col;
+        gfx.lineWidth = 3;
+        gfx.beginPath();
+        gfx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
+        gfx.stroke();
+        gfx.restore();
+      }
+
       this.particles.draw(gfx);
+
+      if (this.paused && !this.gameOver && !this.gameWon) {
+        gfx.save();
+        gfx.fillStyle = "rgba(0,0,0,0.35)";
+        gfx.fillRect(0, 0, W, H);
+        gfx.fillStyle = "rgba(234,240,255,0.9)";
+        gfx.font = "700 28px sans-serif";
+        gfx.textAlign = "center";
+        gfx.fillText("PAUSED", W / 2, H / 2);
+        gfx.restore();
+      }
     }
   }
 

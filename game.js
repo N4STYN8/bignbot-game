@@ -2917,6 +2917,7 @@
       this.waveActive = false;
       this.intermission = 0;
       this.echoDebt = 0;
+      this.echoPlan = {};
       this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
       this.abilities = {
         scan: { cd: 18, t: 0 },
@@ -2980,15 +2981,9 @@
         if (this.gameOver || this.gameWon) return;
         if (!this.hasStarted) return;
         if (this.paused) return;
-        if (this.waveActive) {
-          // Start next wave immediately and keep current enemies/spawns.
-          this.startWave();
-          this.audio.play("skip");
-          this._save();
-          return;
-        }
         if (this.intermission > 0) {
           this._applySkipReward(this.intermission);
+          this._applyEchoDebt(this.intermission);
           this.intermission = 0;
           this.startWave();
           this.audio.play("skip");
@@ -3213,7 +3208,10 @@
       livesEl.textContent = String(this.lives);
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
-      echoDebtEl.textContent = "—";
+      const echoInfo = this._formatEchoPlan();
+      echoDebtEl.textContent = echoInfo.short;
+      const echoPill = echoDebtEl?.closest(".pill");
+      if (echoPill) echoPill.setAttribute("title", echoInfo.detail);
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {
@@ -3248,7 +3246,7 @@
         this.hasStarted &&
         !this.gameOver &&
         !this.gameWon &&
-        (this.waveActive || this.intermission > 0)
+        this.intermission > 0
       );
       startBtn.disabled = this.gameOver || this.gameWon || (this.hasStarted && (this.waveActive || this.intermission <= 0));
 
@@ -3432,6 +3430,78 @@
       setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash} gold`), 700);
     }
 
+    _calcEchoDebt(remaining) {
+      const ratio = clamp(remaining / 15, 0, 1);
+      const total = clamp(Math.round(1 + ratio * 7), 1, 8);
+      return total;
+    }
+
+    _planEchoDebt(total) {
+      const plan = {};
+      const wavesLeft = Math.max(0, this.waveMax - this.wave);
+      if (wavesLeft <= 0 || total <= 0) return plan;
+      const slots = Math.min(3, wavesLeft);
+      const weights = slots === 1 ? [1] : (slots === 2 ? [0.6, 0.4] : [0.5, 0.3, 0.2]);
+      let remaining = total;
+      for (let i = 0; i < slots; i++) {
+        const count = Math.floor(total * weights[i]);
+        const w = this.wave + i + 1;
+        plan[w] = count;
+        remaining -= count;
+      }
+      let i = 0;
+      while (remaining > 0) {
+        const w = this.wave + (i % slots) + 1;
+        plan[w] = (plan[w] || 0) + 1;
+        remaining--;
+        i++;
+      }
+      return plan;
+    }
+
+    _recountEchoDebt() {
+      let total = 0;
+      for (const v of Object.values(this.echoPlan || {})) total += v || 0;
+      this.echoDebt = total;
+    }
+
+    _formatEchoPlan() {
+      const entries = Object.entries(this.echoPlan || {})
+        .map(([w, c]) => ({ w: Number(w), c }))
+        .filter(x => x.c > 0)
+        .sort((a, b) => a.w - b.w);
+      if (!entries.length) return { short: "—", detail: "No Echo Debt." };
+      const detail = entries.map(e => `W${e.w}: ${e.c}`).join(", ");
+      return { short: `${this.echoDebt} ECHO`, detail: `Echo Debt schedule: ${detail}` };
+    }
+
+    _applyEchoDebt(remaining) {
+      if (remaining <= 0) return;
+      const total = this._calcEchoDebt(remaining);
+      const plan = this._planEchoDebt(total);
+      for (const [w, c] of Object.entries(plan)) {
+        this.echoPlan[w] = (this.echoPlan[w] || 0) + c;
+      }
+      this._recountEchoDebt();
+      const detail = Object.entries(plan)
+        .map(([w, c]) => ({ w: Number(w), c }))
+        .filter(x => x.c > 0)
+        .sort((a, b) => a.w - b.w)
+        .map(e => `W${e.w}: ${e.c}`)
+        .join(", ");
+      toast(`ECHO DEBT: +${total} (${detail})`);
+    }
+
+    _injectEchoes(spawns, count, scalar) {
+      if (!count || count <= 0) return;
+      const lastT = spawns.length ? spawns[spawns.length - 1].t : 1;
+      for (let i = 0; i < count; i++) {
+        const t = Math.max(0.2, (i + 1) / (count + 1) * (lastT + 0.6));
+        spawns.push({ t, type: "ECHO", scalar });
+      }
+      spawns.sort((a, b) => a.t - b.t);
+    }
+
     onResize() {
       this.map.onResize();
       for (const t of this.turrets) {
@@ -3531,6 +3601,13 @@
       const scalar = this._waveScalar(this.wave);
       this.waveScalar = scalar;
       const newSpawns = this._buildWave(this.wave, scalar);
+      const echoCount = this.echoPlan?.[this.wave] || 0;
+      if (echoCount > 0) {
+        this._injectEchoes(newSpawns, echoCount, scalar);
+        delete this.echoPlan[this.wave];
+        this._recountEchoDebt();
+        toast(`ECHO DEBT: ${echoCount} inbound this wave`);
+      }
 
       if (!this.waveActive) {
         this.waveActive = true;
@@ -3581,6 +3658,7 @@
           waveActive: this.waveActive,
           intermission: this.intermission,
           echoDebt: this.echoDebt,
+          echoPlan: this.echoPlan,
           skipBuff: this.skipBuff,
           waveAnomaly: this.waveAnomaly ? this.waveAnomaly.key : null,
           warpRippleT: this._warpRippleT,
@@ -3660,6 +3738,12 @@
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
         this.echoDebt = data.echoDebt ?? this.echoDebt;
+        if (data.echoPlan && typeof data.echoPlan === "object") {
+          this.echoPlan = { ...data.echoPlan };
+        } else {
+          this.echoPlan = this.echoPlan || {};
+        }
+        this._recountEchoDebt();
         if (data.skipBuff) {
           const dmgMul = clamp(data.skipBuff.dmgMul || 1, 1, 1.25);
           const rateMul = clamp(data.skipBuff.rateMul || 1, 1, 1.25);
@@ -3756,6 +3840,7 @@
       this.waveActive = false;
       this.intermission = 0;
       this.echoDebt = 0;
+      this.echoPlan = {};
       this.gameOver = false;
       this.gameWon = false;
       this._gameOverPrompted = false;

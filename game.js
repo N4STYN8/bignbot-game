@@ -559,7 +559,7 @@
       for (let i = 0; i < 3; i++) {
         const gx = (t * 22 + i * 120) % (W + 120) - 60;
         gfx.save();
-        gfx.globalAlpha = 0.12;
+        gfx.globalAlpha = 0.08;
         gfx.fillStyle = "rgba(98,242,255,0.22)";
         gfx.beginPath();
         gfx.moveTo(gx, 0);
@@ -592,7 +592,7 @@
 
           // hologram scanlines (diagonal shimmer)
           gfx.save();
-          gfx.globalAlpha = 0.16 + pulse * 0.08;
+          gfx.globalAlpha = 0.10 + pulse * 0.05;
           gfx.beginPath();
           gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
           gfx.clip();
@@ -609,8 +609,8 @@
           gfx.restore();
 
           // occasional sparkle
-          const sparkle = Math.sin(t * 3.2 + gx * 12.989 + gy * 78.233);
-          if (sparkle > 0.996) {
+          const sparkle = Math.sin(t * 2.4 + gx * 12.989 + gy * 78.233);
+          if (sparkle > 0.999) {
             gfx.save();
             gfx.globalAlpha = 0.55;
             gfx.fillStyle = "rgba(234,240,255,0.9)";
@@ -660,7 +660,7 @@
       gfx.restore();
 
       // Flow-field lane energy ribbons
-      const ribbonCount = 18;
+      const ribbonCount = 10;
       for (let i = 0; i < ribbonCount; i++) {
         const prog = (t * 0.22 + i / ribbonCount) % 1;
         const d = this.totalLen * prog;
@@ -669,7 +669,7 @@
         const dy = Math.sin(p.ang);
         const len = 26 + (i % 4) * 6;
         gfx.save();
-        gfx.globalAlpha = 0.35;
+        gfx.globalAlpha = 0.22;
         gfx.strokeStyle = i % 2 ? "rgba(98,242,255,0.75)" : "rgba(154,108,255,0.65)";
         gfx.lineWidth = 2;
         gfx.beginPath();
@@ -680,7 +680,7 @@
       }
 
       // traveling track streaks (aligned to path)
-      const streakCount = 4;
+      const streakCount = 2;
       for (let r = 0; r < streakCount; r++) {
         const prog = (t * 0.16 + r / streakCount) % 1;
         const d = this.totalLen * prog;
@@ -689,7 +689,7 @@
         const dy = Math.sin(p.ang);
         const len = 70;
         gfx.save();
-        gfx.globalAlpha = 0.55;
+        gfx.globalAlpha = 0.35;
         const gx1 = p.x - dx * len;
         const gy1 = p.y - dy * len;
         const gx2 = p.x + dx * len;

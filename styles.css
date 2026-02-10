@@ -116,10 +116,27 @@ body{
 .pill .slash{opacity:.5; padding:0 4px}
 .pill.warn{border-color: rgba(255,207,91,.38)}
 .pill.warn .v{color: var(--warn)}
-.pill.anomaly{
-  border-color: rgba(98,242,255,.35);
+.anomalyBar{
+  pointer-events:none;
+  align-self:center;
+  margin-top:2px;
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid rgba(98,242,255,.35);
+  background: linear-gradient(180deg, rgba(11,16,34,.75), rgba(11,16,34,.45));
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.04em;
 }
-.pill.anomaly .v{
+.anomalyBar .k{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  margin-right:6px;
+}
+.anomalyBar .v{
   color: var(--accent);
 }
 

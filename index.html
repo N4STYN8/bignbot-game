@@ -34,30 +34,7 @@
           <button id="resetBtn" class="btn danger">RESET</button>
           <button id="pauseBtn" class="btn ghost">PAUSE</button>
 
-          <div class="speed">
-            <div class="speedLabel">Speed</div>
-            <div class="seg" role="group" aria-label="Speed">
-              <button class="segBtn" data-speed="1">1×</button>
-              <button class="segBtn" data-speed="2">2×</button>
-              <button class="segBtn" data-speed="3">3×</button>
-              <button class="segBtn" data-speed="4">4×</button>
-            </div>
-          </div>
-
-          <button id="helpBtn" class="btn ghost">HOW TO PLAY</button>
-          <div class="audioGroup">
-            <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: OFF</span></button>
-            <div class="audioSliders">
-              <label class="audioCtl">
-                <span>Music</span>
-                <input id="musicVol" type="range" min="0" max="100" value="32">
-              </label>
-              <label class="audioCtl">
-                <span>SFX</span>
-                <input id="sfxVol" type="range" min="0" max="100" value="60">
-              </label>
-            </div>
-          </div>
+          <button id="speedBtn" class="btn ghost">SPEED: 1×</button>
         </div>
       </div>
 
@@ -208,6 +185,99 @@
     </div>
 
     <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <button id="settingsBtn" class="settingsBtn" aria-label="Settings">
+    <span class="gearIcon" aria-hidden="true"></span>
+  </button>
+
+  <div id="settingsModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard settingsCard" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modalHeader">
+        <div id="settingsTitle" class="modalTitle">Settings</div>
+        <button id="settingsClose" class="btn ghost">Close</button>
+      </div>
+      <div class="modalBody settingsBody">
+        <div class="settingsSection">
+          <div class="settingsLabel">Audio</div>
+          <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: OFF</span></button>
+          <div class="audioSliders">
+            <label class="audioCtl">
+              <span>Music</span>
+              <input id="musicVol" type="range" min="0" max="100" value="32">
+            </label>
+            <label class="audioCtl">
+              <span>SFX</span>
+              <input id="sfxVol" type="range" min="0" max="100" value="60">
+            </label>
+          </div>
+        </div>
+
+        <div class="settingsSection">
+          <div class="settingsLabel">How To Play</div>
+          <div class="howGrid">
+            <div class="howBlock">
+              <div class="howH">Goal</div>
+              <div class="howP">
+                Protect the Core. Enemies follow the path. If they reach the end, you lose Lives.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Waves</div>
+              <div class="howP">
+                Waves <b>do not start</b> until you press <b>START</b>. After a wave ends, the next wave begins
+                <b>15 seconds</b> after the last enemy dies. Press <b>START</b> or <b>SKIP</b> to begin early.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Skipping</div>
+              <div class="howP">
+                When you <b>SKIP</b>, the next wave begins immediately.
+                Use it to speed up runs.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Turrets & Upgrades</div>
+              <div class="howP">
+                Build on glowing tiles only. Select a turret to upgrade it up to <b>III</b>.
+                Each tier changes <b>visuals</b> and <b>stats</b>, and you choose a <b>mod</b> each tier.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Speed</div>
+              <div class="howP">
+                Use the speed button to cycle 1×/2×/3×/4×. It affects <b>everything time-based</b>.
+              </div>
+            </div>
+
+            <div class="howBlock">
+              <div class="howH">Damage & Resist</div>
+              <div class="howP">
+                Enemies can have <b>Armor</b> (reduces Physical), <b>Shields</b> (absorbs Energy),
+                <b>Stealth</b>, <b>Flying</b>, <b>Regen</b>, and more. Mix turret roles.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHeader">
+        <div id="modalTitle" class="modalTitle">Confirm</div>
+      </div>
+      <div id="modalBody" class="modalBody"></div>
+      <div class="modalFooter">
+        <button id="modalCancel" class="btn ghost">Cancel</button>
+        <button id="modalConfirm" class="btn danger">Confirm</button>
+      </div>
+    </div>
   </div>
 
   <script src="game.js"></script>

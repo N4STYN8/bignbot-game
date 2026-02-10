@@ -66,6 +66,9 @@
   const audioBtn = $("audioBtn");
   const musicVol = $("musicVol");
   const sfxVol = $("sfxVol");
+  const settingsBtn = $("settingsBtn");
+  const settingsModal = $("settingsModal");
+  const settingsClose = $("settingsClose");
   const overlay = $("overlay");
   const closeHelp = $("closeHelp");
   const buildList = $("buildList");
@@ -73,6 +76,11 @@
   const selSub = $("selSub");
   const sellBtn = $("sellBtn");
   const toastEl = $("toast");
+  const confirmModal = $("confirmModal");
+  const modalTitle = $("modalTitle");
+  const modalBody = $("modalBody");
+  const modalCancel = $("modalCancel");
+  const modalConfirm = $("modalConfirm");
   const leftPanel = document.querySelector(".panel.left");
   const rightPanel = document.querySelector(".panel.right");
   const abilityScanBtn = $("abilityScanBtn");
@@ -84,7 +92,7 @@
   const anomalyLabel = $("anomalyLabel");
   const anomalyPill = $("anomalyPill");
 
-  const speedBtns = [...document.querySelectorAll(".segBtn")];
+  const speedBtn = $("speedBtn");
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
   const START_GOLD = 220;
@@ -397,6 +405,25 @@
     toastEl._t = setTimeout(() => toastEl.classList.add("hidden"), 1400);
   }
 
+  let _modalOpen = false;
+  let _modalOnConfirm = null;
+  function showConfirm(title, message, onConfirm) {
+    if (!confirmModal) return;
+    _modalOpen = true;
+    _modalOnConfirm = onConfirm || null;
+    modalTitle.textContent = title || "Confirm";
+    modalBody.textContent = message || "";
+    confirmModal.classList.remove("hidden");
+    confirmModal.setAttribute("aria-hidden", "false");
+  }
+  function closeConfirm() {
+    if (!confirmModal) return;
+    _modalOpen = false;
+    _modalOnConfirm = null;
+    confirmModal.classList.add("hidden");
+    confirmModal.setAttribute("aria-hidden", "true");
+  }
+
   /**********************
    * Map (grid build areas + path polyline)
    **********************/
@@ -413,6 +440,7 @@
       this.cols = 0;
       this.rows = 0;
       this.cells = []; // 0 blocked, 1 buildable, 2 path (blocked)
+      this.powerCells = [];
       this.pathPts = []; // scaled points
       this.segs = []; // segment lengths + cumulative
       this.totalLen = 1;
@@ -424,6 +452,7 @@
       const fallback = MAP_PRESETS && MAP_PRESETS.length ? MAP_PRESETS[0] : null;
       this.preset = (preset && preset.pathN && preset.islands) ? preset : fallback;
       this.pathN = this.preset ? this.preset.pathN : [];
+      this.powerCells = [];
       this._rebuild();
     }
 
@@ -561,17 +590,23 @@
       for (let gy = 0; gy < this.rows; gy++) {
         for (let gx = 0; gx < this.cols; gx++) {
           const v = this.cells[gy * this.cols + gx];
-          if (v !== 1) continue;
+          if (v !== 1 && v !== 3) continue;
           const x = gx * this.gridSize;
           const y = gy * this.gridSize;
 
           // soft, animated sheen
           const t = performance.now() * 0.001;
           const pulse = 0.35 + 0.25 * Math.sin(t * 1.2 + gx * 0.7 + gy * 0.5);
-          gfx.fillStyle = `rgba(98,242,255,${0.035 + pulse * 0.02})`;
+          if (v === 3) {
+            gfx.fillStyle = `rgba(255,207,91,${0.06 + pulse * 0.04})`;
+          } else {
+            gfx.fillStyle = `rgba(98,242,255,${0.035 + pulse * 0.02})`;
+          }
           gfx.fillRect(x, y, this.gridSize, this.gridSize);
 
-          gfx.strokeStyle = `rgba(154,108,255,${0.08 + pulse * 0.06})`;
+          gfx.strokeStyle = v === 3
+            ? `rgba(255,207,91,${0.25 + pulse * 0.12})`
+            : `rgba(154,108,255,${0.08 + pulse * 0.06})`;
           gfx.lineWidth = 1;
           gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
 
@@ -581,7 +616,7 @@
           gfx.beginPath();
           gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
           gfx.clip();
-          gfx.strokeStyle = "rgba(98,242,255,0.35)";
+          gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.45)" : "rgba(98,242,255,0.35)";
           gfx.lineWidth = 1;
           const step = 6;
           const drift = (t * 22 + (gx + gy) * 3) % (this.gridSize * 2);
@@ -594,6 +629,27 @@
           gfx.restore();
 
           // sparkle removed (too busy)
+        }
+      }
+
+      // Power-up tiles (3-5 random buildable cells)
+      const buildable = [];
+      for (let i = 0; i < this.cells.length; i++) {
+        if (this.cells[i] === 1) buildable.push(i);
+      }
+      if (!this.powerCells || this.powerCells.length === 0) {
+        const count = 3 + ((Math.random() * 3) | 0);
+        for (let i = buildable.length - 1; i > 0; i--) {
+          const j = (Math.random() * (i + 1)) | 0;
+          const tmp = buildable[i];
+          buildable[i] = buildable[j];
+          buildable[j] = tmp;
+        }
+        this.powerCells = buildable.slice(0, Math.min(count, buildable.length));
+      }
+      for (const idx of this.powerCells) {
+        if (idx >= 0 && idx < this.cells.length && this.cells[idx] === 1) {
+          this.cells[idx] = 3;
         }
       }
       gfx.restore();
@@ -2014,8 +2070,19 @@
       this.recoil = 0;
       this.overchargeT = 0;
       this.targetMode = "FIRST";
+      this.boosted = false;
+      this._powerMul = { dmg: 1, range: 1 };
 
       this.costSpent = base.cost;
+    }
+
+    applyPowerBoost() {
+      if (this.boosted) return;
+      this.boosted = true;
+      this._powerMul = { dmg: 1.25, range: 1.15 };
+      this.dmg *= this._powerMul.dmg;
+      this.range *= this._powerMul.range;
+      this.visual.glow = Math.max(this.visual.glow || 0, 1);
     }
 
     // Clone the turret and apply a mod (for UI preview)
@@ -2531,7 +2598,8 @@
         DRONE: "rgba(98,242,255,0.9)",
         TRAP: "rgba(255,207,91,0.9)"
       };
-      const col = colMap[this.typeKey] || "rgba(234,240,255,0.9)";
+      const baseCol = colMap[this.typeKey] || "rgba(234,240,255,0.9)";
+      const col = this.boosted ? "rgba(255,207,91,0.95)" : baseCol;
 
       if (selected) {
         gfx.save();
@@ -2800,6 +2868,7 @@
       this.mouse = { x: 0, y: 0 };
       this._id = 1;
       this.collapseEnabled = false;
+      this.panelHold = { left: 0, right: 0 };
 
       this.audio.loadPref();
       this._load();
@@ -2865,31 +2934,58 @@
       if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
 
       resetBtn?.addEventListener("click", () => {
-        const ok = window.confirm("Reset the game? This will clear your saved progress.");
-        if (!ok) return;
-        try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
-        window.location.reload();
+        showConfirm("Reset Game", "Reset the game? This will clear your saved progress.", () => {
+          try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+          window.location.reload();
+        });
       });
 
       audioBtn?.addEventListener("click", () => this.audio.toggle());
 
-      helpBtn.addEventListener("click", () => {
-        overlay.classList.remove("hidden");
-        overlay.setAttribute("aria-hidden", "false");
+      modalCancel?.addEventListener("click", () => closeConfirm());
+      modalConfirm?.addEventListener("click", () => {
+        const cb = _modalOnConfirm;
+        closeConfirm();
+        if (cb) cb();
       });
-      closeHelp.addEventListener("click", () => {
-        overlay.classList.add("hidden");
-        overlay.setAttribute("aria-hidden", "true");
+      confirmModal?.addEventListener("click", (ev) => {
+        if (ev.target === confirmModal) closeConfirm();
       });
 
-      for (const btn of speedBtns) {
-        btn.addEventListener("click", () => {
-          const s = Number(btn.dataset.speed || "1");
-          this.speed = clamp(s, 1, 4);
-          for (const b of speedBtns) b.classList.toggle("active", b === btn);
+      helpBtn?.addEventListener("click", () => {
+        overlay?.classList.remove("hidden");
+        overlay?.setAttribute("aria-hidden", "false");
+      });
+      closeHelp?.addEventListener("click", () => {
+        overlay?.classList.add("hidden");
+        overlay?.setAttribute("aria-hidden", "true");
+      });
+
+      if (speedBtn) {
+        speedBtn.addEventListener("click", () => {
+          const levels = [1, 2, 3, 4];
+          const idx = levels.indexOf(this.speed);
+          const next = levels[(idx + 1) % levels.length];
+          this.speed = clamp(next, 1, 4);
+          speedBtn.textContent = `SPEED: ${this.speed}×`;
         });
+        speedBtn.textContent = `SPEED: ${this.speed}×`;
       }
-      speedBtns[0]?.classList.add("active");
+
+      settingsBtn?.addEventListener("click", () => {
+        settingsModal?.classList.remove("hidden");
+        settingsModal?.setAttribute("aria-hidden", "false");
+      });
+      settingsClose?.addEventListener("click", () => {
+        settingsModal?.classList.add("hidden");
+        settingsModal?.setAttribute("aria-hidden", "true");
+      });
+      settingsModal?.addEventListener("click", (ev) => {
+        if (ev.target === settingsModal) {
+          settingsModal.classList.add("hidden");
+          settingsModal.setAttribute("aria-hidden", "true");
+        }
+      });
 
       sellBtn.addEventListener("click", () => this.sellSelected());
 
@@ -2901,7 +2997,8 @@
       });
 
       canvas.addEventListener("click", (ev) => {
-        if (!overlay.classList.contains("hidden")) return;
+        if (overlay && !overlay.classList.contains("hidden")) return;
+        if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         this.audio.unlock();
         const rect = canvas.getBoundingClientRect();
         const x = ev.clientX - rect.left;
@@ -2938,6 +3035,25 @@
         btn.setAttribute("aria-pressed", panel.classList.contains("pinned") ? "true" : "false");
       });
 
+      const holdPanel = (key, seconds = 1.2) => {
+        if (!this.panelHold) return;
+        this.panelHold[key] = Math.max(this.panelHold[key] || 0, seconds);
+      };
+      const bindPanelHover = (panel, key) => {
+        if (!panel) return;
+        panel.addEventListener("mouseenter", () => {
+          holdPanel(key, 1.5);
+          if (!panel.classList.contains("pinned")) panel.classList.remove("collapsed");
+        });
+        panel.addEventListener("mouseleave", () => {
+          holdPanel(key, 0.4);
+        });
+        panel.addEventListener("wheel", () => holdPanel(key, 1.5), { passive: true });
+        panel.addEventListener("pointerdown", () => holdPanel(key, 1.5));
+      };
+      bindPanelHover(leftPanel, "left");
+      bindPanelHover(rightPanel, "right");
+
       // First load tooltip
       if (!localStorage.getItem("orbit_echo_tip_v1")) {
         toast("Tip: Place a turret, then press START. Pin panels to keep them open.");
@@ -2945,6 +3061,10 @@
       }
 
       window.addEventListener("keydown", (ev) => {
+        if (_modalOpen && ev.key === "Escape") {
+          closeConfirm();
+          return;
+        }
         if (this.gameOver || this.gameWon) return;
         if (this.paused) return;
         if (ev.repeat) return;
@@ -3003,9 +3123,16 @@
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {
-        // Keep left panel open for building; right panel can auto-collapse on deselect.
+        // Keep panels open briefly while interacting to reduce jank.
+        if (leftPanel && !leftPanel.classList.contains("pinned")) {
+          if (this.panelHold.left <= 0) {
+            leftPanel.classList.toggle("collapsed", !this.buildKey);
+          }
+        }
         if (rightPanel && !rightPanel.classList.contains("pinned")) {
-          rightPanel.classList.toggle("collapsed", !this.selectedTurret);
+          if (this.panelHold.right <= 0) {
+            rightPanel.classList.toggle("collapsed", !this.selectedTurret);
+          }
         }
       }
 
@@ -3364,6 +3491,7 @@
           waveAnomaly: this.waveAnomaly ? this.waveAnomaly.key : null,
           warpRippleT: this._warpRippleT,
           speed: this.speed,
+          powerCells: this.map.powerCells,
           spawnQueue: this.spawnQueue,
           spawnIndex: this.spawnIndex,
           spawnT: this.spawnT,
@@ -3376,7 +3504,8 @@
             modsChosen: (t.modsChosen || []).slice(),
             cool: t.cool,
             charges: t.charges,
-            targetMode: t.targetMode
+            targetMode: t.targetMode,
+            boosted: t.boosted
           })),
           enemies: this.enemies.map(e => ({
             typeKey: e.typeKey,
@@ -3425,6 +3554,10 @@
           this.mapIndex = 0;
         }
         this.map.setPreset(MAP_PRESETS[this.mapIndex]);
+        if (Array.isArray(data.powerCells)) {
+          this.map.powerCells = data.powerCells.slice();
+          this.map._rebuild();
+        }
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;
@@ -3463,6 +3596,7 @@
               if (idx == null) continue;
               t.applyUpgrade(tier, idx, false);
             }
+            if (s.boosted) t.applyPowerBoost();
             t.flash = 0;
             if (typeof s.charges === "number") t.charges = s.charges;
             this.turrets.push(t);
@@ -3638,11 +3772,10 @@
         this.audio.play("lose");
         if (!this._gameOverPrompted) {
           this._gameOverPrompted = true;
-          const ok = window.confirm("Defeat. Reset the game?");
-          if (ok) {
+          showConfirm("Defeat", "Defeat. Reset the game?", () => {
             try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
             window.location.reload();
-          }
+          });
         }
       }
     }
@@ -3669,13 +3802,14 @@
       // build
       if (this.buildKey) {
         const cell = this.map.cellAt(x, y);
-        if (cell.v !== 1) { toast("Not buildable."); return; }
+      if (cell.v !== 1 && cell.v !== 3) { toast("Not buildable."); return; }
         if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
         const t = TURRET_TYPES[this.buildKey];
         if (this.gold < t.cost) { toast("Not enough gold."); return; }
         this.gold -= t.cost;
         const w = this.map.worldFromCell(cell.gx, cell.gy);
-        const turret = new Turret(this.buildKey, w.x, w.y);
+      const turret = new Turret(this.buildKey, w.x, w.y);
+      if (cell.v === 3) turret.applyPowerBoost();
         turret.gx = cell.gx; turret.gy = cell.gy;
         this.turrets.push(turret);
         this.selectTurret(turret);
@@ -3840,6 +3974,10 @@
       if (this.shakeT > 0) {
         this.shakeT = Math.max(0, this.shakeT - dt);
         if (this.shakeT === 0) this.shakeMag = 0;
+      }
+      if (this.panelHold) {
+        this.panelHold.left = Math.max(0, this.panelHold.left - dt);
+        this.panelHold.right = Math.max(0, this.panelHold.right - dt);
       }
       if (this.damageFlash > 0) {
         this.damageFlash = Math.max(0, this.damageFlash - dtScaled * 1.8);
@@ -4025,11 +4163,11 @@
       this.map.drawBase(gfx);
 
       // hover highlight
-      if (this.hoverCell && this.hoverCell.v === 1) {
+      if (this.hoverCell && (this.hoverCell.v === 1 || this.hoverCell.v === 3)) {
         const x = this.hoverCell.gx * this.map.gridSize;
         const y = this.hoverCell.gy * this.map.gridSize;
         gfx.save();
-        gfx.strokeStyle = "rgba(98,242,255,0.35)";
+        gfx.strokeStyle = this.hoverCell.v === 3 ? "rgba(255,207,91,0.55)" : "rgba(98,242,255,0.35)";
         gfx.lineWidth = 2;
         gfx.strokeRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
         gfx.restore();

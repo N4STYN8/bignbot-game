@@ -436,6 +436,8 @@ body{
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   overflow:hidden;
+  transition: width .18s ease, box-shadow .18s ease, transform .18s ease;
+  will-change: width;
 }
 
 .panelHeader{
@@ -559,6 +561,8 @@ body{
 .buildList{
   padding:12px;
   overflow:auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 .buildItem{
   display:flex;
@@ -665,6 +669,8 @@ body{
   padding:12px;
   overflow:auto;
   height:100%;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 .targetRow{
   margin-top:10px;
@@ -859,6 +865,102 @@ body{
   letter-spacing:.04em;
 }
 .toast.hidden{display:none}
+
+.modal{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(3,6,14,0.65);
+  backdrop-filter: blur(6px);
+  z-index:20;
+}
+.modal.hidden{display:none}
+.modalCard{
+  width:min(420px, 92vw);
+  background: var(--panel2);
+  border:1px solid rgba(28,42,90,.9);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding:16px;
+}
+.modalHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.modalTitle{
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  font-size:13px;
+}
+.modalBody{
+  color:var(--text);
+  font-size:13px;
+  line-height:1.4;
+}
+.modalFooter{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
+.settingsBtn{
+  position:absolute;
+  right:16px;
+  bottom:16px;
+  width:42px;
+  height:42px;
+  border-radius: 12px;
+  border:1px solid rgba(28,42,90,.85);
+  background: rgba(11,16,34,.7);
+  color:var(--text);
+  box-shadow: var(--shadow);
+  cursor:pointer;
+  z-index:6;
+}
+.settingsBtn:hover{filter:brightness(1.1)}
+.gearIcon{
+  display:inline-block;
+  width:16px;
+  height:16px;
+  border:2px solid rgba(154,108,255,.9);
+  border-radius:50%;
+  position:relative;
+}
+.gearIcon::before,
+.gearIcon::after{
+  content:"";
+  position:absolute;
+  inset:-4px;
+  border:2px dashed rgba(98,242,255,.75);
+  border-radius:50%;
+}
+.settingsCard{
+  max-height: 80vh;
+}
+.settingsBody{
+  overflow:auto;
+  max-height: 68vh;
+}
+.settingsSection{
+  padding:10px;
+  border-radius: 14px;
+  border:1px solid rgba(28,42,90,.75);
+  background: rgba(7,10,18,.35);
+  margin-bottom:12px;
+}
+.settingsLabel{
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:8px;
+}
 
 .tiny{font-size:11px; color:var(--muted); line-height:1.35}
 @media (max-width: 1100px){

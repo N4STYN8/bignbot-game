@@ -2317,6 +2317,7 @@
       this.echoDebt = 0;
       this.gameOver = false;
       this.gameWon = false;
+      this._gameOverPrompted = false;
 
       this.spawnQueue = [];
       this.spawnIndex = 0;
@@ -2752,6 +2753,7 @@
       this.echoDebt = 0;
       this.gameOver = false;
       this.gameWon = false;
+      this._gameOverPrompted = false;
 
       this.spawnQueue = [];
       this.spawnIndex = 0;
@@ -2800,6 +2802,14 @@
         this.gameOver = true;
         toast("Core lost.");
         this.audio.play("lose");
+        if (!this._gameOverPrompted) {
+          this._gameOverPrompted = true;
+          const ok = window.confirm("Defeat. Reset the game?");
+          if (ok) {
+            try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+            window.location.reload();
+          }
+        }
       }
     }
 

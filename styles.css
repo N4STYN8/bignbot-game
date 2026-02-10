@@ -438,7 +438,7 @@ body{
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   overflow:hidden;
-  transition: width .18s ease, box-shadow .18s ease, transform .18s ease;
+  transition: width .28s ease, box-shadow .28s ease, transform .28s ease;
   will-change: width;
 }
 
@@ -447,6 +447,7 @@ body{
   border-bottom:1px solid rgba(28,42,90,.7);
   background: linear-gradient(180deg, rgba(11,16,34,.70), rgba(11,16,34,.35));
   position:relative;
+  transition: opacity .24s ease, transform .24s ease;
 }
 .panelTitle{
   font-weight:900;
@@ -516,6 +517,7 @@ body{
   width: 64px;
   min-width: 64px;
   max-width: 64px;
+  transform: translateZ(0);
 }
 .panel.collapsed .panelHint,
 .panel.collapsed .panelFooter,
@@ -524,6 +526,7 @@ body{
 }
 .panel.collapsed .panelHeader{
   padding-bottom:14px;
+  transform: translateY(-2px);
 }
 .panel.collapsed .panelTitle{
   writing-mode: vertical-rl;
@@ -912,7 +915,7 @@ body{
   margin-top:14px;
 }
 .settingsBtn{
-  position:absolute;
+  position:fixed;
   right:16px;
   top:16px;
   width:42px;
@@ -923,7 +926,7 @@ body{
   color:var(--text);
   box-shadow: var(--shadow);
   cursor:pointer;
-  z-index:6;
+  z-index:10;
 }
 .settingsBtn:hover{filter:brightness(1.1)}
 .gearIcon{

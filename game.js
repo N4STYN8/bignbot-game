@@ -612,6 +612,34 @@
           gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
 
           if (v === 3) {
+            const cx = x + this.gridSize * 0.5;
+            const cy = y + this.gridSize * 0.5;
+            const rCore = this.gridSize * 0.22;
+            const grad = gfx.createRadialGradient(cx, cy, 0, cx, cy, this.gridSize * 0.8);
+            grad.addColorStop(0, "rgba(255,207,91,0.55)");
+            grad.addColorStop(0.45, "rgba(255,160,70,0.25)");
+            grad.addColorStop(1, "rgba(0,0,0,0)");
+            gfx.save();
+            gfx.globalAlpha = 0.55;
+            gfx.fillStyle = grad;
+            gfx.beginPath();
+            gfx.arc(cx, cy, this.gridSize * 0.8, 0, Math.PI * 2);
+            gfx.fill();
+
+            gfx.globalAlpha = 0.6 + 0.3 * Math.sin(t * 2.3 + gx);
+            gfx.fillStyle = "rgba(255,240,190,0.25)";
+            gfx.strokeStyle = "rgba(255,207,91,0.9)";
+            gfx.lineWidth = 2;
+            gfx.beginPath(); gfx.arc(cx, cy, rCore, 0, Math.PI * 2); gfx.fill(); gfx.stroke();
+
+            gfx.globalAlpha = 0.45;
+            gfx.strokeStyle = "rgba(255,207,91,0.7)";
+            gfx.lineWidth = 1.5;
+            gfx.beginPath();
+            gfx.arc(cx, cy, rCore + 6 + Math.sin(t * 2.5 + gy) * 2, 0, Math.PI * 2);
+            gfx.stroke();
+            gfx.restore();
+
             gfx.save();
             gfx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 3.1 + gx + gy);
             gfx.strokeStyle = "rgba(255,207,91,0.9)";
@@ -648,8 +676,8 @@
       const buildable = [];
       const nearTrack = [];
       const isNearTrack = (gx, gy) => {
-        for (let oy = -1; oy <= 1; oy++) {
-          for (let ox = -1; ox <= 1; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          for (let ox = -2; ox <= 2; ox++) {
             if (!ox && !oy) continue;
             const nx = gx + ox;
             const ny = gy + oy;

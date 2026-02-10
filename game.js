@@ -621,22 +621,30 @@
       gfx.stroke();
       gfx.restore();
 
-      // traveling track rays
-      const rayCount = 4;
-      for (let r = 0; r < rayCount; r++) {
-        const prog = (t * 0.18 + r / rayCount) % 1;
+      // traveling track streaks (aligned to path)
+      const streakCount = 4;
+      for (let r = 0; r < streakCount; r++) {
+        const prog = (t * 0.16 + r / streakCount) % 1;
         const d = this.totalLen * prog;
         const p = this.posAt(d);
-        const nx = Math.cos(p.ang + Math.PI / 2);
-        const ny = Math.sin(p.ang + Math.PI / 2);
-        const len = 38;
+        const dx = Math.cos(p.ang);
+        const dy = Math.sin(p.ang);
+        const len = 70;
         gfx.save();
-        gfx.globalAlpha = 0.35;
-        gfx.strokeStyle = "rgba(154,108,255,0.55)";
-        gfx.lineWidth = 2;
+        gfx.globalAlpha = 0.55;
+        const gx1 = p.x - dx * len;
+        const gy1 = p.y - dy * len;
+        const gx2 = p.x + dx * len;
+        const gy2 = p.y + dy * len;
+        const grad = gfx.createLinearGradient(gx1, gy1, gx2, gy2);
+        grad.addColorStop(0, "rgba(154,108,255,0)");
+        grad.addColorStop(0.5, "rgba(154,108,255,0.7)");
+        grad.addColorStop(1, "rgba(154,108,255,0)");
+        gfx.strokeStyle = grad;
+        gfx.lineWidth = 3;
         gfx.beginPath();
-        gfx.moveTo(p.x - nx * len, p.y - ny * len);
-        gfx.lineTo(p.x + nx * len, p.y + ny * len);
+        gfx.moveTo(gx1, gy1);
+        gfx.lineTo(gx2, gy2);
         gfx.stroke();
         gfx.restore();
       }
@@ -2681,9 +2689,7 @@
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {
-        if (leftPanel && !leftPanel.classList.contains("pinned")) {
-          leftPanel.classList.toggle("collapsed", !this.buildKey);
-        }
+        // Keep left panel open for building; right panel can auto-collapse on deselect.
         if (rightPanel && !rightPanel.classList.contains("pinned")) {
           rightPanel.classList.toggle("collapsed", !this.selectedTurret);
         }

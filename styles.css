@@ -460,6 +460,45 @@ body{
   border:1px solid rgba(98,242,255,.18);
   box-shadow: 0 10px 26px rgba(0,0,0,.30);
   flex:0 0 auto;
+  position:relative;
+  overflow:hidden;
+}
+.buildIcon::after{
+  content:"";
+  position:absolute;
+  inset:8px;
+  background: linear-gradient(180deg, rgba(98,242,255,.95), rgba(154,108,255,.85));
+  opacity:.9;
+}
+.buildIcon[data-icon="PULSE"]::after{
+  clip-path: circle(50% at 50% 50%);
+}
+.buildIcon[data-icon="ARC"]::after{
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.buildIcon[data-icon="FROST"]::after{
+  clip-path: polygon(50% 0, 75% 15%, 100% 50%, 75% 85%, 50% 100%, 25% 85%, 0 50%, 25% 15%);
+}
+.buildIcon[data-icon="LENS"]::after{
+  clip-path: ellipse(50% 35% at 50% 50%);
+}
+.buildIcon[data-icon="MORTAR"]::after{
+  clip-path: inset(0 0 0 0 round 6px);
+}
+.buildIcon[data-icon="VENOM"]::after{
+  clip-path: polygon(50% 0, 80% 20%, 90% 55%, 50% 100%, 10% 55%, 20% 20%);
+}
+.buildIcon[data-icon="NEEDLE"]::after{
+  clip-path: polygon(100% 50%, 0 0, 0 100%);
+}
+.buildIcon[data-icon="AURA"]::after{
+  clip-path: circle(50% at 50% 50%);
+}
+.buildIcon[data-icon="DRONE"]::after{
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+.buildIcon[data-icon="TRAP"]::after{
+  clip-path: polygon(0 35%, 100% 35%, 100% 65%, 0 65%);
 }
 .buildMeta{flex:1; min-width:0}
 .buildName{

@@ -2660,7 +2660,7 @@
         item.className = "buildItem";
         item.dataset.key = key;
         item.innerHTML = `
-          <div class="buildIcon"></div>
+          <div class="buildIcon" data-icon="${key}"></div>
           <div class="buildMeta">
             <div class="buildName">${t.name}</div>
             <div class="buildDesc">${t.desc}</div>

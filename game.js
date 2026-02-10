@@ -546,6 +546,23 @@
       }
       gfx.restore();
 
+      // light rays on grid (random sweep)
+      const t = performance.now() * 0.001;
+      for (let i = 0; i < 3; i++) {
+        const gx = (t * 22 + i * 120) % (W + 120) - 60;
+        gfx.save();
+        gfx.globalAlpha = 0.12;
+        gfx.fillStyle = "rgba(98,242,255,0.22)";
+        gfx.beginPath();
+        gfx.moveTo(gx, 0);
+        gfx.lineTo(gx + 60, 0);
+        gfx.lineTo(gx + 10, H);
+        gfx.lineTo(gx - 50, H);
+        gfx.closePath();
+        gfx.fill();
+        gfx.restore();
+      }
+
       // Buildable tile glow
       gfx.save();
       for (let gy = 0; gy < this.rows; gy++) {
@@ -603,6 +620,26 @@
       for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
       gfx.stroke();
       gfx.restore();
+
+      // traveling track rays
+      const rayCount = 4;
+      for (let r = 0; r < rayCount; r++) {
+        const prog = (t * 0.18 + r / rayCount) % 1;
+        const d = this.totalLen * prog;
+        const p = this.posAt(d);
+        const nx = Math.cos(p.ang + Math.PI / 2);
+        const ny = Math.sin(p.ang + Math.PI / 2);
+        const len = 38;
+        gfx.save();
+        gfx.globalAlpha = 0.35;
+        gfx.strokeStyle = "rgba(154,108,255,0.55)";
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(p.x - nx * len, p.y - ny * len);
+        gfx.lineTo(p.x + nx * len, p.y + ny * len);
+        gfx.stroke();
+        gfx.restore();
+      }
 
       // Core at end
       const end = pts[pts.length - 1];
@@ -2418,6 +2455,8 @@
       this.particles = new Particles();
       this.audio = new AudioSystem();
       this.explosions = [];
+      this.shakeT = 0;
+      this.shakeMag = 0;
       this.turrets = [];
       this.enemies = [];
       this.projectiles = [];
@@ -2970,11 +3009,15 @@
       this.explosions.push({
         x: enemy.x,
         y: enemy.y,
-        r: enemy.flying ? 10 : 14,
-        t: 0.28,
-        max: 38,
-        col: enemy.tint || "rgba(255,207,91,0.85)"
+        r: enemy.flying ? 12 : 16,
+        t: 0.38,
+        dur: 0.38,
+        max: 64,
+        col: enemy.tint || "rgba(255,207,91,0.85)",
+        boom: true
       });
+      this.shakeT = Math.min(0.25, this.shakeT + 0.08);
+      this.shakeMag = Math.min(8, this.shakeMag + 1.6);
 
       // siphon from traps
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
@@ -3180,6 +3223,10 @@
       }
 
       const dtScaled = dt * this.speed;
+      if (this.shakeT > 0) {
+        this.shakeT = Math.max(0, this.shakeT - dt);
+        if (this.shakeT === 0) this.shakeMag = 0;
+      }
 
       // wave logic
       if (this.waveActive) {
@@ -3291,6 +3338,12 @@
 
     draw(gfx) {
       gfx.clearRect(0, 0, W, H);
+      if (this.shakeT > 0) {
+        const sx = (Math.random() * 2 - 1) * this.shakeMag;
+        const sy = (Math.random() * 2 - 1) * this.shakeMag;
+        gfx.save();
+        gfx.translate(sx, sy);
+      }
       this.map.drawBase(gfx);
 
       // hover highlight
@@ -3373,15 +3426,33 @@
 
       // explosions
       for (const ex of this.explosions) {
-        const k = 1 - Math.max(0, ex.t) / 0.28;
+        const k = 1 - Math.max(0, ex.t) / (ex.dur || 0.28);
         const r = ex.r + (ex.max - ex.r) * k;
         gfx.save();
-        gfx.globalAlpha = 0.55 * (1 - k);
-        gfx.strokeStyle = ex.col;
-        gfx.lineWidth = 3;
-        gfx.beginPath();
-        gfx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
-        gfx.stroke();
+        if (ex.boom) {
+          gfx.globalAlpha = 0.9 * (1 - k);
+          const grad = gfx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
+          grad.addColorStop(0, "rgba(255,207,91,0.9)");
+          grad.addColorStop(0.4, "rgba(255,91,125,0.6)");
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          gfx.fillStyle = grad;
+          gfx.beginPath();
+          gfx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.globalAlpha = 0.55 * (1 - k);
+          gfx.strokeStyle = ex.col;
+          gfx.lineWidth = 2.5;
+          gfx.beginPath();
+          gfx.arc(ex.x, ex.y, r * 0.9, 0, Math.PI * 2);
+          gfx.stroke();
+        } else {
+          gfx.globalAlpha = 0.55 * (1 - k);
+          gfx.strokeStyle = ex.col;
+          gfx.lineWidth = 3;
+          gfx.beginPath();
+          gfx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
+          gfx.stroke();
+        }
         gfx.restore();
       }
 
@@ -3397,6 +3468,7 @@
         gfx.fillText("PAUSED", W / 2, H / 2);
         gfx.restore();
       }
+      if (this.shakeT > 0) gfx.restore();
     }
   }
 

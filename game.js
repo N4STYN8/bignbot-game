@@ -2453,6 +2453,7 @@
       this.hoverCell = null;
       this.mouse = { x: 0, y: 0 };
       this._id = 1;
+      this.collapseEnabled = false;
 
       this.audio.loadPref();
       this._load();
@@ -2624,6 +2625,7 @@
         `;
         item.addEventListener("click", () => {
           this.buildKey = key;
+          this.collapseEnabled = true;
           [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
           item.classList.add("selected");
         });
@@ -2638,12 +2640,14 @@
       waveMaxEl.textContent = String(this.waveMax);
       echoDebtEl.textContent = "—";
 
-      // auto-collapse panels unless pinned
-      if (leftPanel && !leftPanel.classList.contains("pinned")) {
-        leftPanel.classList.toggle("collapsed", !this.buildKey);
-      }
-      if (rightPanel && !rightPanel.classList.contains("pinned")) {
-        rightPanel.classList.toggle("collapsed", !this.selectedTurret);
+      // auto-collapse panels unless pinned (after first interaction)
+      if (this.collapseEnabled) {
+        if (leftPanel && !leftPanel.classList.contains("pinned")) {
+          leftPanel.classList.toggle("collapsed", !this.buildKey);
+        }
+        if (rightPanel && !rightPanel.classList.contains("pinned")) {
+          rightPanel.classList.toggle("collapsed", !this.selectedTurret);
+        }
       }
 
       if (this.gameWon) {
@@ -3025,6 +3029,7 @@
       }
       if (clickedTurret) {
         this.selectTurret(clickedTurret);
+        this.collapseEnabled = true;
         return;
       }
 
@@ -3044,6 +3049,8 @@
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");
         this._save();
+        this.buildKey = null;
+        [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
       } else {
         this.selectTurret(null);
       }

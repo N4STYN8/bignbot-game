@@ -2578,6 +2578,13 @@
           }
         });
       });
+      // sync pin button state on load
+      document.querySelectorAll(".pinBtn").forEach(btn => {
+        const panelKey = btn.dataset.panel;
+        const panel = panelKey === "left" ? leftPanel : rightPanel;
+        if (!panel) return;
+        btn.setAttribute("aria-pressed", panel.classList.contains("pinned") ? "true" : "false");
+      });
 
       // First load tooltip
       if (!localStorage.getItem("orbit_echo_tip_v1")) {

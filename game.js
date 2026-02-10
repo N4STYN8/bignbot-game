@@ -63,6 +63,8 @@
   const resetBtn = $("resetBtn");
   const helpBtn = $("helpBtn");
   const audioBtn = $("audioBtn");
+  const musicVol = $("musicVol");
+  const sfxVol = $("sfxVol");
   const overlay = $("overlay");
   const closeHelp = $("closeHelp");
   const buildList = $("buildList");
@@ -74,7 +76,6 @@
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
-  const SKIP_GOLD_PER_SEC = 2;
   const START_GOLD = 220;
   const START_LIVES = 20;
 
@@ -286,7 +287,10 @@
     loadPref() {
       try {
         const raw = localStorage.getItem(AUDIO_KEY);
-        this.enabled = raw === "1";
+        const data = raw ? JSON.parse(raw) : null;
+        this.enabled = data?.enabled === 1;
+        if (typeof data?.music === "number") this.bgm.volume = clamp(data.music, 0, 1);
+        if (typeof data?.sfx === "number") this.sfxVol = clamp(data.sfx, 0, 1);
       } catch (err) {
         this.enabled = false;
       }
@@ -295,7 +299,11 @@
 
     savePref() {
       try {
-        localStorage.setItem(AUDIO_KEY, this.enabled ? "1" : "0");
+        localStorage.setItem(AUDIO_KEY, JSON.stringify({
+          enabled: this.enabled ? 1 : 0,
+          music: this.bgm.volume,
+          sfx: this.sfxVol
+        }));
       } catch (err) {
         // ignore
       }
@@ -319,6 +327,7 @@
         if (!this.bgm) {
           this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
         }
+        this.bgm.volume = this.bgm.volume ?? 0.32;
         this.bgm.play().catch(() => {
           if (!this._errorShown) {
             this._errorShown = true;
@@ -330,6 +339,16 @@
       } else {
         if (this.bgm) this.bgm.pause();
       }
+    }
+
+    setMusicVolume(v) {
+      this.bgm.volume = clamp(v, 0, 1);
+      this.savePref();
+    }
+
+    setSfxVolume(v) {
+      this.sfxVol = clamp(v, 0, 1);
+      this.savePref();
     }
 
     toggle() {
@@ -2457,18 +2476,24 @@
           return;
         }
         if (this.intermission > 0) {
-          const bonus = Math.max(0, Math.floor(this.intermission * SKIP_GOLD_PER_SEC));
-          if (bonus > 0) {
-            this.gold += bonus;
-            this.echoDebt += bonus;
-            toast(`Skip bonus +${bonus}g`);
-          }
           this.intermission = 0;
           this.startWave();
           this.audio.play("skip");
           this._save();
         }
       });
+
+      musicVol?.addEventListener("input", () => {
+        const v = Number(musicVol.value || "0") / 100;
+        this.audio.setMusicVolume(v);
+      });
+      sfxVol?.addEventListener("input", () => {
+        const v = Number(sfxVol.value || "0") / 100;
+        this.audio.setSfxVolume(v);
+      });
+
+      if (musicVol) musicVol.value = String(Math.round(this.audio.bgm.volume * 100));
+      if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
 
       resetBtn?.addEventListener("click", () => {
         const ok = window.confirm("Reset the game? This will clear your saved progress.");
@@ -2549,7 +2574,7 @@
       livesEl.textContent = String(this.lives);
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
-      echoDebtEl.textContent = this.echoDebt.toFixed(1);
+      echoDebtEl.textContent = "—";
 
       if (this.gameWon) {
         nextInEl.textContent = "Victory";
@@ -2586,10 +2611,10 @@
 
     _waveScalar(wave) {
       const i = wave - 1;
-      const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.90 : 1;
+      const earlyHp = wave === 1 ? 0.86 : wave === 2 ? 0.94 : 1;
       const earlySpd = wave === 1 ? 0.90 : wave === 2 ? 0.96 : 1;
       return {
-        hp: (1 + i * 0.06) * earlyHp,
+        hp: (1 + i * 0.07) * earlyHp,
         spd: (1 + i * 0.008) * earlySpd,
         armor: i * 0.003,
         shield: 1 + i * 0.03,

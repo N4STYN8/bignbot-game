@@ -27,7 +27,7 @@
           <div class="pill"><span class="k">Lives</span> <span id="lives" class="v">0</span></div>
           <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
           <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
-          <div class="pill warn" title="Skipping grants bonus gold."><span class="k">Skip Bonus</span> <span id="echoDebt" class="v">0</span></div>
+          <div class="pill warn" title="Skip starts the next wave early."><span class="k">Skip</span> <span id="echoDebt" class="v">—</span></div>
         </div>
 
         <div class="controls">
@@ -46,7 +46,19 @@
           </div>
 
           <button id="helpBtn" class="btn ghost">HOW TO PLAY</button>
-          <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: OFF</span></button>
+          <div class="audioGroup">
+            <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: OFF</span></button>
+            <div class="audioSliders">
+              <label class="audioCtl">
+                <span>Music</span>
+                <input id="musicVol" type="range" min="0" max="100" value="32">
+              </label>
+              <label class="audioCtl">
+                <span>SFX</span>
+                <input id="sfxVol" type="range" min="0" max="100" value="60">
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -60,7 +72,7 @@
           <div id="buildList" class="buildList"></div>
           <div class="panelFooter">
             <div class="tiny">
-              Tip: Skipping the intermission starts the next wave immediately and grants <b>bonus gold</b>.
+              Tip: Skipping the intermission starts the next wave immediately.
             </div>
           </div>
         </div>
@@ -112,10 +124,10 @@
             </div>
 
             <div class="howBlock">
-              <div class="howH">Skipping Bonus</div>
+              <div class="howH">Skipping</div>
               <div class="howP">
-                When you <b>SKIP</b>, you earn <b>bonus gold</b> based on the remaining intermission time.
-                Skipping is powerful… and now it pays.
+                When you <b>SKIP</b>, the next wave begins immediately.
+                Use it to speed up runs.
               </div>
             </div>
 

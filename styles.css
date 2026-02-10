@@ -54,7 +54,7 @@ body{
   pointer-events:none;
   display:flex;
   gap:18px;
-  align-items:center;
+  align-items:flex-start;
   flex-wrap:wrap;
   padding:14px 14px 10px 14px;
 }
@@ -127,7 +127,7 @@ body{
   margin-left:auto;
   pointer-events:auto;
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   gap:10px;
   flex-wrap:wrap;
   justify-content:flex-end;

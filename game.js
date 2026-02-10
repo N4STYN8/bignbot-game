@@ -74,6 +74,7 @@
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
+  const SKIP_GOLD_PER_SEC = 2;
 
   class AudioSystem {
     constructor() {
@@ -2104,6 +2105,13 @@
           this.startWave();
           this.audio.play("wave");
           this._save();
+          return;
+        }
+        if (!this.waveActive && this.intermission > 0) {
+          this.intermission = 0;
+          this.startWave();
+          this.audio.play("wave");
+          this._save();
         }
       });
 
@@ -2118,7 +2126,12 @@
           return;
         }
         if (this.intermission > 0) {
-          this.echoDebt += this.intermission;
+          const bonus = Math.max(0, Math.floor(this.intermission * SKIP_GOLD_PER_SEC));
+          if (bonus > 0) {
+            this.gold += bonus;
+            this.echoDebt += bonus;
+            toast(`Skip bonus +${bonus}g`);
+          }
           this.intermission = 0;
           this.startWave();
           this.audio.play("skip");
@@ -2227,7 +2240,7 @@
         !this.gameWon &&
         (this.waveActive || this.intermission > 0)
       );
-      startBtn.disabled = this.hasStarted || this.gameOver || this.gameWon;
+      startBtn.disabled = this.gameOver || this.gameWon || (this.hasStarted && (this.waveActive || this.intermission <= 0));
     }
 
     onResize() {
@@ -2295,16 +2308,6 @@
       if (i % 5 === 0) {
         spawns.push({ t: 1.2, type: "BRUTE", scalar });
         spawns.push({ t: 2.6, type: "ARMORED", scalar });
-      }
-
-      // Echo debt injection
-      const echoCount = Math.floor(this.echoDebt / 2.5);
-      if (echoCount > 0) {
-        this.echoDebt = Math.max(0, this.echoDebt - echoCount * 2.5);
-        const dur = baseCount * spacing + 4;
-        for (let e = 0; e < echoCount; e++) {
-          spawns.push({ t: rand(dur * 0.2, dur * 0.9), type: "ECHO", scalar });
-        }
       }
 
       spawns.sort((a, b) => a.t - b.t);

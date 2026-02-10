@@ -645,8 +645,8 @@
       const end = pts[pts.length - 1];
       const coreX = end[0], coreY = end[1];
       gfx.save();
-      const t = performance.now() * 0.001;
-      const r = 18 + 2.5 * Math.sin(t * 2.3);
+      const tCore = performance.now() * 0.001;
+      const r = 18 + 2.5 * Math.sin(tCore * 2.3);
       // halo
       gfx.globalAlpha = 0.85;
       const grad = gfx.createRadialGradient(coreX, coreY, 0, coreX, coreY, 70);

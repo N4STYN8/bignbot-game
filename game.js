@@ -398,6 +398,11 @@
     }
 
     _rebuild() {
+      if (!this.pathN || this.pathN.length < 2) {
+        const fallback = MAP_PRESETS && MAP_PRESETS.length ? MAP_PRESETS[0] : null;
+        this.preset = fallback;
+        this.pathN = fallback ? fallback.pathN : [];
+      }
       // Build grid based on current canvas size
       this.cols = Math.floor(W / this.gridSize);
       this.rows = Math.floor(H / this.gridSize);
@@ -543,6 +548,7 @@
 
       // Path with layered glow
       const pts = this.pathPts;
+      if (!pts || pts.length < 2) return;
       gfx.save();
       gfx.lineCap = "round";
       gfx.lineJoin = "round";

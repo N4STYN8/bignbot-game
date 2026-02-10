@@ -75,6 +75,14 @@
   const toastEl = $("toast");
   const leftPanel = document.querySelector(".panel.left");
   const rightPanel = document.querySelector(".panel.right");
+  const abilityScanBtn = $("abilityScanBtn");
+  const abilityPulseBtn = $("abilityPulseBtn");
+  const abilityOverBtn = $("abilityOverBtn");
+  const abilityScanCd = $("abilityScanCd");
+  const abilityPulseCd = $("abilityPulseCd");
+  const abilityOverCd = $("abilityOverCd");
+  const anomalyLabel = $("anomalyLabel");
+  const anomalyPill = $("anomalyPill");
 
   const speedBtns = [...document.querySelectorAll(".segBtn")];
   const SAVE_KEY = "orbit_echo_save_v1";
@@ -686,6 +694,25 @@
     TRUE: "True",
   };
 
+  const ANOMALIES = {
+    LOW_GRAVITY: {
+      name: "Low Gravity",
+      desc: "Projectile speed +15%, pierce +1 (except mortar)."
+    },
+    ION_STORM: {
+      name: "Ion Storm",
+      desc: "Enemy shields +20%, energy damage +10%."
+    },
+    CRYO_LEAK: {
+      name: "Cryo Leak",
+      desc: "Slows stronger +15%, DOT duration -15%."
+    },
+    WARP_RIPPLE: {
+      name: "Warp Ripple",
+      desc: "Every 10s, two ground enemies blink forward."
+    }
+  };
+
   const ENEMY_TYPES = {
     // 8 distinct baseline types (plus Echo spawned from skip debt)
     RUNNER: {
@@ -836,16 +863,64 @@
       tint: "rgba(154,108,255,0.45)",
       reward: 4, // reduced reward
       desc: "Phase-shifted debt."
+    },
+    BOSS_PROJECTOR: {
+      name: "Shield Projector",
+      hp: 680,
+      speed: 42,
+      armor: 0.18,
+      shield: 120,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._auraT = (e._auraT ?? 1.6) - dt;
+        if (e._auraT > 0) return;
+        e._auraT = 3.2;
+        const r = 140;
+        for (const other of game.enemies) {
+          if (other.hp <= 0 || other === e) continue;
+          if (dist2(e.x, e.y, other.x, other.y) <= r * r) {
+            other.addShield(18, 40);
+            game.particles.spawn(other.x, other.y, 2, "muzzle");
+          }
+        }
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 20,
+          t: 0.3,
+          dur: 0.3,
+          max: r * 0.85,
+          col: "rgba(98,242,255,0.7)",
+          boom: false
+        });
+      },
+      tint: "rgba(98,242,255,0.85)",
+      reward: 40,
+      desc: "Miniboss: projects shields to nearby allies."
     }
   };
 
   // Damage interactions (simple but meaningful)
   function applyDamageToEnemy(enemy, amount, dmgType) {
+    if (enemy.elite && enemy.elite.tag === "PHASELINK") {
+      const protectedState = !enemy.revealed && (!enemy._markedT || enemy._markedT <= 0);
+      if (protectedState) amount *= 0.45;
+    }
+    if (enemy._ionStorm && dmgType === DAMAGE.ENGY) {
+      amount *= 1.1;
+    }
     // Shields absorb Energy first
     if (enemy.shield > 0 && dmgType === DAMAGE.ENGY) {
+      const wasShielded = enemy.shield > 0;
       const s = Math.min(enemy.shield, amount);
       enemy.shield -= s;
       amount -= s * 0.75; // a bit of “refraction”: still leaks some through
+      if (wasShielded && enemy.shield <= 0) {
+        enemy._game?.spawnText(enemy.x, enemy.y - 14, "SHIELD BREAK", "rgba(154,108,255,0.9)", 0.85);
+      }
     }
 
     // Armor reduces Physical
@@ -863,10 +938,11 @@
   }
 
   class Enemy {
-    constructor(typeKey, waveScalar, startD) {
+    constructor(typeKey, waveScalar, startD, eliteTag = null) {
       const base = ENEMY_TYPES[typeKey];
       this.typeKey = typeKey;
       this.name = base.name;
+      this.isBoss = typeKey === "BOSS_PROJECTOR";
 
       // Scaling rules: HP, armor/shield slight, speed slight.
       this.maxHp = base.hp * waveScalar.hp;
@@ -874,7 +950,9 @@
       this.speed = base.speed * waveScalar.spd;
 
       this.armor = clamp(base.armor + waveScalar.armor, 0, 0.70);
-      this.shield = Math.max(0, base.shield * waveScalar.shield);
+      this.baseShield = base.shield || 0;
+      this.maxShield = Math.max(0, this.baseShield * waveScalar.shield);
+      this.shield = this.maxShield;
 
       this.regen = base.regen * waveScalar.regen;
       this.stealth = !!base.stealth;
@@ -886,6 +964,7 @@
       this.tint = base.tint;
       this.desc = base.desc;
       this.onDeath = base.onDeath;
+      this.onUpdate = base.onUpdate || null;
 
       // movement along path
       this.pathD = startD ?? 0;
@@ -915,10 +994,42 @@
       this._noSplit = false;
       this._noSplitT = 0;
       this.scalar = waveScalar;
+
+      this.elite = eliteTag ? { tag: eliteTag } : null;
+      if (this.elite) {
+        switch (eliteTag) {
+          case "HARDENED": {
+            this.maxHp *= 1.55;
+            this.hp = this.maxHp;
+            this.armor = clamp(this.armor + 0.18, 0, 0.85);
+            this.speed *= 0.86;
+            break;
+          }
+          case "VOLATILE": {
+            this.maxHp *= 1.25;
+            this.hp = this.maxHp;
+            this.speed *= 0.95;
+            break;
+          }
+          case "PHASELINK": {
+            this.maxHp *= 1.2;
+            this.hp = this.maxHp;
+            this.speed *= 1.05;
+            this.revealed = false;
+            break;
+          }
+        }
+        this.reward = Math.floor(this.reward * 1.35);
+      }
+      if (this.isBoss) {
+        this.r = 18;
+        this.reward = Math.max(this.reward, 55);
+      }
     }
 
     update(game, dt) {
       if (this._dead) return;
+      if (this.onUpdate) this.onUpdate(game, this, dt);
       // regen
       if (this.regen > 0 && this.hp > 0) {
         this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
@@ -996,19 +1107,33 @@
 
     applySlow(pct, dur) {
       if (this.echo) return; // phase-shift ignores slows/traps
-      this.slow = Math.max(this.slow, pct);
+      const mul = this._slowMul || 1;
+      const next = clamp(pct * mul, 0, 0.85);
+      this.slow = Math.max(this.slow, next);
       this.slowT = Math.max(this.slowT, dur);
     }
 
     applyDot(dps, dur) {
       this.dot = Math.max(this.dot, dps);
-      this.dotT = Math.max(this.dotT, dur);
+      const mul = this._dotDurMul || 1;
+      const next = Math.max(0.2, dur * mul);
+      this.dotT = Math.max(this.dotT, next);
     }
 
     reveal(dur) {
-      if (!this.stealth) return;
+      if (!this.stealth && !(this.elite && this.elite.tag === "PHASELINK")) return;
+      const wasRevealed = this.revealed;
       this.revealed = true;
       this.revealT = Math.max(this.revealT, dur);
+      if (!wasRevealed) {
+        this._game?.spawnText(this.x, this.y - 12, "REVEALED", "rgba(98,242,255,0.9)", 0.75);
+      }
+    }
+
+    addShield(amount, extraCap = 0) {
+      const cap = (this.maxShield || 0) + extraCap;
+      if (cap <= 0) return;
+      this.shield = Math.min(cap, this.shield + amount);
     }
 
     draw(gfx) {
@@ -1069,6 +1194,27 @@
         gfx.beginPath();
         gfx.ellipse(0, 0, this.r * 1.35, this.r * 0.55, t * 0.9, 0, Math.PI * 2);
         gfx.stroke();
+      }
+
+      if (this.elite || this.isBoss) {
+        const tag = this.elite?.tag;
+        const eliteCol =
+          this.isBoss ? "rgba(98,242,255,0.95)" :
+          tag === "HARDENED" ? "rgba(255,207,91,0.9)" :
+          tag === "VOLATILE" ? "rgba(255,91,125,0.9)" :
+          "rgba(154,108,255,0.9)";
+        gfx.globalAlpha = 0.65;
+        gfx.strokeStyle = eliteCol;
+        gfx.lineWidth = this.isBoss ? 3 : 2;
+        gfx.beginPath();
+        gfx.ellipse(0, 0, this.r * 1.35, this.r * 1.05, t * 0.4, 0, Math.PI * 2);
+        gfx.stroke();
+        if (this.isBoss) {
+          gfx.globalAlpha = 0.35;
+          gfx.beginPath();
+          gfx.ellipse(0, 0, this.r * 1.8, this.r * 1.25, -t * 0.3, 0, Math.PI * 2);
+          gfx.stroke();
+        }
       }
 
       // hit flash
@@ -1766,6 +1912,8 @@
       this.aimAng = 0;
       this.flash = 0;
       this.recoil = 0;
+      this.overchargeT = 0;
+      this.targetMode = "FIRST";
 
       this.costSpent = base.cost;
     }
@@ -1841,6 +1989,7 @@
     acquireTarget(game) {
       let best = null;
       let bestScore = -1;
+      const mode = this.targetMode || "FIRST";
 
       for (let i = 0; i < game.enemies.length; i++) {
         const e = game.enemies[i];
@@ -1848,8 +1997,25 @@
         const d2v = dist2(this.x, this.y, e.x, e.y);
         if (d2v > this.range * this.range) continue;
 
-        // prefer enemies closer to the core (higher pathD)
-        const score = e.pathD - d2v * 0.0003;
+        let baseScore = 0;
+        switch (mode) {
+          case "LAST":
+            baseScore = -e.pathD;
+            break;
+          case "STRONGEST":
+            baseScore = e.hp;
+            break;
+          case "MOST_SHIELD":
+            baseScore = e.shield;
+            break;
+          case "MOST_ARMOR":
+            baseScore = e.armor;
+            break;
+          default:
+            baseScore = e.pathD;
+            break;
+        }
+        const score = baseScore - d2v * 0.000003;
         if (score > bestScore) { bestScore = score; best = e; }
       }
       return best;
@@ -1858,6 +2024,8 @@
     update(game, dt) {
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 5.0);
+      if (this.overchargeT > 0) this.overchargeT = Math.max(0, this.overchargeT - dt);
+      const overMul = this.overchargeT > 0 ? 2 : 1;
 
       // Aura Grove special handling
       if (this.typeKey === "AURA") {
@@ -1900,12 +2068,14 @@
         while (this.drones.length > this.maxDrones) this.drones.pop();
 
         const buff = this.getBuffedStats(game);
+        const skip = game.getSkipBuff();
+        const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
         for (const d of this.drones) {
           d.ang += dt * 2.0;
           const ox = Math.cos(d.ang) * (26 + d.r);
           const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
 
-          d.cool -= dt * buff.rateMul;
+          d.cool -= dt * buff.rateMul * skip.rateMul * overMul;
           if (d.cool <= 0) {
             d.cool = this.droneFire; // drone fire cadence
             // pick target
@@ -1919,11 +2089,12 @@
               const dx = (target.x - (this.x + ox));
               const dy = (target.y - (this.y + oy));
               const len = Math.hypot(dx, dy) || 1;
-              const spd = 520;
+              const spd = 520 * (lowGravity ? 1.15 : 1);
               const vx = (dx / len) * spd;
               const vy = (dy / len) * spd;
-              const dmg = this.dmg * buff.dmgMul;
-              const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, 1, 1.4, "spark");
+              const dmg = this.dmg * buff.dmgMul * skip.dmgMul;
+              const pierce = 1 + (lowGravity ? 1 : 0);
+              const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, pierce, 1.4, "spark");
               game.projectiles.push(p);
               game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
               game.audio.playLimited("drone", 160);
@@ -1937,8 +2108,9 @@
 
       // Trap: place knots periodically (charges)
       if (this.typeKey === "TRAP") {
+        const skip = game.getSkipBuff();
         this.charges = clamp(this.charges, 0, this.maxCharges);
-        this.cool -= dt;
+        this.cool -= dt * skip.rateMul * overMul;
         if (this.cool <= 0) {
           this.cool = this.fire;
           if (this.charges < this.maxCharges) this.charges++;
@@ -1957,9 +2129,9 @@
               x: found.x, y: found.y,
               r: this.trapR,
               t: this.trapDur,
-              dmg: this.dmg,
+              dmg: this.dmg * skip.dmgMul,
               slow: this.trapSlow,
-              dot: this.trapDot,
+              dot: this.trapDot ? { dps: this.trapDot.dps * skip.dmgMul, dur: this.trapDot.dur } : null,
               siphon: this.siphon,
               noSplit: this.noSplit,
               owner: this
@@ -1973,7 +2145,9 @@
 
       // Normal turrets
       const buff = this.getBuffedStats(game);
-      const fireInterval = this.fire / buff.rateMul;
+      const skip = game.getSkipBuff();
+      const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
+      const fireInterval = this.fire / (buff.rateMul * skip.rateMul * overMul);
       this.cool -= dt;
 
       const target = this.acquireTarget(game);
@@ -1991,7 +2165,7 @@
         this.flash = 1;
         this.recoil = 1;
 
-        const dmgBase = this.dmg * buff.dmgMul;
+        const dmgBase = this.dmg * buff.dmgMul * skip.dmgMul;
         const dmgType = this.dmgType;
 
         // Fire behavior by turret type
@@ -2005,7 +2179,7 @@
             for (let s = 0; s < shots; s++) {
               const spread = shots > 1 ? (s - (shots - 1) / 2) * 0.08 : 0;
               const ang = this.aimAng + spread;
-              const spd = this.projSpd;
+              const spd = this.projSpd * (lowGravity ? 1.15 : 1);
               const vx = Math.cos(ang) * spd;
               const vy = Math.sin(ang) * spd;
 
@@ -2020,7 +2194,8 @@
               }
 
               const style = this.projStyle || "bullet";
-              const p = new Projectile(mx, my, vx, vy, style === "needle" ? 2.0 : 3.2, dmg, dmgType, this.pierce, 1.6, style);
+              const pierce = this.pierce + (lowGravity ? 1 : 0);
+              const p = new Projectile(mx, my, vx, vy, style === "needle" ? 2.0 : 3.2, dmg, dmgType, pierce, 1.6, style);
               p.owner = this;
               p.revealOnHit = this.revealOnHit;
               p.markOnHit = this.markOnHit || 0;
@@ -2053,10 +2228,12 @@
             const visited = new Set();
             let current = target;
             let dmg = dmgBase;
+            let hits = 0;
 
             for (let hop = 0; hop < chainCount; hop++) {
               if (!current) break;
               visited.add(current);
+              hits++;
               // compute shield vs hp multipliers
               let dealt = dmg;
               if (current.shield > 0) dealt *= this.vsShield;
@@ -2087,6 +2264,9 @@
 
               dmg *= this.chainFalloff;
               current = next;
+            }
+            if (hits > 1) {
+              game.spawnText(target.x, target.y - 18, `CHAIN x${hits}`, "rgba(154,108,255,0.95)", 0.9);
             }
 
             // Net burst every 3rd shot
@@ -2211,7 +2391,7 @@
             game.audio.playLimited("mortar", 240);
             // lob projectile; on impact do AoE. We'll simulate travel as projectile that explodes on near target.
             const ang = this.aimAng;
-            const spd = this.projSpd;
+            const spd = this.projSpd * (lowGravity ? 1.15 : 1);
             const vx = Math.cos(ang) * spd;
             const vy = Math.sin(ang) * spd;
 
@@ -2465,6 +2645,7 @@
       this.explosions = [];
       this.shakeT = 0;
       this.shakeMag = 0;
+      this.floatText = [];
       this.turrets = [];
       this.enemies = [];
       this.projectiles = [];
@@ -2473,6 +2654,7 @@
       this.arcs = [];
       this.cones = [];
       this.lingering = [];
+      this.floatText = [];
 
       this.speed = 1;
       this.gold = START_GOLD;
@@ -2483,6 +2665,12 @@
       this.waveActive = false;
       this.intermission = 0;
       this.echoDebt = 0;
+      this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
+      this.abilities = {
+        scan: { cd: 18, t: 0 },
+        pulse: { cd: 14, t: 0 },
+        overcharge: { cd: 22, t: 0, charges: 1, maxCharges: 1 }
+      };
       this.gameOver = false;
       this.gameWon = false;
       this.paused = false;
@@ -2494,6 +2682,14 @@
       this.spawnT = 0;
       this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
       this._saveT = 0;
+      this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
+      this.waveAnomaly = null;
+      this._warpRippleT = 0;
+      this.abilities = {
+        scan: { cd: 18, t: 0 },
+        pulse: { cd: 14, t: 0 },
+        overcharge: { cd: 22, t: 0, charges: 1, maxCharges: 1 }
+      };
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -2539,12 +2735,17 @@
           return;
         }
         if (this.intermission > 0) {
+          this._applySkipReward(this.intermission);
           this.intermission = 0;
           this.startWave();
           this.audio.play("skip");
           this._save();
         }
       });
+
+      abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
+      abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
+      abilityOverBtn?.addEventListener("click", () => this.useAbility("overcharge"));
 
       pauseBtn?.addEventListener("click", () => this.togglePause());
 
@@ -2639,6 +2840,15 @@
         toast("Tip: Place a turret, then press START. Pin panels to keep them open.");
         localStorage.setItem("orbit_echo_tip_v1", "1");
       }
+
+      window.addEventListener("keydown", (ev) => {
+        if (this.gameOver || this.gameWon) return;
+        if (this.paused) return;
+        if (ev.repeat) return;
+        if (ev.key === "1") this.useAbility("scan");
+        if (ev.key === "2") this.useAbility("pulse");
+        if (ev.key === "3") this.useAbility("overcharge");
+      });
     }
 
     togglePause() {
@@ -2717,6 +2927,185 @@
         (this.waveActive || this.intermission > 0)
       );
       startBtn.disabled = this.gameOver || this.gameWon || (this.hasStarted && (this.waveActive || this.intermission <= 0));
+
+      if (this.abilities && abilityScanCd) {
+        const scan = this.abilities.scan;
+        const pulse = this.abilities.pulse;
+        const over = this.abilities.overcharge;
+        abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
+        abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
+        if (over.charges <= 0 && over.t <= 0) {
+          abilityOverCd.textContent = "Out";
+        } else {
+          const cdText = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";
+          abilityOverCd.textContent = `${cdText} (${over.charges}/${over.maxCharges})`;
+        }
+        abilityScanBtn.disabled = scan.t > 0;
+        abilityPulseBtn.disabled = pulse.t > 0;
+        abilityOverBtn.disabled = over.t > 0 || over.charges <= 0;
+      }
+
+      if (anomalyLabel) {
+        if (this.waveAnomaly) {
+          anomalyLabel.textContent = this.waveAnomaly.name;
+          anomalyPill?.setAttribute("title", this.waveAnomaly.desc);
+        } else {
+          anomalyLabel.textContent = "—";
+          anomalyPill?.setAttribute("title", "Wave anomaly");
+        }
+      }
+    }
+
+    getSkipBuff() {
+      if (!this.skipBuff || this.skipBuff.t <= 0) {
+        return { dmgMul: 1, rateMul: 1, t: 0 };
+      }
+      return this.skipBuff;
+    }
+
+    getAbilityState(key) {
+      return this.abilities ? this.abilities[key] : null;
+    }
+
+    spawnText(x, y, text, color = "rgba(234,240,255,0.9)", ttl = 0.9) {
+      this.floatText.push({
+        x,
+        y,
+        text,
+        color,
+        t: ttl,
+        ttl,
+        vy: 18
+      });
+    }
+
+    useAbility(key) {
+      const ability = this.getAbilityState(key);
+      if (!ability) return;
+      if (ability.t > 0) {
+        toast("Ability cooling down.");
+        return;
+      }
+      if (key === "overcharge" && ability.charges <= 0) {
+        toast("Overcharge spent this wave.");
+        return;
+      }
+
+      switch (key) {
+        case "scan": {
+          ability.t = ability.cd;
+          let found = 0;
+          for (const e of this.enemies) {
+            if (e.hp <= 0) continue;
+            if (!e.stealth && !(e.elite && e.elite.tag === "PHASELINK")) continue;
+            e.reveal(4.0);
+            found++;
+            this.particles.spawn(e.x, e.y, 6, "muzzle");
+            this.explosions.push({
+              x: e.x,
+              y: e.y,
+              r: 10,
+              t: 0.28,
+              dur: 0.28,
+              max: 46,
+              col: "rgba(98,242,255,0.85)",
+              boom: false
+            });
+          }
+          this.explosions.push({
+            x: W * 0.5,
+            y: H * 0.5,
+            r: 24,
+            t: 0.32,
+            dur: 0.32,
+            max: Math.max(W, H) * 0.35,
+            col: "rgba(98,242,255,0.6)",
+            boom: false
+          });
+          this.audio.playLimited("beam", 220);
+          toast(found > 0 ? "SCAN PING: stealth revealed" : "SCAN PING: no stealth found");
+          break;
+        }
+        case "pulse": {
+          ability.t = ability.cd;
+          const cx = this.mouse.x;
+          const cy = this.mouse.y;
+          const r = 110;
+          let hit = 0;
+          for (const e of this.enemies) {
+            if (e.hp <= 0 || e.echo) continue;
+            if (dist2(cx, cy, e.x, e.y) <= r * r) {
+              e.applySlow(0.45, 2.4);
+              hit++;
+              this.particles.spawn(e.x, e.y, 3, "muzzle");
+            }
+          }
+          this.explosions.push({
+            x: cx,
+            y: cy,
+            r: 16,
+            t: 0.3,
+            dur: 0.3,
+            max: r,
+            col: "rgba(154,108,255,0.8)",
+            boom: false
+          });
+          this.audio.playLimited("trap", 220);
+          toast(hit > 0 ? "PULSE BURST: slowed targets" : "PULSE BURST: no targets");
+          break;
+        }
+        case "overcharge": {
+          if (!this.selectedTurret) {
+            toast("Select a turret to overcharge.");
+            return;
+          }
+          ability.t = ability.cd;
+          ability.charges = Math.max(0, ability.charges - 1);
+          this.selectedTurret.overchargeT = 5.0;
+          this.explosions.push({
+            x: this.selectedTurret.x,
+            y: this.selectedTurret.y,
+            r: 12,
+            t: 0.25,
+            dur: 0.25,
+            max: 60,
+            col: "rgba(255,207,91,0.9)",
+            boom: false
+          });
+          this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
+          this.audio.playLimited("upgrade", 220);
+          toast("OVERCHARGE: double fire rate for 5s");
+          break;
+        }
+      }
+      this.updateHUD();
+    }
+
+    _calcSkipReward(remaining) {
+      const ratio = clamp(remaining / 15, 0, 1);
+      const rateBonus = lerp(0.05, 0.25, ratio);
+      const dmgBonus = lerp(0.05, 0.25, ratio);
+      const duration = 8;
+      const cash = Math.max(1, Math.floor(remaining * 0.9));
+      return { rateBonus, dmgBonus, duration, cash };
+    }
+
+    _applySkipReward(remaining) {
+      if (remaining <= 0) return;
+      const reward = this._calcSkipReward(remaining);
+      const cap = 1.25;
+      const targetRate = Math.min(cap, 1 + reward.rateBonus);
+      const targetDmg = Math.min(cap, 1 + reward.dmgBonus);
+      this.skipBuff.rateMul = Math.min(cap, Math.max(this.skipBuff.rateMul, targetRate));
+      this.skipBuff.dmgMul = Math.min(cap, Math.max(this.skipBuff.dmgMul, targetDmg));
+      this.skipBuff.t = reward.duration;
+
+      this.gold += reward.cash;
+
+      const ratePct = Math.round((this.skipBuff.rateMul - 1) * 100);
+      const dmgPct = Math.round((this.skipBuff.dmgMul - 1) * 100);
+      toast(`SKIP BONUS: +${ratePct}% rate, +${dmgPct}% dmg for ${reward.duration}s`);
+      setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash} gold`), 700);
     }
 
     onResize() {
@@ -2778,12 +3167,20 @@
       for (let n = 0; n < baseCount; n++) {
         const type = pickWeighted();
         const t = n * spacing + rand(-0.15, 0.15);
-        spawns.push({ t: Math.max(0, t), type, scalar });
+        let eliteTag = null;
+        if (wave >= 6) {
+          const eliteChance = Math.min(0.18, 0.10 + (wave - 6) * 0.008);
+          if (Math.random() < eliteChance) {
+            eliteTag = pick(["HARDENED", "VOLATILE", "PHASELINK"]);
+          }
+        }
+        spawns.push({ t: Math.max(0, t), type, scalar, eliteTag });
       }
 
       if (i % 5 === 0) {
         spawns.push({ t: 1.2, type: "BRUTE", scalar });
         spawns.push({ t: 2.6, type: "ARMORED", scalar });
+        spawns.push({ t: 3.2, type: "BOSS_PROJECTOR", scalar, miniboss: true });
       }
 
       spawns.sort((a, b) => a.t - b.t);
@@ -2795,6 +3192,18 @@
       if (this.wave >= this.waveMax) return;
 
       this.wave++;
+      if (this.abilities?.overcharge) {
+        this.abilities.overcharge.charges = this.abilities.overcharge.maxCharges;
+        this.abilities.overcharge.t = 0;
+      }
+      {
+        const keys = Object.keys(ANOMALIES);
+        const key = keys[(Math.random() * keys.length) | 0];
+        const base = ANOMALIES[key];
+        this.waveAnomaly = { key, name: base.name, desc: base.desc };
+        this._warpRippleT = 10;
+        setTimeout(() => toast(`ANOMALY: ${base.name}`), 700);
+      }
       const scalar = this._waveScalar(this.wave);
       this.waveScalar = scalar;
       const newSpawns = this._buildWave(this.wave, scalar);
@@ -2814,9 +3223,21 @@
       this.audio.play("wave");
     }
 
-    spawnEnemy(typeKey, startD = 0, scalarOverride = null) {
+    spawnEnemy(typeKey, startD = 0, scalarOverride = null, eliteTag = null) {
       const scalar = scalarOverride || this.waveScalar;
-      const e = new Enemy(typeKey, scalar, startD);
+      const e = new Enemy(typeKey, scalar, startD, eliteTag);
+      e._game = this;
+      if (this.waveAnomaly?.key === "ION_STORM") {
+        e._ionStorm = true;
+        if (e.maxShield > 0) {
+          e.maxShield *= 1.2;
+          e.shield = e.maxShield;
+        }
+      }
+      if (this.waveAnomaly?.key === "CRYO_LEAK") {
+        e._slowMul = 1.15;
+        e._dotDurMul = 0.85;
+      }
       e._id = this._id++;
       const p = this.map.posAt(startD);
       e.x = p.x; e.y = p.y; e.ang = p.ang;
@@ -2836,6 +3257,9 @@
           waveActive: this.waveActive,
           intermission: this.intermission,
           echoDebt: this.echoDebt,
+          skipBuff: this.skipBuff,
+          waveAnomaly: this.waveAnomaly ? this.waveAnomaly.key : null,
+          warpRippleT: this._warpRippleT,
           speed: this.speed,
           spawnQueue: this.spawnQueue,
           spawnIndex: this.spawnIndex,
@@ -2848,10 +3272,12 @@
             level: t.level,
             modsChosen: (t.modsChosen || []).slice(),
             cool: t.cool,
-            charges: t.charges
+            charges: t.charges,
+            targetMode: t.targetMode
           })),
           enemies: this.enemies.map(e => ({
             typeKey: e.typeKey,
+            eliteTag: e.elite?.tag || null,
             hp: e.hp,
             shield: e.shield,
             pathD: e.pathD,
@@ -2904,6 +3330,17 @@
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
         this.echoDebt = data.echoDebt ?? this.echoDebt;
+        if (data.skipBuff) {
+          const dmgMul = clamp(data.skipBuff.dmgMul || 1, 1, 1.25);
+          const rateMul = clamp(data.skipBuff.rateMul || 1, 1, 1.25);
+          const t = Math.max(0, data.skipBuff.t || 0);
+          this.skipBuff = { dmgMul, rateMul, t };
+        }
+        if (data.waveAnomaly && ANOMALIES[data.waveAnomaly]) {
+          const base = ANOMALIES[data.waveAnomaly];
+          this.waveAnomaly = { key: data.waveAnomaly, name: base.name, desc: base.desc };
+        }
+        this._warpRippleT = data.warpRippleT || 0;
         this.speed = data.speed ?? this.speed;
         this.spawnQueue = data.spawnQueue || [];
         this.spawnIndex = data.spawnIndex || 0;
@@ -2916,6 +3353,7 @@
             const t = new Turret(s.typeKey, s.x, s.y);
             t.gx = s.gx; t.gy = s.gy;
             t.cool = s.cool ?? t.cool;
+            if (s.targetMode) t.targetMode = s.targetMode;
             const mods = s.modsChosen || [];
             for (let tier = 0; tier < mods.length; tier++) {
               const idx = mods[tier];
@@ -2931,7 +3369,8 @@
         if (Array.isArray(data.enemies)) {
           this.enemies = [];
           for (const s of data.enemies) {
-            const e = new Enemy(s.typeKey, s.scalar || this.waveScalar, s.pathD || 0);
+            const e = new Enemy(s.typeKey, s.scalar || this.waveScalar, s.pathD || 0, s.eliteTag || null);
+            e._game = this;
             e.hp = s.hp ?? e.hp;
             e.shield = s.shield ?? e.shield;
             e.pathD = s.pathD ?? e.pathD;
@@ -2996,6 +3435,8 @@
       this.spawnIndex = 0;
       this.spawnT = 0;
       this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
+      this.waveAnomaly = null;
+      this._warpRippleT = 0;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -3007,6 +3448,29 @@
     onEnemyKill(enemy) {
       // on-death effects
       if (enemy.onDeath && !enemy._noSplit) enemy.onDeath(this, enemy);
+
+      if (enemy.elite && enemy.elite.tag === "VOLATILE" && !enemy._volatileTriggered) {
+        enemy._volatileTriggered = true;
+        const r = 90;
+        for (const e of this.enemies) {
+          if (e.hp <= 0 || e === enemy) continue;
+          if (dist2(enemy.x, enemy.y, e.x, e.y) <= r * r) {
+            e.takeHit(this, 38, DAMAGE.TRUE);
+          }
+        }
+        this.explosions.push({
+          x: enemy.x,
+          y: enemy.y,
+          r: 14,
+          t: 0.32,
+          dur: 0.32,
+          max: r,
+          col: "rgba(255,91,125,0.9)",
+          boom: true
+        });
+        this.shakeT = Math.min(0.25, this.shakeT + 0.08);
+        this.shakeMag = Math.min(8, this.shakeMag + 1.2);
+      }
 
       // reward
       this.gold += enemy.reward;
@@ -3134,6 +3598,17 @@
       const statCards = stats.map(s => `
         <div class="statCard"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>
       `).join("");
+      const targetModes = [
+        { value: "FIRST", label: "FIRST" },
+        { value: "LAST", label: "LAST" },
+        { value: "STRONGEST", label: "STRONGEST" },
+        { value: "MOST_SHIELD", label: "MOST SHIELD" },
+        { value: "MOST_ARMOR", label: "MOST ARMOR" }
+      ];
+      const targetOptions = targetModes.map(m => {
+        const selected = (turret.targetMode || "FIRST") === m.value ? "selected" : "";
+        return `<option value="${m.value}" ${selected}>${m.label}</option>`;
+      }).join("");
 
       let upgradesHtml = "";
       if (turret.level < 5) {
@@ -3182,6 +3657,12 @@
           <div class="selLevel">Tier ${tierNames[turret.level]}</div>
         </div>
         <div class="statGrid">${statCards}</div>
+        <div class="targetRow">
+          <div class="targetLabel">Targeting</div>
+          <select id="targetModeSelect" class="targetSelect">
+            ${targetOptions}
+          </select>
+        </div>
         ${upgradesHtml}
       `;
 
@@ -3191,6 +3672,13 @@
           this.applyUpgrade(turret, idx);
         });
       });
+      const targetSelect = selectionBody.querySelector("#targetModeSelect");
+      if (targetSelect) {
+        targetSelect.addEventListener("change", () => {
+          turret.targetMode = targetSelect.value;
+          this._save();
+        });
+      }
     }
 
     applyUpgrade(turret, modIdx) {
@@ -3234,16 +3722,35 @@
         this.shakeT = Math.max(0, this.shakeT - dt);
         if (this.shakeT === 0) this.shakeMag = 0;
       }
+      if (this.skipBuff.t > 0) {
+        this.skipBuff.t = Math.max(0, this.skipBuff.t - dtScaled);
+        if (this.skipBuff.t <= 0) {
+          this.skipBuff.dmgMul = 1;
+          this.skipBuff.rateMul = 1;
+        }
+      }
+      if (this.abilities) {
+        for (const a of Object.values(this.abilities)) {
+          if (a.t > 0) a.t = Math.max(0, a.t - dtScaled);
+        }
+      }
 
       // wave logic
       if (this.waveActive) {
         this.spawnT += dtScaled;
         while (this.spawnIndex < this.spawnQueue.length && this.spawnT >= this.spawnQueue[this.spawnIndex].t) {
           const s = this.spawnQueue[this.spawnIndex++];
-          this.spawnEnemy(s.type, 0, s.scalar);
+          let spawned = null;
+          if (s.miniboss) toast("MINIBOSS INBOUND");
+          spawned = this.spawnEnemy(s.type, 0, s.scalar, s.eliteTag || null);
+          if (s.miniboss && spawned) {
+            this.spawnText(spawned.x, spawned.y - 20, "MINIBOSS", "rgba(98,242,255,0.95)", 1.0);
+          }
         }
         if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0)) {
           this.waveActive = false;
+          this.waveAnomaly = null;
+          this._warpRippleT = 0;
           if (this.wave >= this.waveMax) {
             if (this.mapIndex < MAP_PRESETS.length - 1) {
               this.mapIndex++;
@@ -3268,6 +3775,37 @@
         this.intermission = Math.max(0, this.intermission - dtScaled);
         if (this.intermission <= 0 && this.wave < this.waveMax) {
           this.startWave();
+        }
+      }
+
+      if (this.waveActive && this.waveAnomaly?.key === "WARP_RIPPLE") {
+        this._warpRippleT -= dtScaled;
+        if (this._warpRippleT <= 0) {
+          this._warpRippleT = 10;
+          const candidates = this.enemies.filter(e => e.hp > 0 && !e.echo && !e.flying);
+          for (let i = candidates.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            const tmp = candidates[i];
+            candidates[i] = candidates[j];
+            candidates[j] = tmp;
+          }
+          for (let i = 0; i < Math.min(2, candidates.length); i++) {
+            const e = candidates[i];
+            e.pathD = Math.min(this.map.totalLen - 2, e.pathD + 60);
+            const p = this.map.posAt(e.pathD);
+            e.x = p.x; e.y = p.y; e.ang = p.ang;
+            this.particles.spawn(e.x, e.y, 6, "muzzle");
+            this.explosions.push({
+              x: e.x,
+              y: e.y,
+              r: 10,
+              t: 0.24,
+              dur: 0.24,
+              max: 42,
+              col: "rgba(154,108,255,0.85)",
+              boom: false
+            });
+          }
         }
       }
 
@@ -3335,6 +3873,12 @@
       decay(this.explosions);
 
       this.particles.update(dtScaled);
+      for (let i = this.floatText.length - 1; i >= 0; i--) {
+        const ft = this.floatText[i];
+        ft.t -= dtScaled;
+        ft.y -= ft.vy * dtScaled;
+        if (ft.t <= 0) this.floatText.splice(i, 1);
+      }
       this._saveT += dt;
       if (this._saveT >= 1) {
         this._saveT = 0;
@@ -3391,6 +3935,20 @@
 
       // projectiles
       for (const p of this.projectiles) p.draw(gfx);
+
+      // floating combat text
+      if (this.floatText.length) {
+        gfx.save();
+        gfx.font = "700 12px " + getComputedStyle(document.body).fontFamily;
+        gfx.textAlign = "center";
+        for (const ft of this.floatText) {
+          const a = clamp(ft.t / ft.ttl, 0, 1);
+          gfx.globalAlpha = a;
+          gfx.fillStyle = ft.color;
+          gfx.fillText(ft.text, ft.x, ft.y);
+        }
+        gfx.restore();
+      }
 
       // cones
       for (const c of this.cones) {
@@ -3498,3 +4056,4 @@
   }
   requestAnimationFrame(loop);
 })();
+

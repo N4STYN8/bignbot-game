@@ -28,6 +28,9 @@
           <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
           <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
           <div class="pill warn" title="Skip starts the next wave early."><span class="k">Skip</span> <span id="echoDebt" class="v">—</span></div>
+          <div class="pill anomaly" id="anomalyPill" title="Wave anomaly">
+            <span class="k">Anomaly</span> <span id="anomalyLabel" class="v">—</span>
+          </div>
         </div>
 
         <div class="controls">
@@ -60,6 +63,39 @@
               </label>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div id="abilitiesBar" class="abilitiesBar">
+        <div class="abilitiesTitle">Abilities</div>
+        <div class="abilitiesRow">
+          <button id="abilityScanBtn" class="abilityBtn" data-ability="scan">
+            <div class="abilityTop">
+              <span class="abilityKey">1</span>
+              <span class="abilityName">Scan Ping</span>
+            </div>
+            <div class="abilityMeta">
+              <span id="abilityScanCd" class="abilityCooldown">Ready</span>
+            </div>
+          </button>
+          <button id="abilityPulseBtn" class="abilityBtn" data-ability="pulse">
+            <div class="abilityTop">
+              <span class="abilityKey">2</span>
+              <span class="abilityName">Pulse Burst</span>
+            </div>
+            <div class="abilityMeta">
+              <span id="abilityPulseCd" class="abilityCooldown">Ready</span>
+            </div>
+          </button>
+          <button id="abilityOverBtn" class="abilityBtn" data-ability="overcharge">
+            <div class="abilityTop">
+              <span class="abilityKey">3</span>
+              <span class="abilityName">Overcharge</span>
+            </div>
+            <div class="abilityMeta">
+              <span id="abilityOverCd" class="abilityCooldown">Ready</span>
+            </div>
+          </button>
         </div>
       </div>
 

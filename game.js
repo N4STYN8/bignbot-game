@@ -1161,7 +1161,7 @@
 
       if (this._linger) {
         game.lingering.push({
-          x: cx, y: cy, r: r * 0.7, t: 2.2, dps: Math.max(6, this.dmg * 0.12),
+          x: cx, y: cy, r: r * 0.7, t: this._lingerDur || 2.2, dps: Math.max(6, this.dmg * 0.12),
           col: "rgba(255,207,91,0.25)"
         });
       }
@@ -1280,6 +1280,16 @@
           { name: "Overpressure", cost: 140, desc: "+35% damage, +muzzle shock particles.", apply: t => { t.dmg *= 1.35; t.visual.glow = 1; } },
           { name: "Twin Lattice", cost: 140, desc: "Fires 2 weaker shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.67; t.visual.barrels += 1; } },
         ],
+        // Tier IV
+        [
+          { name: "Stabilized Recoil", cost: 180, desc: "-10% fire interval, -5% damage.", apply: t => { t.fire *= 0.90; t.dmg *= 0.95; t.visual.rings++; } },
+          { name: "Piercing Lattice", cost: 180, desc: "+1 pierce, -12% damage.", apply: t => { t.pierce += 1; t.dmg *= 0.88; t.visual.spikes = true; } },
+        ],
+        // Tier V
+        [
+          { name: "Core Overclock", cost: 230, desc: "+20% damage, +8% fire interval.", apply: t => { t.dmg *= 1.20; t.fire *= 1.08; t.visual.glow = 1; } },
+          { name: "Signal Marker", cost: 230, desc: "Hits increase damage taken briefly.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.10); t.visual.antenna = true; } },
+        ],
       ]
     },
 
@@ -1308,6 +1318,14 @@
           { name: "Fork Storm", cost: 160, desc: "+2 chain; falloff reduced.", apply: t => { t.chain += 2; t.chainFalloff = 0.78; t.visual.rings += 1; } },
           { name: "Lightning Net", cost: 160, desc: "Every 3rd shot hits in a small AoE.", apply: t => { t.netBurst = true; t.visual.spikes = true; } },
         ],
+        [
+          { name: "Arc Relay", cost: 200, desc: "+1 chain, -10% damage.", apply: t => { t.chain += 1; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Dielectric Lining", cost: 200, desc: "+15% vs shields, -8% range.", apply: t => { t.vsShield *= 1.15; t.range *= 0.92; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Capacitive Surge", cost: 250, desc: "-10% fire interval, +8% damage.", apply: t => { t.fire *= 0.90; t.dmg *= 1.08; t.visual.glow = 1; } },
+          { name: "Static Field", cost: 250, desc: "Slow on hit stronger.", apply: t => { t.slowOnHit = t.slowOnHit ? { pct: t.slowOnHit.pct + 0.06, dur: t.slowOnHit.dur + 0.2 } : { pct:0.18, dur:1.0 }; t.visual.spikes = true; } },
+        ],
       ]
     },
 
@@ -1335,6 +1353,14 @@
           { name: "Whiteout", cost: 140, desc: "Occasional freeze pulse (brief).", apply: t => { t.freezePulse = true; t.visual.rings += 1; } },
           { name: "Rime Lash", cost: 140, desc: "+damage and can affect Flying lightly.", apply: t => { t.dmg *= 1.30; t.canHitFlying = true; t.visual.glow = 1; } },
         ],
+        [
+          { name: "Cold Front", cost: 180, desc: "+slow duration, -8% damage.", apply: t => { t.slowPct *= 1.10; t.dmg *= 0.92; t.visual.rings++; } },
+          { name: "Vent Extension", cost: 180, desc: "+10% range, -10% slow strength.", apply: t => { t.range *= 1.10; t.slowPct *= 0.90; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Hail Core", cost: 230, desc: "+18% damage, -8% cone width.", apply: t => { t.dmg *= 1.18; t.cone *= 0.92; t.visual.glow = 1; } },
+          { name: "Deep Freeze", cost: 230, desc: "Freeze pulse more often.", apply: t => { t.freezePulse = true; t._freezePulseRate = 4; t.visual.spikes = true; } },
+        ],
       ]
     },
 
@@ -1360,6 +1386,14 @@
         [
           { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 2.6; t.visual.rings += 2; } },
           { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t.visual.glow = 1; } },
+        ],
+        [
+          { name: "Thermal Lens", cost: 210, desc: "+10% damage, -8% range.", apply: t => { t.dmg *= 1.10; t.range *= 0.92; t.visual.rings++; } },
+          { name: "Wide Aperture", cost: 210, desc: "+12% range, -8% damage.", apply: t => { t.range *= 1.12; t.dmg *= 0.92; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Iridescent Flux", cost: 260, desc: "+15% vs shields, +8% damage.", apply: t => { t.vsShield *= 1.15; t.dmg *= 1.08; t.visual.glow = 1; } },
+          { name: "Persistent Beam", cost: 260, desc: "Ramp reaches higher cap, slower gain.", apply: t => { t.ramp = true; t._rampStep = 0.08; t._rampMax = 2.2; t.visual.spikes = true; } },
         ],
       ]
     },
@@ -1391,6 +1425,14 @@
           { name: "Cluster Bloom", cost: 190, desc: "Splits into 3 mini blasts.", apply: t => { t.cluster = true; t.visual.barrels += 1; } },
           { name: "Seismic Pulse", cost: 190, desc: "Leaves lingering damage zone (short).", apply: t => { t.lingering = true; t.visual.rings += 1; } },
         ],
+        [
+          { name: "Wide Detonation", cost: 230, desc: "+15% blast radius, -10% damage.", apply: t => { t.blast *= 1.15; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Heavy Shells", cost: 230, desc: "+18% damage, -8% blast.", apply: t => { t.dmg *= 1.18; t.blast *= 0.92; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Fused Shells", cost: 280, desc: "+20% vs Flying, -8% fire interval.", apply: t => { t.vsFlying *= 1.20; t.fire *= 1.08; t.visual.antenna = true; } },
+          { name: "Aftershock", cost: 280, desc: "Longer lingering zone, -8% damage.", apply: t => { t.lingering = true; t._lingerDur = 3.0; t.dmg *= 0.92; t.visual.glow = 1; } },
+        ],
       ]
     },
 
@@ -1419,6 +1461,14 @@
         [
           { name: "Caustic Fountain", cost: 160, desc: "+30% damage and +range.", apply: t => { t.dmg *= 1.30; t.range *= 1.12; t.visual.glow = 1; } },
           { name: "Black Bile", cost: 160, desc: "DOT ignores shields fully.", apply: t => { t.dotIgnoresShields = true; t.visual.antenna = true; } },
+        ],
+        [
+          { name: "Seeping Rounds", cost: 200, desc: "+20% DOT duration, -8% damage.", apply: t => { t.dotDur *= 1.20; t.dmg *= 0.92; t.visual.rings++; } },
+          { name: "Catalyst Mist", cost: 200, desc: "+10% range, -10% DOT duration.", apply: t => { t.range *= 1.10; t.dotDur *= 0.90; t.visual.barrels++; } },
+        ],
+        [
+          { name: "Viral Saturation", cost: 250, desc: "+20% DOT damage, -10% base damage.", apply: t => { t.dotDpsMult *= 1.20; t.dmg *= 0.90; t.visual.glow = 1; } },
+          { name: "Nerve Toxin", cost: 250, desc: "DOT slow stronger.", apply: t => { t.dotSlow = { pct:0.16, dur:2.4 }; t.visual.spikes = true; } },
         ],
       ]
     },
@@ -1449,6 +1499,14 @@
           { name: "Singularity Pin", cost: 210, desc: "Chance to mini-stun (not Echo).", apply: t => { t.stunChance = 0.16; t.visual.glow = 1; } },
           { name: "Dual Rail", cost: 210, desc: "Fires 2 needles with small spread.", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels += 1; } },
         ],
+        [
+          { name: "Long Sight", cost: 260, desc: "+12% range, -10% damage.", apply: t => { t.range *= 1.12; t.dmg *= 0.90; t.visual.rings++; } },
+          { name: "Focused Barrel", cost: 260, desc: "+15% damage, -8% fire rate.", apply: t => { t.dmg *= 1.15; t.fire *= 1.08; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Pierce Lancer", cost: 320, desc: "+1 pierce, -10% damage.", apply: t => { t.pierce += 1; t.dmg *= 0.90; t.visual.barrels += 1; } },
+          { name: "Signal Breaker", cost: 320, desc: "Hits mark enemies longer.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.14); t.visual.antenna = true; } },
+        ],
       ]
     },
 
@@ -1474,6 +1532,14 @@
         [
           { name: "Harmonic Surge", cost: 170, desc: "Every 5s emits buff pulse (+brief).", apply: t => { t.pulse = true; t.visual.glow = 1; } },
           { name: "Tether Roots", cost: 170, desc: "Adds small slow field (not Echo).", apply: t => { t.slowField = { pct:0.09, dur:0.6 }; t.visual.spikes = true; } },
+        ],
+        [
+          { name: "Amplify II", cost: 210, desc: "Buffs +5% damage, -8% range.", apply: t => { t.buffDmg += 0.05; t.range *= 0.92; t.visual.rings++; } },
+          { name: "Overclock II", cost: 210, desc: "Buffs +5% attack speed, -8% range.", apply: t => { t.buffRate += 0.05; t.range *= 0.92; t.visual.glow = 1; } },
+        ],
+        [
+          { name: "Resonance", cost: 260, desc: "+4% damage and +4% speed buffs.", apply: t => { t.buffDmg += 0.04; t.buffRate += 0.04; t.visual.spikes = true; } },
+          { name: "Pulse Harmony", cost: 260, desc: "Buff pulse happens more often.", apply: t => { t.pulse = true; t.pulseInterval = 4.0; t.visual.antenna = true; } },
         ],
       ]
     },
@@ -1501,6 +1567,14 @@
           { name: "Iridescent Shell", cost: 230, desc: "Drones deal +35% to shields.", apply: t => { t.vsShield *= 1.35; t.visual.glow = 1; } },
           { name: "Tri-Drone", cost: 230, desc: "+1 drone and +range.", apply: t => { t.maxDrones += 1; t.range *= 1.12; t.visual.rings += 1; } },
         ],
+        [
+          { name: "Aux Bay", cost: 280, desc: "+1 drone, -10% damage.", apply: t => { t.maxDrones += 1; t.dmg *= 0.90; t.visual.barrels += 1; } },
+          { name: "Long Orbit", cost: 280, desc: "+12% range, -8% fire interval.", apply: t => { t.range *= 1.12; t.fire *= 1.08; t.visual.rings++; } },
+        ],
+        [
+          { name: "Swarm Sync", cost: 340, desc: "Drones fire faster, -8% damage.", apply: t => { t.droneFire *= 0.88; t.dmg *= 0.92; t.visual.glow = 1; } },
+          { name: "Shield Flare", cost: 340, desc: "+20% vs shields, -8% range.", apply: t => { t.vsShield *= 1.20; t.range *= 0.92; t.visual.spikes = true; } },
+        ],
       ]
     },
 
@@ -1527,6 +1601,14 @@
           { name: "Event Horizon", cost: 150, desc: "Trap deals DOT while inside.", apply: t => { t.trapDot = { dps: 7, dur: 2.4 }; t.visual.glow = 1; } },
           { name: "Anchor Field", cost: 150, desc: "Traps briefly stop Splitters from splitting.", apply: t => { t.noSplit = true; t.visual.rings += 1; } },
         ],
+        [
+          { name: "Extra Charge", cost: 190, desc: "+1 charge, -10% damage.", apply: t => { t.maxCharges += 1; t.charges = Math.min(t.maxCharges, t.charges + 1); t.dmg *= 0.90; t.visual.barrels++; } },
+          { name: "Time Sink", cost: 190, desc: "+25% trap duration, -8% slow.", apply: t => { t.trapDur *= 1.25; t.trapSlow *= 0.92; t.visual.rings++; } },
+        ],
+        [
+          { name: "Gravity Well", cost: 240, desc: "+20% radius, -8% damage.", apply: t => { t.trapR *= 1.20; t.dmg *= 0.92; t.visual.spikes = true; } },
+          { name: "Crush Field", cost: 240, desc: "+15% slow strength, -10% damage.", apply: t => { t.trapSlow *= 1.15; t.dmg *= 0.90; t.visual.glow = 1; } },
+        ],
       ]
     },
   };
@@ -1542,7 +1624,7 @@
 
       this.x = x; this.y = y;
 
-      this.level = 0; // 0..3 (Upgrade I/II/III)
+      this.level = 0; // 0..5 (Upgrade I/II/III/IV/V)
       this.modsChosen = []; // store chosen mod indexes per tier
 
       // base stats (will mutate with upgrades)
@@ -1569,6 +1651,7 @@
       // special flags/effects
       this.slowPct = 0.22; // default for frost/trap
       this.dotDur = 3.5;   // venom
+      this.dotDpsMult = 0.32;
       this.dotIgnoresShields = false;
       this.onKillSplash = false;
 
@@ -1582,16 +1665,19 @@
       this.revealAura = false;
       this.pulse = false;
       this.pulseT = 0;
+      this.pulseInterval = 5.0;
       this.slowField = null;
 
       // drones
       this.maxDrones = 2;
       this.drones = [];
       this.link = false;
+      this.droneFire = 0.42;
 
       // trap
       this.trapR = 54;
       this.trapSlow = 0.32;
+      this.trapDur = 2.2;
       this.maxCharges = 1;
       this.charges = 1;
       this.siphon = false;
@@ -1641,7 +1727,7 @@
 
     applyUpgrade(tierIndex, modIndex, previewOnly = false) {
       if (tierIndex !== this.level) return false;
-      if (tierIndex > 2) return false;
+      if (tierIndex > 4) return false;
 
       const mod = this.getTierOptions(tierIndex)[modIndex];
       mod.apply(this);
@@ -1722,7 +1808,7 @@
         if (this.pulse) {
           this.pulseT -= dt;
           if (this.pulseT <= 0) {
-            this.pulseT = 5.0;
+            this.pulseT = this.pulseInterval;
             game.particles.spawn(this.x, this.y, 16, "muzzle");
           }
         }
@@ -1750,7 +1836,7 @@
 
           d.cool -= dt * buff.rateMul;
           if (d.cool <= 0) {
-            d.cool = 0.42; // drone fire cadence
+            d.cool = this.droneFire; // drone fire cadence
             // pick target
             let target = null;
             if (this.link && this.targetId !== -1) {
@@ -1799,7 +1885,7 @@
             game.traps.push({
               x: found.x, y: found.y,
               r: this.trapR,
-              t: 2.2,
+              t: this.trapDur,
               dmg: this.dmg,
               slow: this.trapSlow,
               dot: this.trapDot,
@@ -1869,7 +1955,7 @@
               p.stunChance = this.stunChance || 0;
               p.vsFlying = this.vsFlying || 1;
               if (this.typeKey === "VENOM") {
-                p.dotDps = dmgBase * 0.32;
+                p.dotDps = dmgBase * this.dotDpsMult;
                 p.dotDur = this.dotDur;
                 if (this.dotSlow) p.dotSlow = this.dotSlow;
               }
@@ -1979,7 +2065,8 @@
             // occasional freeze pulse
             if (this.freezePulse) {
               this._freezeCounter = (this._freezeCounter || 0) + 1;
-              if (this._freezeCounter % 6 === 0) {
+              const rate = this._freezePulseRate || 6;
+              if (this._freezeCounter % rate === 0) {
                 for (const e of game.enemies) {
                   if (e.hp <= 0 || e.echo) continue;
                   if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.75) * (this.range * 0.75)) {
@@ -2003,7 +2090,9 @@
 
             // damage ramp if enabled
             if (this.ramp) {
-              if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + 0.10, 1, 2.0);
+              const step = this._rampStep || 0.10;
+              const max = this._rampMax || 2.0;
+              if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + step, 1, max);
               else { this._rampId = target._id; this._ramp = 1; }
               dealt *= this._ramp;
             }
@@ -2061,6 +2150,7 @@
             p._isMortar = true;
             p._blast = this.blast;
             p._linger = !!this.lingering;
+            p._lingerDur = this._lingerDur || 2.2;
             p._cluster = !!this.cluster;
             p._blastSlow = this.blastSlow || null;
             p.owner = this;
@@ -2868,7 +2958,7 @@
       }
       selSub.textContent = turret.role;
 
-      const tierNames = ["Base", "I", "II", "III"];
+      const tierNames = ["Base", "I", "II", "III", "IV", "V"];
       const dps = turret.fire > 0 ? (turret.dmg / turret.fire) : turret.dmg * 12;
       const stats = [
         { k: "Damage", v: turret.dmg.toFixed(1) },
@@ -2882,7 +2972,7 @@
       `).join("");
 
       let upgradesHtml = "";
-      if (turret.level < 3) {
+      if (turret.level < 5) {
         const tierIdx = turret.level;
         const mods = turret.getTierOptions(tierIdx);
         upgradesHtml = `
@@ -2940,7 +3030,7 @@
     }
 
     applyUpgrade(turret, modIdx) {
-      if (!turret || turret.level >= 3) return;
+      if (!turret || turret.level >= 5) return;
       const cost = turret.getUpgradeCost(turret.level, modIdx);
       if (this.gold < cost) { toast("Not enough gold."); return; }
       const ok = turret.applyUpgrade(turret.level, modIdx, false);

@@ -372,10 +372,11 @@
    **********************/
   class Map {
     constructor(preset) {
-      this.preset = preset || MAP_PRESETS[0];
+      const fallback = MAP_PRESETS && MAP_PRESETS.length ? MAP_PRESETS[0] : null;
+      this.preset = (preset && preset.pathN && preset.islands) ? preset : fallback;
       // A stylized "orbit lane" path (polyline). Enemies follow this.
       // Coordinates are normalized (0..1) then scaled to canvas each frame.
-      this.pathN = this.preset.pathN;
+      this.pathN = this.preset ? this.preset.pathN : [];
 
       // Grid for placement (build tiles only). We mark a luminous "island" region.
       this.gridSize = 44;
@@ -390,8 +391,9 @@
     }
 
     setPreset(preset) {
-      this.preset = preset || MAP_PRESETS[0];
-      this.pathN = this.preset.pathN;
+      const fallback = MAP_PRESETS && MAP_PRESETS.length ? MAP_PRESETS[0] : null;
+      this.preset = (preset && preset.pathN && preset.islands) ? preset : fallback;
+      this.pathN = this.preset ? this.preset.pathN : [];
       this._rebuild();
     }
 
@@ -402,7 +404,11 @@
       this.cells = new Array(this.cols * this.rows).fill(0);
 
       // Mark buildable: two "ring gardens" around center-left and center-right.
-      const islands = this.preset.islands;
+      const islands = (this.preset && this.preset.islands) ? this.preset.islands : [
+        { cx: 0.33, cy: 0.52, rO: 0.26, rI: 0.12 },
+        { cx: 0.68, cy: 0.56, rO: 0.24, rI: 0.11 },
+        { cx: 0.52, cy: 0.30, rO: 0.18, rI: 0.08 },
+      ];
       const c1 = islands[0];
       const c2 = islands[1];
       const c3 = islands[2];
@@ -2642,10 +2648,12 @@
         const data = JSON.parse(raw);
         if (!data) return;
 
-        if (typeof data.mapIndex === "number") {
+        if (typeof data.mapIndex === "number" && Number.isFinite(data.mapIndex)) {
           this.mapIndex = clamp(data.mapIndex | 0, 0, MAP_PRESETS.length - 1);
-          this.map.setPreset(MAP_PRESETS[this.mapIndex]);
+        } else {
+          this.mapIndex = 0;
         }
+        this.map.setPreset(MAP_PRESETS[this.mapIndex]);
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;

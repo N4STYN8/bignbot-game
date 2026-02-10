@@ -439,7 +439,7 @@ body{
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   overflow:hidden;
-  transition: width .36s ease, box-shadow .36s ease, transform .36s ease;
+  transition: width .36s cubic-bezier(.22,.78,.22,1), box-shadow .36s ease, transform .36s ease;
   will-change: width;
 }
 

@@ -3098,6 +3098,11 @@
         if (!this.panelHold) return;
         this.panelHold[key] = Math.max(this.panelHold[key] || 0, seconds);
       };
+      const collapseIfIdle = (panel, key, inUse) => {
+        if (!panel || panel.classList.contains("pinned")) return;
+        if (this.panelHold[key] > 0) return;
+        panel.classList.toggle("collapsed", !inUse);
+      };
       const bindPanelHover = (panel, key) => {
         if (!panel) return;
         panel.addEventListener("mouseenter", () => {
@@ -3105,7 +3110,11 @@
           if (!panel.classList.contains("pinned")) panel.classList.remove("collapsed");
         });
         panel.addEventListener("mouseleave", () => {
-          holdPanel(key, 0.4);
+          holdPanel(key, 0.2);
+          setTimeout(() => {
+            const inUse = key === "left" ? !!this.buildKey : !!this.selectedTurret;
+            collapseIfIdle(panel, key, inUse);
+          }, 220);
         });
         panel.addEventListener("wheel", () => holdPanel(key, 1.5), { passive: true });
         panel.addEventListener("pointerdown", () => holdPanel(key, 1.5));

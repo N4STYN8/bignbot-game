@@ -2670,6 +2670,7 @@
             </div>
           </div>
         `;
+        item.title = `${t.name} — ${t.cost}g`;
         item.addEventListener("click", () => {
           this.buildKey = key;
           this.collapseEnabled = true;

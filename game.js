@@ -2733,6 +2733,38 @@
       }
     }
 
+    _resetRun() {
+      this.turrets = [];
+      this.enemies = [];
+      this.projectiles = [];
+      this.traps = [];
+      this.beams = [];
+      this.arcs = [];
+      this.cones = [];
+      this.lingering = [];
+
+      this.gold = START_GOLD;
+      this.lives = START_LIVES;
+      this.wave = 0;
+      this.hasStarted = false;
+      this.waveActive = false;
+      this.intermission = 0;
+      this.echoDebt = 0;
+      this.gameOver = false;
+      this.gameWon = false;
+
+      this.spawnQueue = [];
+      this.spawnIndex = 0;
+      this.spawnT = 0;
+      this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
+
+      this.buildKey = null;
+      this.selectedTurret = null;
+      this.hoverCell = null;
+      this._id = 1;
+      this.updateHUD();
+    }
+
     onEnemyKill(enemy) {
       // on-death effects
       if (enemy.onDeath && !enemy._noSplit) enemy.onDeath(this, enemy);
@@ -3143,34 +3175,3 @@
   }
   requestAnimationFrame(loop);
 })();
-    _resetRun() {
-      this.turrets = [];
-      this.enemies = [];
-      this.projectiles = [];
-      this.traps = [];
-      this.beams = [];
-      this.arcs = [];
-      this.cones = [];
-      this.lingering = [];
-
-      this.gold = START_GOLD;
-      this.lives = START_LIVES;
-      this.wave = 0;
-      this.hasStarted = false;
-      this.waveActive = false;
-      this.intermission = 0;
-      this.echoDebt = 0;
-      this.gameOver = false;
-      this.gameWon = false;
-
-      this.spawnQueue = [];
-      this.spawnIndex = 0;
-      this.spawnT = 0;
-      this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
-
-      this.buildKey = null;
-      this.selectedTurret = null;
-      this.hoverCell = null;
-      this._id = 1;
-      this.updateHUD();
-    }

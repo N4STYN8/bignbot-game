@@ -384,7 +384,6 @@ body{
 }
 .panel.collapsed .panelHint,
 .panel.collapsed .panelFooter,
-.panel.collapsed .buildList,
 .panel.collapsed .selectionBody{
   display:none;
 }
@@ -394,6 +393,27 @@ body{
 .panel.collapsed .panelTitle{
   writing-mode: vertical-rl;
   transform: rotate(180deg);
+}
+
+/* Collapsed build panel keeps icon picker */
+.panel.left.collapsed .buildList{
+  display:block;
+  padding:10px 8px;
+}
+.panel.left.collapsed .buildItem{
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:8px 6px;
+  margin-bottom:8px;
+}
+.panel.left.collapsed .buildMeta{
+  display:none;
+}
+.panel.left.collapsed .buildIcon{
+  width:36px;
+  height:36px;
+  border-radius: 12px;
 }
 .panelFooter{
   padding:12px 14px;

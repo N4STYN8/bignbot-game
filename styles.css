@@ -143,7 +143,20 @@ body{
   box-shadow: 0 10px 28px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
 }
-.pill .k{color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+.pill .k{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  display:inline-flex;
+  align-items:center;
+}
+.statIcon{
+  width:16px;
+  height:16px;
+  display:block;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+}
 .pill .v{font-family:var(--mono); font-size:14px}
 .pill .slash{opacity:.5; padding:0 4px}
 .pill.warn{border-color: rgba(255,207,91,.38)}

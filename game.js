@@ -1259,6 +1259,22 @@
       applyDamageToEnemy(this, amount, dmgType);
       // impact particles
       game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
+      const dmgText = Math.max(1, Math.floor(amount));
+      const dmgCol = dmgType === DAMAGE.ENGY ? "rgba(154,108,255,0.95)" :
+        dmgType === DAMAGE.CHEM ? "rgba(109,255,154,0.95)" :
+        dmgType === DAMAGE.TRUE ? "rgba(255,207,91,0.95)" :
+        "rgba(234,240,255,0.95)";
+      game.spawnText(this.x, this.y - 10, `-${dmgText}`, dmgCol, 0.6);
+      game.explosions.push({
+        x: this.x,
+        y: this.y,
+        r: 6,
+        t: 0.16,
+        dur: 0.16,
+        max: 22,
+        col: this.tint || "rgba(234,240,255,0.6)",
+        boom: false
+      });
       if (amount > this.maxHp * 0.2) {
         game.explosions.push({
           x: this.x,
@@ -1287,6 +1303,7 @@
       const next = clamp(pct * mul, 0, 0.85);
       this.slow = Math.max(this.slow, next);
       this.slowT = Math.max(this.slowT, dur);
+      this._game?.spawnText(this.x, this.y - 12, "SLOWED", "rgba(160,190,255,0.95)", 0.55);
     }
 
     applyDot(dps, dur) {
@@ -1294,6 +1311,7 @@
       const mul = this._dotDurMul || 1;
       const next = Math.max(0.2, dur * mul);
       this.dotT = Math.max(this.dotT, next);
+      this._game?.spawnText(this.x, this.y - 12, "BURN", "rgba(109,255,154,0.95)", 0.55);
     }
 
     reveal(dur) {
@@ -1640,8 +1658,12 @@
           if (this.markOnHit) {
             e._marked = Math.max(e._marked || 0, this.markOnHit);
             e._markedT = Math.max(e._markedT || 0, 1.4);
+            game.spawnText(e.x, e.y - 14, "MARKED", "rgba(154,108,255,0.95)", 0.55);
           }
-          if (this.stunChance && Math.random() < this.stunChance) e.applySlow(0.85, 0.35);
+          if (this.stunChance && Math.random() < this.stunChance) {
+            e.applySlow(0.85, 0.35);
+            game.spawnText(e.x, e.y - 14, "STUN", "rgba(255,207,91,0.95)", 0.55);
+          }
           if (this.revealOnHit) e.reveal(0.7);
 
           this.pierce--;

@@ -2572,6 +2572,11 @@
           if (action === "pin") {
             const pinned = panel.classList.toggle("pinned");
             btn.setAttribute("aria-pressed", pinned ? "true" : "false");
+            const state = panelState[panelKey];
+            if (pinned) {
+              state.manualCollapsed = false;
+              panel.classList.remove("collapsed");
+            }
           } else if (action === "toggle") {
             const state = panelState[panelKey];
             state.manualCollapsed = !state.manualCollapsed;

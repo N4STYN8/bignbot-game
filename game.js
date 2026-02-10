@@ -589,6 +589,36 @@
           gfx.strokeStyle = `rgba(154,108,255,${0.08 + pulse * 0.06})`;
           gfx.lineWidth = 1;
           gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+
+          // hologram scanlines (diagonal shimmer)
+          gfx.save();
+          gfx.globalAlpha = 0.16 + pulse * 0.08;
+          gfx.beginPath();
+          gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+          gfx.clip();
+          gfx.strokeStyle = "rgba(98,242,255,0.35)";
+          gfx.lineWidth = 1;
+          const step = 6;
+          const drift = (t * 22 + (gx + gy) * 3) % (this.gridSize * 2);
+          for (let s = -this.gridSize; s < this.gridSize * 2; s += step) {
+            gfx.beginPath();
+            gfx.moveTo(x + s + drift, y - 2);
+            gfx.lineTo(x + s + drift + this.gridSize, y + this.gridSize + 2);
+            gfx.stroke();
+          }
+          gfx.restore();
+
+          // occasional sparkle
+          const sparkle = Math.sin(t * 3.2 + gx * 12.989 + gy * 78.233);
+          if (sparkle > 0.996) {
+            gfx.save();
+            gfx.globalAlpha = 0.55;
+            gfx.fillStyle = "rgba(234,240,255,0.9)";
+            gfx.beginPath();
+            gfx.arc(x + this.gridSize * 0.5, y + this.gridSize * 0.35, 2.2, 0, Math.PI * 2);
+            gfx.fill();
+            gfx.restore();
+          }
         }
       }
       gfx.restore();
@@ -628,6 +658,26 @@
       for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
       gfx.stroke();
       gfx.restore();
+
+      // Flow-field lane energy ribbons
+      const ribbonCount = 18;
+      for (let i = 0; i < ribbonCount; i++) {
+        const prog = (t * 0.22 + i / ribbonCount) % 1;
+        const d = this.totalLen * prog;
+        const p = this.posAt(d);
+        const dx = Math.cos(p.ang);
+        const dy = Math.sin(p.ang);
+        const len = 26 + (i % 4) * 6;
+        gfx.save();
+        gfx.globalAlpha = 0.35;
+        gfx.strokeStyle = i % 2 ? "rgba(98,242,255,0.75)" : "rgba(154,108,255,0.65)";
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(p.x - dx * len, p.y - dy * len);
+        gfx.lineTo(p.x + dx * len, p.y + dy * len);
+        gfx.stroke();
+        gfx.restore();
+      }
 
       // traveling track streaks (aligned to path)
       const streakCount = 4;
@@ -680,6 +730,18 @@
 
       gfx.strokeStyle = "rgba(154,108,255,0.45)";
       gfx.beginPath(); gfx.arc(coreX, coreY, r + 8, 0, Math.PI * 2); gfx.stroke();
+
+      // gravity well swirl lines
+      gfx.globalAlpha = 0.35;
+      for (let i = 0; i < 3; i++) {
+        const ang = tCore * 0.6 + i * 2.1;
+        const rr = 26 + i * 8;
+        gfx.strokeStyle = "rgba(98,242,255,0.25)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.ellipse(coreX, coreY, rr * 1.4, rr * 0.85, ang, 0, Math.PI * 2);
+        gfx.stroke();
+      }
       gfx.restore();
     }
   }
@@ -3512,6 +3574,21 @@
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
       this.audio.play("leak");
+      const end = this.map.pathPts[this.map.pathPts.length - 1];
+      if (end) {
+        this.explosions.push({
+          x: end[0],
+          y: end[1],
+          r: 20,
+          t: 0.35,
+          dur: 0.35,
+          max: 120,
+          col: "rgba(98,242,255,0.85)",
+          boom: false
+        });
+        this.shakeT = Math.min(0.3, this.shakeT + 0.12);
+        this.shakeMag = Math.min(10, this.shakeMag + 2.0);
+      }
       if (this.lives <= 0) {
         this.lives = 0;
         this.gameOver = true;

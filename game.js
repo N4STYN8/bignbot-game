@@ -957,6 +957,17 @@
       amount -= s * 0.75; // a bit of “refraction”: still leaks some through
       if (wasShielded && enemy.shield <= 0) {
         enemy._game?.spawnText(enemy.x, enemy.y - 14, "SHIELD BREAK", "rgba(154,108,255,0.9)", 0.85);
+        enemy._game?.explosions.push({
+          x: enemy.x,
+          y: enemy.y,
+          r: 8,
+          t: 0.25,
+          dur: 0.25,
+          max: 52,
+          col: "rgba(154,108,255,0.9)",
+          boom: false
+        });
+        enemy._game?.particles.spawnDirectional(enemy.x, enemy.y, 10, rand(-1, 1), rand(-1, 1), "shard", "rgba(154,108,255,0.9)");
       }
     }
 
@@ -1133,6 +1144,19 @@
       applyDamageToEnemy(this, amount, dmgType);
       // impact particles
       game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
+      if (amount > this.maxHp * 0.2) {
+        game.explosions.push({
+          x: this.x,
+          y: this.y,
+          r: 10,
+          t: 0.22,
+          dur: 0.22,
+          max: 48,
+          col: this.tint || "rgba(255,207,91,0.85)",
+          boom: true
+        });
+        game.particles.spawn(this.x, this.y, 6, "boom", this.tint);
+      }
       game.audio?.playLimited("hit", 120);
       if (this.hp <= 0) {
         if (!this._dead) {
@@ -1306,6 +1330,26 @@
         this.list.push(p);
       }
     }
+    spawnDirectional(x, y, n, dirX, dirY, kind, tint) {
+      const len = Math.hypot(dirX, dirY) || 1;
+      const nx = dirX / len;
+      const ny = dirY / len;
+      for (let i = 0; i < n; i++) {
+        const spread = 0.45;
+        const jitterX = nx + rand(-spread, spread);
+        const jitterY = ny + rand(-spread, spread);
+        const vlen = 60 + rand(0, 90);
+        this.list.push({
+          x, y,
+          vx: jitterX * vlen,
+          vy: jitterY * vlen,
+          r: rand(1.2, 3.2),
+          t: rand(0.22, 0.65),
+          kind,
+          tint: tint || null
+        });
+      }
+    }
     update(dt) {
       for (let i = this.list.length - 1; i >= 0; i--) {
         const p = this.list[i];
@@ -1324,6 +1368,9 @@
         if (p.kind === "hit") {
           gfx.globalAlpha = a * 0.75;
           gfx.fillStyle = p.tint || "rgba(234,240,255,0.8)";
+        } else if (p.kind === "shard") {
+          gfx.globalAlpha = a * 0.85;
+          gfx.fillStyle = p.tint || "rgba(154,108,255,0.9)";
         } else if (p.kind === "chem") {
           gfx.globalAlpha = a * 0.55;
           gfx.fillStyle = "rgba(109,255,154,0.7)";
@@ -1418,6 +1465,16 @@
         });
       }
 
+      if (this.style === "mortar") {
+        game.decals.push({
+          x: cx,
+          y: cy,
+          r: r * 0.55,
+          t: 2.6,
+          col: "rgba(20,12,8,0.55)"
+        });
+      }
+
       game.particles.spawn(cx, cy, 14, "boom");
       this.ttl = 0;
     }
@@ -1425,6 +1482,10 @@
       this.ttl -= dt;
       this.x += this.vx * dt;
       this.y += this.vy * dt;
+
+      if (this.style === "mortar") {
+        game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "chem", "rgba(200,210,240,0.45)");
+      }
 
       // out of bounds
       if (this.x < -80 || this.y < -80 || this.x > W + 80 || this.y > H + 80) this.ttl = 0;
@@ -1469,7 +1530,9 @@
           if (this.revealOnHit) e.reveal(0.7);
 
           this.pierce--;
-          game.particles.spawn(this.x, this.y, 2, "hit", "rgba(234,240,255,0.65)");
+          const dirX = -this.vx;
+          const dirY = -this.vy;
+          game.particles.spawnDirectional(this.x, this.y, 4, dirX, dirY, "hit", "rgba(234,240,255,0.65)");
           if (this.pierce <= 0) {
             this.ttl = 0;
             break;
@@ -2682,7 +2745,9 @@
       this.explosions = [];
       this.shakeT = 0;
       this.shakeMag = 0;
+      this.damageFlash = 0;
       this.floatText = [];
+      this.decals = [];
       this.turrets = [];
       this.enemies = [];
       this.projectiles = [];
@@ -2692,6 +2757,7 @@
       this.cones = [];
       this.lingering = [];
       this.floatText = [];
+      this.decals = [];
 
       this.speed = 1;
       this.gold = START_GOLD;
@@ -3549,6 +3615,7 @@
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
       this.audio.play("leak");
+      this.damageFlash = Math.max(this.damageFlash, 0.45);
       const end = this.map.pathPts[this.map.pathPts.length - 1];
       if (end) {
         this.explosions.push({
@@ -3561,8 +3628,8 @@
           col: "rgba(98,242,255,0.85)",
           boom: false
         });
-        this.shakeT = Math.min(0.3, this.shakeT + 0.12);
-        this.shakeMag = Math.min(10, this.shakeMag + 2.0);
+        this.shakeT = Math.min(0.25, this.shakeT + 0.08);
+        this.shakeMag = Math.min(6, this.shakeMag + 1.2);
       }
       if (this.lives <= 0) {
         this.lives = 0;
@@ -3774,6 +3841,9 @@
         this.shakeT = Math.max(0, this.shakeT - dt);
         if (this.shakeT === 0) this.shakeMag = 0;
       }
+      if (this.damageFlash > 0) {
+        this.damageFlash = Math.max(0, this.damageFlash - dtScaled * 1.8);
+      }
       if (this.skipBuff.t > 0) {
         this.skipBuff.t = Math.max(0, this.skipBuff.t - dtScaled);
         if (this.skipBuff.t <= 0) {
@@ -3793,7 +3863,11 @@
         while (this.spawnIndex < this.spawnQueue.length && this.spawnT >= this.spawnQueue[this.spawnIndex].t) {
           const s = this.spawnQueue[this.spawnIndex++];
           let spawned = null;
-          if (s.miniboss) toast("MINIBOSS INBOUND");
+          if (s.miniboss) {
+            toast("MINIBOSS INBOUND");
+            this.shakeT = Math.min(0.18, this.shakeT + 0.06);
+            this.shakeMag = Math.min(4, this.shakeMag + 0.8);
+          }
           spawned = this.spawnEnemy(s.type, 0, s.scalar, s.eliteTag || null);
           if (s.miniboss && spawned) {
             this.spawnText(spawned.x, spawned.y - 20, "MINIBOSS", "rgba(98,242,255,0.95)", 1.0);
@@ -3923,6 +3997,7 @@
       decay(this.arcs);
       decay(this.cones);
       decay(this.explosions);
+      decay(this.decals);
 
       this.particles.update(dtScaled);
       for (let i = this.floatText.length - 1; i >= 0; i--) {
@@ -4025,20 +4100,35 @@
         gfx.moveTo(a.ax, a.ay);
         gfx.lineTo(a.bx, a.by);
         gfx.stroke();
+
+        // faint branching
+        gfx.globalAlpha = 0.35;
+        gfx.lineWidth = 1.5;
+        const mx = (a.ax + a.bx) * 0.5 + rand(-14, 14);
+        const my = (a.ay + a.by) * 0.5 + rand(-14, 14);
+        gfx.beginPath();
+        gfx.moveTo(a.ax, a.ay);
+        gfx.quadraticCurveTo(mx, my, a.bx, a.by);
+        gfx.stroke();
         gfx.restore();
       }
 
-      // beams
+      // beams (multi-pass heat distortion)
       for (const b of this.beams) {
-        gfx.save();
-        gfx.globalAlpha = 0.7;
-        gfx.strokeStyle = b.col || "rgba(98,242,255,0.85)";
-        gfx.lineWidth = 2.5;
-        gfx.beginPath();
-        gfx.moveTo(b.ax, b.ay);
-        gfx.lineTo(b.bx, b.by);
-        gfx.stroke();
-        gfx.restore();
+        for (let i = 0; i < 3; i++) {
+          const off = (i - 1) * 1.6;
+          const jx = rand(-0.6, 0.6);
+          const jy = rand(-0.6, 0.6);
+          gfx.save();
+          gfx.globalAlpha = i === 0 ? 0.75 : (i === 1 ? 0.45 : 0.25);
+          gfx.strokeStyle = b.col || "rgba(98,242,255,0.85)";
+          gfx.lineWidth = i === 0 ? 2.6 : 1.8;
+          gfx.beginPath();
+          gfx.moveTo(b.ax + off + jx, b.ay + off + jy);
+          gfx.lineTo(b.bx + off + jx, b.by + off + jy);
+          gfx.stroke();
+          gfx.restore();
+        }
       }
 
       // explosions
@@ -4073,6 +4163,18 @@
         gfx.restore();
       }
 
+      // impact decals
+      for (const d of this.decals) {
+        gfx.save();
+        const a = clamp(d.t / 2.6, 0, 1);
+        gfx.globalAlpha = 0.25 * a;
+        gfx.fillStyle = d.col;
+        gfx.beginPath();
+        gfx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        gfx.fill();
+        gfx.restore();
+      }
+
       this.particles.draw(gfx);
 
       if (this.paused && !this.gameOver && !this.gameWon) {
@@ -4083,6 +4185,13 @@
         gfx.font = "700 28px sans-serif";
         gfx.textAlign = "center";
         gfx.fillText("PAUSED", W / 2, H / 2);
+        gfx.restore();
+      }
+      if (this.damageFlash > 0) {
+        gfx.save();
+        gfx.globalAlpha = this.damageFlash * 0.35;
+        gfx.fillStyle = "rgba(255,91,125,0.85)";
+        gfx.fillRect(0, 0, W, H);
         gfx.restore();
       }
       if (this.shakeT > 0) gfx.restore();

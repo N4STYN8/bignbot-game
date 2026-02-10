@@ -3166,6 +3166,10 @@
         item.addEventListener("click", () => {
           this.buildKey = key;
           this.collapseEnabled = true;
+          if (leftPanel && !leftPanel.classList.contains("pinned")) {
+            this.panelHold.left = Math.max(this.panelHold.left || 0, 0.2);
+            leftPanel.classList.add("collapsed");
+          }
           [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
           item.classList.add("selected");
         });

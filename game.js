@@ -554,22 +554,7 @@
       }
       gfx.restore();
 
-      // light rays on grid (random sweep)
       const t = performance.now() * 0.001;
-      for (let i = 0; i < 3; i++) {
-        const gx = (t * 22 + i * 120) % (W + 120) - 60;
-        gfx.save();
-        gfx.globalAlpha = 0.08;
-        gfx.fillStyle = "rgba(98,242,255,0.22)";
-        gfx.beginPath();
-        gfx.moveTo(gx, 0);
-        gfx.lineTo(gx + 60, 0);
-        gfx.lineTo(gx + 10, H);
-        gfx.lineTo(gx - 50, H);
-        gfx.closePath();
-        gfx.fill();
-        gfx.restore();
-      }
 
       // Buildable tile glow
       gfx.save();
@@ -608,17 +593,7 @@
           }
           gfx.restore();
 
-          // occasional sparkle
-          const sparkle = Math.sin(t * 2.4 + gx * 12.989 + gy * 78.233);
-          if (sparkle > 0.999) {
-            gfx.save();
-            gfx.globalAlpha = 0.55;
-            gfx.fillStyle = "rgba(234,240,255,0.9)";
-            gfx.beginPath();
-            gfx.arc(x + this.gridSize * 0.5, y + this.gridSize * 0.35, 2.2, 0, Math.PI * 2);
-            gfx.fill();
-            gfx.restore();
-          }
+          // sparkle removed (too busy)
         }
       }
       gfx.restore();

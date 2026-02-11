@@ -3181,7 +3181,12 @@
         }
         if (hoveredTurret) {
           const dps = hoveredTurret.fire > 0 ? (hoveredTurret.dmg / hoveredTurret.fire) : hoveredTurret.dmg * 12;
-          const tip = `${hoveredTurret.name} Lv ${hoveredTurret.level} | DMG ${hoveredTurret.dmg.toFixed(1)} | Fire ${hoveredTurret.fire.toFixed(2)}s | Range ${hoveredTurret.range.toFixed(0)} | DPS ${dps.toFixed(1)}`;
+          const active = [];
+          if (hoveredTurret.pulseBoostT > 0) active.push("Pulse Burst");
+          if (this.globalOverchargeT > 0) active.push("Overcharge");
+          if (hoveredTurret.boosted) active.push("Power Tile");
+          const activeTxt = active.length ? ` | Active: ${active.join(", ")}` : "";
+          const tip = `${hoveredTurret.name} Lv ${hoveredTurret.level} | DMG ${hoveredTurret.dmg.toFixed(1)} | Fire ${hoveredTurret.fire.toFixed(2)}s | Range ${hoveredTurret.range.toFixed(0)} | DPS ${dps.toFixed(1)}${activeTxt}`;
           showTooltip(tip, ev.clientX + 12, ev.clientY + 12);
         } else if (this.hoverCell && this.hoverCell.v === 3) {
           showTooltip("Power Tile: +25% damage, +15% range", ev.clientX + 12, ev.clientY + 12);

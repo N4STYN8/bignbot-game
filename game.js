@@ -3535,7 +3535,7 @@
       if (goldEl) {
         goldEl.style.color = this.gold < 45 ? "var(--bad)" : "var(--good)";
       }
-      if (selectionBody && this.selectedTurret) {
+      if (selectionBody) {
         selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
           let cost = Number(btn.dataset.cost || "0");
           if (!cost) {

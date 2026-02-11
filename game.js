@@ -2317,7 +2317,10 @@
     update(game, dt) {
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 5.0);
-      if (this.pulseBoostT > 0) this.pulseBoostT = Math.max(0, this.pulseBoostT - dt);
+      if (this.pulseBoostT > 0) {
+        const realDt = game._realDt || dt;
+        this.pulseBoostT = Math.max(0, this.pulseBoostT - realDt);
+      }
       const pulseMul = this.pulseBoostT > 0 ? 1.5 : 1;
       const globalMul = game.globalOverchargeT > 0 ? 1.35 : 1;
 
@@ -4420,6 +4423,7 @@
         return;
       }
 
+      this._realDt = dt;
       const dtScaled = dt * this.speed;
       if (this.shakeT > 0) {
         this.shakeT = Math.max(0, this.shakeT - dt);
@@ -4441,11 +4445,11 @@
       }
       if (this.abilities) {
         for (const a of Object.values(this.abilities)) {
-          if (a.t > 0) a.t = Math.max(0, a.t - dtScaled);
+          if (a.t > 0) a.t = Math.max(0, a.t - dt);
         }
       }
       if (this.globalOverchargeT > 0) {
-        this.globalOverchargeT = Math.max(0, this.globalOverchargeT - dtScaled);
+        this.globalOverchargeT = Math.max(0, this.globalOverchargeT - dt);
       }
 
       // wave logic

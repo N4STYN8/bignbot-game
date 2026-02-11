@@ -161,6 +161,9 @@ body{
 .pill .slash{opacity:.5; padding:0 4px}
 .pill.warn{border-color: rgba(255,207,91,.38)}
 .pill.warn .v{color: var(--warn)}
+.value-low{color: var(--bad)}
+.value-mid{color: var(--warn)}
+.value-high{color: var(--good)}
 .anomalyBar{
   pointer-events:none;
   position:absolute;

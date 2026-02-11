@@ -95,6 +95,9 @@
   const AUDIO_KEY = "orbit_echo_audio_v1";
   const START_GOLD = 330;
   const START_LIVES = 20;
+  const GOLD_LOW = 50;
+  const GOLD_MID = 100;
+  const GOLD_HIGH = 300;
 
   const MAP_PRESETS = [
     {
@@ -3200,6 +3203,16 @@
 
     updateHUD() {
       goldEl.textContent = fmt(this.gold);
+      if (goldEl) {
+        goldEl.classList.remove("value-low", "value-mid", "value-high");
+        if (this.gold < GOLD_LOW) {
+          goldEl.classList.add("value-low");
+        } else if (this.gold >= GOLD_HIGH) {
+          goldEl.classList.add("value-high");
+        } else if (this.gold >= GOLD_MID) {
+          goldEl.classList.add("value-mid");
+        }
+      }
       livesEl.textContent = String(this.lives);
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
@@ -3490,13 +3503,13 @@
       const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.90 : wave === 3 ? 0.96 : 1;
       const earlySpd = wave === 1 ? 0.90 : wave === 2 ? 0.95 : 1;
       const late = Math.max(0, wave - 8);
-      const latePow = Math.pow(late, 1.08) * 0.012;
+      const latePow = Math.pow(late, 1.12) * 0.016;
       return {
-        hp: (1 + i * 0.085 + latePow) * earlyHp,
-        spd: (1 + i * 0.011) * earlySpd,
-        armor: i * 0.0045 + Math.max(0, wave - 12) * 0.002,
-        shield: 1 + i * 0.05 + Math.max(0, wave - 10) * 0.01,
-        regen: 1 + i * 0.03 + Math.max(0, wave - 12) * 0.01,
+        hp: (1 + i * 0.09 + latePow) * earlyHp,
+        spd: (1 + i * 0.012) * earlySpd,
+        armor: i * 0.0048 + Math.max(0, wave - 12) * 0.0035,
+        shield: 1 + i * 0.055 + Math.max(0, wave - 12) * 0.015,
+        regen: 1 + i * 0.035 + Math.max(0, wave - 12) * 0.015,
         reward: 1 + i * 0.05
       };
     }
@@ -3507,12 +3520,12 @@
         : (wave === 2 ? 8
         : (wave === 3 ? 10
         : (wave === 4 ? 12
-        : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6))));
+        : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6 + Math.max(0, i - 15) * 0.85))));
       const spacing = (wave === 1) ? 0.95
         : (wave === 2 ? 0.88
         : (wave === 3 ? 0.82
         : (wave === 4 ? 0.76
-        : Math.max(0.28, 0.66 - i * 0.012))));
+        : Math.max(0.24, 0.66 - i * 0.013))));
       const spawns = [];
 
       const types = ["RUNNER", "BRUTE"];
@@ -3550,7 +3563,7 @@
         const t = n * spacing + rand(-0.15, 0.15);
         let eliteTag = null;
         if (wave >= 7) {
-          const eliteChance = Math.min(0.22, 0.10 + (wave - 7) * 0.01);
+          const eliteChance = Math.min(0.30, 0.10 + (wave - 7) * 0.012);
           if (Math.random() < eliteChance) {
             eliteTag = pick(["HARDENED", "VOLATILE", "PHASELINK"]);
           }

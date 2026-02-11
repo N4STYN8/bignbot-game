@@ -3304,7 +3304,7 @@
         ? dmgEntries.map(d => `<div class="tiny">${d.k}: ${fmt(d.v)}</div>`).join("")
         : `<div class="tiny">No damage data.</div>`;
 
-      const banner = mode === "pause" ? `<div class="pauseBanner">Paused</div>` : "";
+      const banner = mode === "pause" ? `<div class="pauseBanner">Pause</div>` : "";
       if (waveStatsBody) {
         waveStatsBody.innerHTML = `
           ${banner}

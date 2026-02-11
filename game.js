@@ -3064,6 +3064,21 @@
         this.audio.play("skip");
         this._save();
       });
+      startBtn.addEventListener("pointerenter", (ev) => {
+        if (!startBtn || startBtn.disabled) return;
+        const msg = this.hasStarted
+          ? "Skip for gold bonus and -15s ability cooldowns"
+          : "Start wave";
+        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+      });
+      startBtn.addEventListener("pointermove", (ev) => {
+        if (!startBtn || startBtn.disabled) return;
+        const msg = this.hasStarted
+          ? "Skip for gold bonus and -15s ability cooldowns"
+          : "Start wave";
+        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+      });
+      startBtn.addEventListener("pointerleave", () => hideTooltip());
 
       abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
       abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
@@ -3566,9 +3581,6 @@
 
       startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
       startBtn.textContent = this.hasStarted ? "SKIP" : "START";
-      if (startBtn) {
-        startBtn.title = this.hasStarted ? "Skip for gold bonus and -15s ability cooldowns" : "Start wave";
-      }
 
       if (this.abilities && abilityScanCd) {
         const scan = this.abilities.scan;

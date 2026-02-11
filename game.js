@@ -112,8 +112,8 @@
   const GOLD_MID = 100;
   const GOLD_HIGH = 300;
   const LIFE_RED_MAX = 10;
-  const LIFE_YELLOW_MAX = 15;
-  const LIFE_GREEN_MIN = 30;
+  const LIFE_YELLOW_MAX = 20;
+  const LIFE_GREEN_MIN = 21;
   const LIFE_COLORS = {
     red: [255, 91, 125],
     redDark: [170, 42, 70],
@@ -3432,19 +3432,13 @@
       if (livesEl) {
         let col;
         if (this.lives <= LIFE_RED_MAX) {
-          const t = this.lives / LIFE_RED_MAX;
-          col = lerpColor(LIFE_COLORS.redDark, LIFE_COLORS.red, t);
+          col = LIFE_COLORS.red;
         } else if (this.lives <= LIFE_YELLOW_MAX) {
-          const t = (this.lives - LIFE_RED_MAX) / (LIFE_YELLOW_MAX - LIFE_RED_MAX);
-          col = lerpColor(LIFE_COLORS.red, LIFE_COLORS.yellow, t);
-        } else if (this.lives >= LIFE_GREEN_MIN) {
-          const t = Math.min(1, (this.lives - LIFE_GREEN_MIN) / 10);
-          col = lerpColor(LIFE_COLORS.yellow, LIFE_COLORS.green, t);
+          col = LIFE_COLORS.yellow;
         } else {
-          const t = (this.lives - LIFE_YELLOW_MAX) / (LIFE_GREEN_MIN - LIFE_YELLOW_MAX);
-          col = lerpColor(LIFE_COLORS.yellow, LIFE_COLORS.green, t);
+          col = LIFE_COLORS.green;
         }
-        livesEl.style.color = col;
+        livesEl.style.color = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
       }
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);

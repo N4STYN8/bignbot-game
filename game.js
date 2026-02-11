@@ -2949,6 +2949,7 @@
       this._id = 1;
       this.collapseEnabled = false;
       this.panelHold = { left: 0, right: 0 };
+      this.panelHover = { left: false, right: false };
 
       this.audio.loadPref();
       this._load();
@@ -3108,16 +3109,19 @@
       };
       const collapseIfIdle = (panel, key, inUse) => {
         if (!panel || panel.classList.contains("pinned")) return;
+        if (this.panelHover?.[key]) return;
         if (this.panelHold[key] > 0) return;
         panel.classList.toggle("collapsed", !inUse);
       };
       const bindPanelHover = (panel, key) => {
         if (!panel) return;
         panel.addEventListener("mouseenter", () => {
+          if (this.panelHover) this.panelHover[key] = true;
           holdPanel(key, 1.5);
           if (!panel.classList.contains("pinned")) panel.classList.remove("collapsed");
         });
         panel.addEventListener("mouseleave", () => {
+          if (this.panelHover) this.panelHover[key] = false;
           holdPanel(key, 0.2);
           setTimeout(() => {
             const inUse = key === "left" ? !!this.buildKey : !!this.selectedTurret;
@@ -3204,12 +3208,12 @@
       if (this.collapseEnabled) {
         // Keep panels open briefly while interacting to reduce jank.
         if (leftPanel && !leftPanel.classList.contains("pinned")) {
-          if (this.panelHold.left <= 0) {
+          if (this.panelHold.left <= 0 && !this.panelHover?.left) {
             leftPanel.classList.toggle("collapsed", !this.buildKey);
           }
         }
         if (rightPanel && !rightPanel.classList.contains("pinned")) {
-          if (this.panelHold.right <= 0) {
+          if (this.panelHold.right <= 0 && !this.panelHover?.right) {
             rightPanel.classList.toggle("collapsed", !this.selectedTurret);
           }
         }

@@ -3672,27 +3672,27 @@
       const late = Math.max(0, wave - 8);
       const latePow = Math.pow(late, 1.12) * 0.016;
       return {
-        hp: (1 + i * 0.09 + latePow) * earlyHp,
-        spd: (1 + i * 0.012) * earlySpd,
-        armor: i * 0.0048 + Math.max(0, wave - 12) * 0.0035,
-        shield: 1 + i * 0.055 + Math.max(0, wave - 12) * 0.015,
-        regen: 1 + i * 0.035 + Math.max(0, wave - 12) * 0.015,
+        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.18,
+        spd: (1 + i * 0.012) * earlySpd * 1.06,
+        armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.2,
+        shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.12,
+        regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.12,
         reward: 1 + i * 0.05
       };
     }
 
     _buildWave(wave, scalar) {
       const i = wave;
-      const baseCount = (wave === 1) ? 6
+      const baseCount = Math.round(((wave === 1) ? 6
         : (wave === 2 ? 8
         : (wave === 3 ? 10
         : (wave === 4 ? 12
-        : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6 + Math.max(0, i - 15) * 0.85))));
+        : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6 + Math.max(0, i - 15) * 0.85))))) * 1.2);
       const spacing = (wave === 1) ? 0.95
         : (wave === 2 ? 0.88
         : (wave === 3 ? 0.82
         : (wave === 4 ? 0.76
-        : Math.max(0.24, 0.66 - i * 0.013))));
+        : Math.max(0.22, (0.66 - i * 0.013) * 0.9))));
       const spawns = [];
 
       const types = ["RUNNER", "BRUTE"];

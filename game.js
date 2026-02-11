@@ -2731,12 +2731,30 @@
       if (game && game.globalOverchargeT > 0) {
         const pulse = 0.6 + 0.4 * Math.sin(t * 4 + this.x * 0.02 + this.y * 0.02);
         gfx.save();
-        const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 46 + pulse * 8);
-        g.addColorStop(0, "rgba(255,207,91,0.35)");
+        const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 64 + pulse * 12);
+        g.addColorStop(0, "rgba(255,207,91,0.65)");
         g.addColorStop(1, "rgba(0,0,0,0)");
-        gfx.globalAlpha = 0.45 * pulse;
+        gfx.globalAlpha = 0.85 * pulse;
         gfx.fillStyle = g;
-        gfx.beginPath(); gfx.arc(this.x, this.y, 46 + pulse * 8, 0, Math.PI * 2); gfx.fill();
+        gfx.beginPath(); gfx.arc(this.x, this.y, 64 + pulse * 12, 0, Math.PI * 2); gfx.fill();
+        gfx.strokeStyle = "rgba(255,207,91,0.85)";
+        gfx.lineWidth = 2;
+        gfx.beginPath(); gfx.arc(this.x, this.y, 40 + pulse * 6, 0, Math.PI * 2); gfx.stroke();
+        gfx.restore();
+      }
+
+      if (this.pulseBoostT > 0) {
+        const p2 = 0.6 + 0.4 * Math.sin(t * 5 + this.x * 0.03 + this.y * 0.03);
+        gfx.save();
+        const g2 = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 52 + p2 * 10);
+        g2.addColorStop(0, "rgba(154,108,255,0.6)");
+        g2.addColorStop(1, "rgba(0,0,0,0)");
+        gfx.globalAlpha = 0.75 * p2;
+        gfx.fillStyle = g2;
+        gfx.beginPath(); gfx.arc(this.x, this.y, 52 + p2 * 10, 0, Math.PI * 2); gfx.fill();
+        gfx.strokeStyle = "rgba(154,108,255,0.85)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath(); gfx.arc(this.x, this.y, 32 + p2 * 5, 0, Math.PI * 2); gfx.stroke();
         gfx.restore();
       }
 

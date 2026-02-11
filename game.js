@@ -3526,14 +3526,7 @@
     updateHUD() {
       goldEl.textContent = fmt(this.gold);
       if (goldEl) {
-        goldEl.classList.remove("value-low", "value-mid", "value-high");
-        if (this.gold < GOLD_LOW) {
-          goldEl.classList.add("value-low");
-        } else if (this.gold >= GOLD_HIGH) {
-          goldEl.classList.add("value-high");
-        } else if (this.gold >= GOLD_MID) {
-          goldEl.classList.add("value-mid");
-        }
+        goldEl.style.color = this.gold < 55 ? "var(--bad)" : "var(--good)";
       }
       livesEl.textContent = String(this.lives);
       if (livesEl) {

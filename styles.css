@@ -158,8 +158,8 @@ body{
   align-items:center;
 }
 .statIcon{
-  width:16px;
-  height:16px;
+  width:20px;
+  height:20px;
   display:block;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
 }

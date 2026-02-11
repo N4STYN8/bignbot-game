@@ -32,52 +32,7 @@ body{
   font-family:var(--sans);
 }
 
-.layout{display:flex; width:100%; height:100%;}
-.leftHud{
-  width:260px;
-  min-width:220px;
-  display:flex;
-  flex-direction:column;
-  gap:16px;
-  padding:16px 14px;
-  background: linear-gradient(180deg, rgba(8,12,26,0.95), rgba(8,12,26,0.78));
-  border-right:1px solid rgba(28,42,90,.9);
-  box-shadow: 10px 0 30px rgba(0,0,0,.35);
-  z-index:5;
-  overflow:auto;
-}
-.hudBrand{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  align-items:flex-start;
-}
-.hudLogo{
-  width:140px;
-  height:auto;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
-}
-.hudTitle{
-  font-size:12px;
-  letter-spacing:.18em;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-.hudSection{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-.hudBtn{
-  width:100%;
-  padding:12px 14px;
-  font-size:12px;
-  letter-spacing:.08em;
-}
-.hudStats .pill{
-  width:100%;
-  justify-content:space-between;
-}
+.layout{display:block; width:100%; height:100%;}
 .gameWrap{
   position:relative;
   flex:1;
@@ -132,7 +87,7 @@ body{
   pointer-events:none;
   display:flex;
   gap:18px;
-  align-items:flex-start;
+  align-items:center;
   flex-wrap:wrap;
   padding:14px 14px 10px 14px;
 }
@@ -368,6 +323,11 @@ body{
   align-items:center;
   gap:8px;
   padding-right:14px;
+}
+.settingsSection .audioBtn{
+  width:100%;
+  justify-content:center;
+  margin-bottom:10px;
 }
 .audioSliders{
   display:flex;
@@ -1106,6 +1066,5 @@ body{
 }
 
 @media (max-width: 960px){
-  .leftHud{width:210px; padding:12px 10px;}
-  .hudBtn{padding:10px 12px;}
+  .topbar{gap:12px;}
 }

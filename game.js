@@ -112,7 +112,7 @@
   const GOLD_MID = 100;
   const GOLD_HIGH = 300;
   const LIFE_RED_MAX = 10;
-  const LIFE_YELLOW_MAX = 20;
+  const LIFE_YELLOW_MAX = 15;
   const LIFE_GREEN_MIN = 30;
   const LIFE_COLORS = {
     red: [255, 91, 125],

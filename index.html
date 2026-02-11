@@ -9,37 +9,6 @@
 </head>
 <body>
   <div id="app" class="layout">
-    <aside id="leftHud" class="leftHud" aria-label="Game HUD">
-      <div class="hudBrand">
-        <img class="hudLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
-        <div class="hudTitle">Orbit Echo</div>
-      </div>
-
-      <div class="hudSection">
-        <button id="startBtn" class="btn primary hudBtn">START</button>
-        <button id="pauseBtn" class="btn ghost hudBtn">PAUSE</button>
-        <button id="helpBtn" class="btn ghost hudBtn">HELP</button>
-        <button id="speedBtn" class="btn ghost hudBtn">SPEED: 1�</button>
-        <button id="audioBtn" class="btn ghost hudBtn audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: ON</span></button>
-        <button id="resetBtn" class="btn danger hudBtn">RESET</button>
-      </div>
-
-      <div class="hudSection hudStats">
-        <div class="pill">
-          <span class="k"><img class="statIcon" src="assets/images/coin.png" alt="Gold"></span>
-          <span id="gold" class="v">0</span>
-        </div>
-        <div class="pill">
-          <span class="k"><img class="statIcon" src="assets/images/lives.png" alt="Lives"></span>
-          <span id="lives" class="v">0</span>
-        </div>
-        <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
-        <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">�</span></div>
-        <div class="pill"><span class="k">Echo</span> <span id="echoDebt" class="v">�</span></div>
-        <div class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">�</span></div>
-      </div>
-    </aside>
-
     <div id="gameWrap" class="gameWrap">
       <canvas id="game"></canvas>
       <div class="screenFx" aria-hidden="true"></div>
@@ -47,6 +16,35 @@
 
       <!-- HUD -->
       <div id="hud">
+        <div class="topbar">
+          <div class="brand" aria-label="Orbit Echo">
+            <img class="topLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+          </div>
+
+          <div class="statRow">
+            <div class="pill">
+              <span class="k"><img class="statIcon" src="assets/images/coin.png" alt="Gold"></span>
+              <span id="gold" class="v">0</span>
+            </div>
+            <div class="pill">
+              <span class="k"><img class="statIcon" src="assets/images/lives.png" alt="Lives"></span>
+              <span id="lives" class="v">0</span>
+            </div>
+            <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
+            <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
+            <div class="pill"><span class="k">Echo</span> <span id="echoDebt" class="v">—</span></div>
+            <div id="anomalyPill" class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">—</span></div>
+          </div>
+
+          <div class="controls">
+            <button id="startBtn" class="btn primary">START</button>
+            <button id="pauseBtn" class="btn ghost">PAUSE</button>
+            <button id="helpBtn" class="btn ghost">HELP</button>
+            <button id="speedBtn" class="btn ghost">SPEED: 1×</button>
+            <button id="resetBtn" class="btn danger">RESET</button>
+          </div>
+        </div>
+
         <div id="abilitiesBar" class="abilitiesBar">
           <div class="abilitiesTitle">Abilities</div>
           <div class="abilitiesRow">
@@ -206,6 +204,7 @@
       <div class="modalBody settingsBody">
         <div class="settingsSection">
           <div class="settingsLabel">Audio</div>
+          <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: ON</span></button>
           <div class="audioSliders">
             <label class="audioCtl">
               <span>Music</span>

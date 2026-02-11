@@ -4267,6 +4267,21 @@
     }
 
     onClick(x, y) {
+      // select turret if clicked
+      let clickedTurret = null;
+      for (const t of this.turrets) {
+        if (dist2(x, y, t.x, t.y) <= 16 * 16) {
+          clickedTurret = t;
+          break;
+        }
+      }
+      if (clickedTurret) {
+        this.selectTurret(clickedTurret);
+        this.collapseEnabled = true;
+        if (this.buildKey) this.clearBuildMode();
+        return;
+      }
+
       if (this.buildKey) {
         if (this.isPaused()) {
           toast("Cannot build while paused.");
@@ -4294,20 +4309,6 @@
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");
         this._save();
-        return;
-      }
-
-      // select turret if clicked
-      let clickedTurret = null;
-      for (const t of this.turrets) {
-        if (dist2(x, y, t.x, t.y) <= 16 * 16) {
-          clickedTurret = t;
-          break;
-        }
-      }
-      if (clickedTurret) {
-        this.selectTurret(clickedTurret);
-        this.collapseEnabled = true;
         return;
       }
 

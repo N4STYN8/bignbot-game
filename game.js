@@ -3814,7 +3814,7 @@
         armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.2,
         shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.12,
         regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.12,
-        reward: 1 + i * 0.05
+        reward: (1 + i * 0.05) * 1.15
       };
     }
 

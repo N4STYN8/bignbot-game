@@ -122,6 +122,7 @@
     green: [109, 255, 154]
   };
   const ABILITY_COOLDOWN = 90;
+  const OVERCHARGE_COOLDOWN = 180;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -2709,7 +2710,7 @@
       }
     }
 
-    draw(gfx, selected = false) {
+    draw(gfx, selected = false, game = null) {
       const t = performance.now() * 0.001;
       const colMap = {
         PULSE: "rgba(98,242,255,0.9)",
@@ -2725,6 +2726,18 @@
       };
       const baseCol = colMap[this.typeKey] || "rgba(234,240,255,0.9)";
       const col = this.boosted ? "rgba(255,207,91,0.95)" : baseCol;
+
+      if (game && game.globalOverchargeT > 0) {
+        const pulse = 0.6 + 0.4 * Math.sin(t * 4 + this.x * 0.02 + this.y * 0.02);
+        gfx.save();
+        const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 46 + pulse * 8);
+        g.addColorStop(0, "rgba(255,207,91,0.35)");
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        gfx.globalAlpha = 0.45 * pulse;
+        gfx.fillStyle = g;
+        gfx.beginPath(); gfx.arc(this.x, this.y, 46 + pulse * 8, 0, Math.PI * 2); gfx.fill();
+        gfx.restore();
+      }
 
       if (selected) {
         gfx.save();
@@ -2964,7 +2977,7 @@
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
         pulse: { cd: ABILITY_COOLDOWN, t: 0 },
-        overcharge: { cd: ABILITY_COOLDOWN, t: 0 }
+        overcharge: { cd: OVERCHARGE_COOLDOWN, t: 0 }
       };
       this.gameOver = false;
       this.gameWon = false;
@@ -2987,7 +3000,7 @@
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
         pulse: { cd: ABILITY_COOLDOWN, t: 0 },
-        overcharge: { cd: ABILITY_COOLDOWN, t: 0 }
+        overcharge: { cd: OVERCHARGE_COOLDOWN, t: 0 }
       };
       this.globalOverchargeT = 0;
 
@@ -3140,7 +3153,18 @@
         this.mouse.x = ev.clientX - rect.left;
         this.mouse.y = ev.clientY - rect.top;
         this.hoverCell = this.map.cellAt(this.mouse.x, this.mouse.y);
-        if (this.hoverCell && this.hoverCell.v === 3) {
+        let hoveredTurret = null;
+        for (const t of this.turrets) {
+          if (dist2(this.mouse.x, this.mouse.y, t.x, t.y) <= 18 * 18) {
+            hoveredTurret = t;
+            break;
+          }
+        }
+        if (hoveredTurret) {
+          const dps = hoveredTurret.fire > 0 ? (hoveredTurret.dmg / hoveredTurret.fire) : hoveredTurret.dmg * 12;
+          const tip = `${hoveredTurret.name} Lv ${hoveredTurret.level} | DMG ${hoveredTurret.dmg.toFixed(1)} | Fire ${hoveredTurret.fire.toFixed(2)}s | Range ${hoveredTurret.range.toFixed(0)} | DPS ${dps.toFixed(1)}`;
+          showTooltip(tip, ev.clientX + 12, ev.clientY + 12);
+        } else if (this.hoverCell && this.hoverCell.v === 3) {
           showTooltip("Power Tile: +25% damage, +15% range", ev.clientX + 12, ev.clientY + 12);
         } else {
           hideTooltip();
@@ -4596,7 +4620,7 @@
       }
 
       // turrets
-      for (const t of this.turrets) t.draw(gfx, t === this.selectedTurret);
+      for (const t of this.turrets) t.draw(gfx, t === this.selectedTurret, this);
 
       // enemies
       for (const e of this.enemies) e.draw(gfx);

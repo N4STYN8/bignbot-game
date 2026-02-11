@@ -102,7 +102,7 @@
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
   const START_GOLD = 330;
-  const START_LIVES = 20;
+  const START_LIVES = 30;
   const GOLD_LOW = 50;
   const GOLD_MID = 100;
   const GOLD_HIGH = 300;

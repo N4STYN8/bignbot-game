@@ -30,6 +30,14 @@
     return String(Math.floor(n));
   }
 
+  function lerpColor(a, b, t) {
+    const tt = clamp(t, 0, 1);
+    const r = Math.round(lerp(a[0], b[0], tt));
+    const g = Math.round(lerp(a[1], b[1], tt));
+    const bch = Math.round(lerp(a[2], b[2], tt));
+    return `rgb(${r}, ${g}, ${bch})`;
+  }
+
   /**********************
    * Canvas + resize
    **********************/
@@ -98,6 +106,15 @@
   const GOLD_LOW = 50;
   const GOLD_MID = 100;
   const GOLD_HIGH = 300;
+  const LIFE_RED_MAX = 10;
+  const LIFE_YELLOW_MAX = 20;
+  const LIFE_GREEN_MIN = 30;
+  const LIFE_COLORS = {
+    red: [255, 91, 125],
+    redDark: [170, 42, 70],
+    yellow: [255, 207, 91],
+    green: [109, 255, 154]
+  };
 
   const MAP_PRESETS = [
     {
@@ -3214,6 +3231,23 @@
         }
       }
       livesEl.textContent = String(this.lives);
+      if (livesEl) {
+        let col;
+        if (this.lives <= LIFE_RED_MAX) {
+          const t = this.lives / LIFE_RED_MAX;
+          col = lerpColor(LIFE_COLORS.redDark, LIFE_COLORS.red, t);
+        } else if (this.lives <= LIFE_YELLOW_MAX) {
+          const t = (this.lives - LIFE_RED_MAX) / (LIFE_YELLOW_MAX - LIFE_RED_MAX);
+          col = lerpColor(LIFE_COLORS.red, LIFE_COLORS.yellow, t);
+        } else if (this.lives >= LIFE_GREEN_MIN) {
+          const t = Math.min(1, (this.lives - LIFE_GREEN_MIN) / 10);
+          col = lerpColor(LIFE_COLORS.yellow, LIFE_COLORS.green, t);
+        } else {
+          const t = (this.lives - LIFE_YELLOW_MAX) / (LIFE_GREEN_MIN - LIFE_YELLOW_MAX);
+          col = lerpColor(LIFE_COLORS.yellow, LIFE_COLORS.green, t);
+        }
+        livesEl.style.color = col;
+      }
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
 

@@ -1,7 +1,7 @@
 /* game.js
   ORBIT ECHO: Loopborne Turretcraft
   Pure HTML/CSS/JS. Canvas-rendered with layered glow & particles.
-  Unique twist: SKIP converts remaining intermission time into "Echo Debt" that later spawns phase-shifted enemies.
+  Unique twist: SKIP grants a short power surge plus bonus gold.
 
   Notes:
   - Speed multiplier affects EVERYTHING time-based via dtScaled = dt * speed.
@@ -64,7 +64,6 @@
   const waveEl = $("wave");
   const waveMaxEl = $("waveMax");
   const nextInEl = $("nextIn");
-  const echoDebtEl = $("echoDebt");
 
   const startBtn = $("startBtn");
   const resetBtn = $("resetBtn");
@@ -99,6 +98,7 @@
   const anomalyLabel = $("anomalyLabel");
   const anomalyPill = $("anomalyPill");
   const waveStatsModal = $("waveStatsModal");
+  const waveStatsTitle = $("waveStatsTitle");
   const waveStatsBody = $("waveStatsBody");
   const waveStatsContinue = $("waveStatsContinue");
   const waveStatsSkip = $("waveStatsSkip");
@@ -283,7 +283,8 @@
         mortar: ["assets/sfx/sfx_mortar.wav"],
         trap: ["assets/sfx/sfx_trap.wav"],
         drone: ["assets/sfx/sfx_drone.wav"],
-        hover: ["assets/sfx/sfx_Hoveroverbutton.wav"]
+        hover: ["assets/sfx/sfx_Hoveroverbutton.wav"],
+        click: ["assets/sfx/sfx_clickme.wav"]
       };
       this.sfxVol = 0.6;
       this._last = {};
@@ -903,7 +904,7 @@
   };
 
   const ENEMY_TYPES = {
-    // 8 distinct baseline types (plus Echo spawned from skip debt)
+    // 8 distinct baseline types
     RUNNER: {
       name: "Skitter",
       hp: 52,
@@ -1023,7 +1024,7 @@
       reward: 17,
       desc: "Flying: avoids traps."
     },
-    // Support types used by split + echo mechanic
+    // Support types used by split mechanic
     MINI: {
       name: "Sporelet",
       hp: 38,
@@ -1037,21 +1038,6 @@
       tint: "rgba(255,207,91,0.6)",
       reward: 4,
       desc: "Spawned from Mitosis."
-    },
-    ECHO: {
-      name: "Echo Wisp",
-      hp: 70,
-      speed: 102,
-      armor: 0.15,
-      shield: 0,
-      regen: 0,
-      stealth: false,
-      flying: false,
-      echo: true,
-      onDeath: null,
-      tint: "rgba(154,108,255,0.45)",
-      reward: 4, // reduced reward
-      desc: "Phase-shifted debt."
     },
     BOSS_PROJECTOR: {
       name: "Shield Projector",
@@ -1129,12 +1115,6 @@
       amount *= (1 - enemy.armor);
     }
 
-    // Echo wisps are phase-shifted: reduced control + reduced physical effectiveness
-    if (enemy.echo) {
-      if (dmgType === DAMAGE.PHYS) amount *= 0.65;
-      if (dmgType === DAMAGE.CHEM) amount *= 0.90;
-    }
-
     enemy.hp -= amount;
     return Math.max(0, hpBefore - enemy.hp);
   }
@@ -1159,7 +1139,6 @@
       this.regen = base.regen * waveScalar.regen;
       this.stealth = !!base.stealth;
       this.flying = !!base.flying;
-      this.echo = !!base.echo;
 
       this.reward = Math.max(1, Math.floor(base.reward * waveScalar.reward));
 
@@ -1274,7 +1253,7 @@
       }
 
       // movement
-      const slowFactor = this.echo ? 1 : (1 - this.slow); // Echo ignores slow
+      const slowFactor = (1 - this.slow);
       this.pathD += this.speed * slowFactor * dt;
       const p = game.map.posAt(this.pathD);
       this.x = p.x; this.y = p.y; this.ang = p.ang;
@@ -1340,7 +1319,6 @@
     }
 
     applySlow(pct, dur) {
-      if (this.echo) return; // phase-shift ignores slows/traps
       const mul = this._slowMul || 1;
       const next = clamp(pct * mul, 0, 0.85);
       this.slow = Math.max(this.slow, next);
@@ -1392,7 +1370,7 @@
       const halo = gfx.createRadialGradient(x, y, 0, x, y, this.r * 2.4);
       halo.addColorStop(0, this.tint);
       halo.addColorStop(1, "rgba(0,0,0,0)");
-      gfx.globalAlpha = this.echo ? 0.55 : 0.85;
+      gfx.globalAlpha = 0.85;
       gfx.fillStyle = halo;
       gfx.beginPath(); gfx.arc(x, y, this.r * 2.0, 0, Math.PI * 2); gfx.fill();
       gfx.restore();
@@ -1404,7 +1382,7 @@
       gfx.rotate(this.ang);
 
       const stealthAlpha = this.stealth && !this.revealed ? 0.18 : 1;
-      gfx.globalAlpha = (this.echo ? 0.55 : 1) * stealthAlpha;
+      gfx.globalAlpha = stealthAlpha;
 
       // outer shell
       gfx.fillStyle = "rgba(7,10,18,0.65)";
@@ -1421,16 +1399,6 @@
       gfx.beginPath();
       gfx.ellipse(-this.r * 0.15, 0, this.r * 0.42, this.r * 0.32, -0.6, 0, Math.PI * 2);
       gfx.fill();
-
-      // echo distortion ring
-      if (this.echo) {
-        gfx.globalAlpha = 0.38;
-        gfx.strokeStyle = "rgba(154,108,255,0.9)";
-        gfx.lineWidth = 1.5;
-        gfx.beginPath();
-        gfx.ellipse(0, 0, this.r * 1.35, this.r * 0.55, t * 0.9, 0, Math.PI * 2);
-        gfx.stroke();
-      }
 
       if (this.elite || this.isBoss) {
         const tag = this.elite?.tag;
@@ -2415,7 +2383,7 @@
           const deployRange = this.range + this.trapR * 0.75;
           let found = null;
           for (const e of game.enemies) {
-            if (e.hp <= 0 || e.flying || e.echo) continue;
+            if (e.hp <= 0 || e.flying) continue;
             if (dist2(this.x, this.y, e.x, e.y) <= deployRange * deployRange) { found = e; break; }
           }
           if (found) {
@@ -2615,7 +2583,7 @@
               const rate = this._freezePulseRate || 6;
               if (this._freezeCounter % rate === 0) {
                 for (const e of game.enemies) {
-                  if (e.hp <= 0 || e.echo) continue;
+                  if (e.hp <= 0) continue;
                   if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.75) * (this.range * 0.75)) {
                     e.applySlow(0.65, 0.45);
                   }
@@ -2963,8 +2931,6 @@
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
-      this.echoDebt = 0;
-      this.echoPlan = {};
       this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
       this.abilities = {
         scan: { cd: 18, t: 0 },
@@ -2987,6 +2953,7 @@
       this._warpRippleT = 0;
       this.pendingIntermission = INTERMISSION_SECS;
       this.statsOpen = false;
+      this.statsMode = null;
       this.waveStats = this._newWaveStats(0);
       this.abilities = {
         scan: { cd: 18, t: 0 },
@@ -3106,10 +3073,28 @@
 
       document.addEventListener("pointerover", (ev) => {
         const btn = ev.target.closest("button");
-        if (!btn || btn.disabled) return;
+        if (btn && !btn.disabled) {
+          const from = ev.relatedTarget;
+          if (from && (from === btn || btn.contains(from))) return;
+          this.audio?.playLimited("hover", 80);
+          return;
+        }
+        const buildItem = ev.target.closest(".buildItem");
+        if (!buildItem || buildItem.classList.contains("locked")) return;
         const from = ev.relatedTarget;
-        if (from && (from === btn || btn.contains(from))) return;
+        if (from && (from === buildItem || buildItem.contains(from))) return;
         this.audio?.playLimited("hover", 80);
+      });
+      document.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button");
+        if (btn) {
+          if (btn.disabled) return;
+          this.audio?.playLimited("click", 80);
+          return;
+        }
+        const buildItem = ev.target.closest(".buildItem");
+        if (!buildItem || buildItem.classList.contains("locked")) return;
+        this.audio?.playLimited("click", 80);
       });
 
       waveStatsContinue?.addEventListener("click", () => this._closeWaveStats("continue"));
@@ -3218,9 +3203,15 @@
         }
         if (this.gameOver || this.gameWon) return;
         if (this.statsOpen) {
-          if (ev.key === "Enter" || ev.key === " ") this._closeWaveStats("continue");
-          if (ev.key.toLowerCase() === "s") this._closeWaveStats("skip");
-          if (ev.key === "Escape") this._closeWaveStats("continue");
+          if (this.statsMode === "pause") {
+            if (ev.key === "Enter" || ev.key === " " || ev.key === "Escape") {
+              this._closeWaveStats("pause");
+            }
+          } else {
+            if (ev.key === "Enter" || ev.key === " ") this._closeWaveStats("continue");
+            if (ev.key.toLowerCase() === "s") this._closeWaveStats("skip");
+            if (ev.key === "Escape") this._closeWaveStats("continue");
+          }
           return;
         }
         if (this.isPaused()) return;
@@ -3296,10 +3287,13 @@
       });
     }
 
-    _openWaveStats() {
+    _openWaveStats(mode = "pause") {
       if (this.statsOpen) return;
       this.statsOpen = true;
-      this.pendingIntermission = INTERMISSION_SECS;
+      this.statsMode = mode;
+      if (mode === "wave") {
+        this.pendingIntermission = INTERMISSION_SECS;
+      }
 
       const stats = this.waveStats || this._newWaveStats(this.wave);
       const dmgEntries = Object.entries(stats.dmgByType || {})
@@ -3325,15 +3319,36 @@
           </div>
         `;
       }
+      if (waveStatsTitle) {
+        waveStatsTitle.textContent = mode === "pause" ? "Game Stats" : "Wave Report";
+      }
+      if (waveStatsContinue) {
+        waveStatsContinue.textContent = mode === "pause" ? "Resume" : "Continue";
+      }
+      if (waveStatsSkip) {
+        waveStatsSkip.style.display = mode === "pause" ? "none" : "";
+      }
       waveStatsModal?.classList.remove("hidden");
       waveStatsModal?.setAttribute("aria-hidden", "false");
     }
 
     _closeWaveStats(mode) {
       if (!this.statsOpen) return;
+      const statsMode = this.statsMode || mode;
       this.statsOpen = false;
+      this.statsMode = null;
       waveStatsModal?.classList.add("hidden");
       waveStatsModal?.setAttribute("aria-hidden", "true");
+
+      if (statsMode === "pause") {
+        if (this.paused) {
+          this.paused = false;
+          if (pauseBtn) pauseBtn.textContent = "PAUSE";
+          if (this.audio?.enabled) this.audio.bgm?.play().catch(() => {});
+        }
+        this.updateHUD();
+        return;
+      }
 
       if (mode === "skip") {
         this._applySkipReward(this.pendingIntermission);
@@ -3347,11 +3362,16 @@
 
     togglePause() {
       if (this.gameOver || this.gameWon) return;
+      if (this.statsOpen && this.statsMode === "pause") {
+        this._closeWaveStats("pause");
+        return;
+      }
       if (this.statsOpen) return;
       this.paused = !this.paused;
       if (pauseBtn) pauseBtn.textContent = this.paused ? "RESUME" : "PAUSE";
       if (this.paused) {
         if (this.audio?.bgm) this.audio.bgm.pause();
+        this._openWaveStats("pause");
       } else {
         if (this.audio?.enabled) this.audio.bgm?.play().catch(() => {});
       }
@@ -3456,12 +3476,6 @@
         nextInEl.textContent = `${this.intermission.toFixed(1)}s`;
       } else {
         nextInEl.textContent = "—";
-      }
-
-      if (echoDebtEl) {
-        const info = this._formatEchoPlan();
-        echoDebtEl.textContent = info.short;
-        echoDebtEl.setAttribute("title", info.detail);
       }
 
       startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
@@ -3572,7 +3586,7 @@
           const r = 110;
           let hit = 0;
           for (const e of this.enemies) {
-            if (e.hp <= 0 || e.echo) continue;
+            if (e.hp <= 0) continue;
             if (dist2(cx, cy, e.x, e.y) <= r * r) {
               e.applySlow(0.45, 2.4);
               hit++;
@@ -3646,67 +3660,7 @@
       toast(`SKIP BONUS: +${ratePct}% rate, +${dmgPct}% dmg for ${reward.duration}s`);
       setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash} gold`), 700);
     }
-
-    _calcEchoDebt(remaining) {
-      const ratio = clamp(remaining / INTERMISSION_SECS, 0, 1);
-      const total = clamp(Math.round(1 + ratio * 7), 1, 8);
-      return total;
-    }
-
-    _planEchoDebt(total) {
-      const plan = {};
-      const wavesLeft = Math.max(0, this.waveMax - this.wave);
-      if (wavesLeft <= 0 || total <= 0) return plan;
-      const slots = Math.min(3, wavesLeft);
-      const weights = slots === 1 ? [1] : (slots === 2 ? [0.6, 0.4] : [0.5, 0.3, 0.2]);
-      let remaining = total;
-      for (let i = 0; i < slots; i++) {
-        const count = Math.floor(total * weights[i]);
-        const w = this.wave + i + 1;
-        plan[w] = count;
-        remaining -= count;
-      }
-      let i = 0;
-      while (remaining > 0) {
-        const w = this.wave + (i % slots) + 1;
-        plan[w] = (plan[w] || 0) + 1;
-        remaining--;
-        i++;
-      }
-      return plan;
-    }
-
-    _recountEchoDebt() {
-      let total = 0;
-      for (const v of Object.values(this.echoPlan || {})) total += v || 0;
-      this.echoDebt = total;
-    }
-
-    _formatEchoPlan() {
-      const entries = Object.entries(this.echoPlan || {})
-        .map(([w, c]) => ({ w: Number(w), c }))
-        .filter(x => x.c > 0)
-        .sort((a, b) => a.w - b.w);
-      if (!entries.length) return { short: "—", detail: "No Echo Debt." };
-      const detail = entries.map(e => `W${e.w}: ${e.c}`).join(", ");
-      return { short: `${this.echoDebt} ECHO`, detail: `Echo Debt schedule: ${detail}` };
-    }
-
-    _applyEchoDebt(remaining) {
-      return;
-    }
-
-    _injectEchoes(spawns, count, scalar) {
-      if (!count || count <= 0) return;
-      const lastT = spawns.length ? spawns[spawns.length - 1].t : 1;
-      for (let i = 0; i < count; i++) {
-        const t = Math.max(0.2, (i + 1) / (count + 1) * (lastT + 0.6));
-        spawns.push({ t, type: "ECHO", scalar });
-      }
-      spawns.sort((a, b) => a.t - b.t);
-    }
-
-    onResize() {
+) {
       this.map.onResize();
       for (const t of this.turrets) {
         if (t.gx != null) {
@@ -3823,14 +3777,6 @@
       const scalar = this._waveScalar(this.wave);
       this.waveScalar = scalar;
       const newSpawns = this._buildWave(this.wave, scalar);
-      const echoCount = this.echoPlan?.[this.wave] || 0;
-      if (echoCount > 0) {
-        this._injectEchoes(newSpawns, echoCount, scalar);
-        delete this.echoPlan[this.wave];
-        this._recountEchoDebt();
-        toast(`ECHO DEBT: ${echoCount} inbound this wave`);
-      }
-
       if (!this.waveActive) {
         this.waveActive = true;
         this.intermission = 0;
@@ -3879,8 +3825,6 @@
           hasStarted: this.hasStarted,
           waveActive: this.waveActive,
           intermission: this.intermission,
-          echoDebt: this.echoDebt,
-          echoPlan: this.echoPlan,
           skipBuff: this.skipBuff,
           waveAnomaly: this.waveAnomaly ? this.waveAnomaly.key : null,
           warpRippleT: this._warpRippleT,
@@ -3959,13 +3903,6 @@
         this.hasStarted = !!data.hasStarted;
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
-        this.echoDebt = data.echoDebt ?? this.echoDebt;
-        if (data.echoPlan && typeof data.echoPlan === "object") {
-          this.echoPlan = { ...data.echoPlan };
-        } else {
-          this.echoPlan = this.echoPlan || {};
-        }
-        this._recountEchoDebt();
         if (data.skipBuff) {
           const dmgMul = clamp(data.skipBuff.dmgMul || 1, 1, 1.25);
           const rateMul = clamp(data.skipBuff.rateMul || 1, 1, 1.25);
@@ -4062,8 +3999,6 @@
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
-      this.echoDebt = 0;
-      this.echoPlan = {};
       this.gameOver = false;
       this.gameWon = false;
       this._gameOverPrompted = false;
@@ -4078,6 +4013,7 @@
       this._warpRippleT = 0;
       this.pendingIntermission = INTERMISSION_SECS;
       this.statsOpen = false;
+      this.statsMode = null;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -4220,6 +4156,7 @@
         if (this.waveStats && this.hasStarted && this.wave > 0) {
           this.waveStats.towersBuilt += 1;
         }
+        this.selectTurret(turret);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");
         this._save();
@@ -4454,8 +4391,7 @@
             }
             this.audio.play("win");
           } else {
-            this.intermission = 0;
-            this._openWaveStats();
+            this.intermission = INTERMISSION_SECS;
             this.updateHUD();
             return;
           }
@@ -4471,7 +4407,7 @@
         this._warpRippleT -= dtScaled;
         if (this._warpRippleT <= 0) {
           this._warpRippleT = 10;
-          const candidates = this.enemies.filter(e => e.hp > 0 && !e.echo && !e.flying);
+          const candidates = this.enemies.filter(e => e.hp > 0 && !e.flying);
           for (let i = candidates.length - 1; i > 0; i--) {
             const j = (Math.random() * (i + 1)) | 0;
             const tmp = candidates[i];
@@ -4516,7 +4452,7 @@
         if (tr.t <= 0) { this.traps.splice(i, 1); continue; }
 
         for (const e of this.enemies) {
-          if (e.hp <= 0 || e.flying || e.echo) continue;
+          if (e.hp <= 0 || e.flying) continue;
           if (dist2(tr.x, tr.y, e.x, e.y) <= tr.r * tr.r) {
             e._lastHitBy = tr.owner;
             e._lastHitTag = "trap";
@@ -4827,4 +4763,5 @@
   }
   requestAnimationFrame(loop);
 })();
+
 

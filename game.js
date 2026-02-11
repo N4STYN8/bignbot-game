@@ -3533,11 +3533,16 @@
     updateHUD() {
       goldEl.textContent = fmt(this.gold);
       if (goldEl) {
-        goldEl.style.color = this.gold < 55 ? "var(--bad)" : "var(--good)";
+        goldEl.style.color = this.gold < 45 ? "var(--bad)" : "var(--good)";
       }
       if (selectionBody && this.selectedTurret) {
         selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
-          const cost = Number(btn.dataset.cost || "0");
+          let cost = Number(btn.dataset.cost || "0");
+          if (!cost) {
+            const costText = btn.closest(".modChoice")?.querySelector(".modCost")?.textContent || "";
+            cost = Number(costText.replace(/[^\d.]/g, "")) || 0;
+            if (cost) btn.dataset.cost = String(cost);
+          }
           const affordable = this.gold >= cost;
           btn.disabled = !affordable;
           btn.classList.toggle("primary", affordable);

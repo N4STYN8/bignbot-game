@@ -56,7 +56,6 @@
   const waveEl = $("wave");
   const waveMaxEl = $("waveMax");
   const nextInEl = $("nextIn");
-  const echoDebtEl = $("echoDebt");
 
   const startBtn = $("startBtn");
   const resetBtn = $("resetBtn");
@@ -3200,10 +3199,6 @@
       livesEl.textContent = String(this.lives);
       waveEl.textContent = String(this.wave);
       waveMaxEl.textContent = String(this.waveMax);
-      const echoInfo = this._formatEchoPlan();
-      echoDebtEl.textContent = echoInfo.short;
-      const echoPill = echoDebtEl?.closest(".pill");
-      if (echoPill) echoPill.setAttribute("title", echoInfo.detail);
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {

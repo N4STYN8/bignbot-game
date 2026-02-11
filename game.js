@@ -3577,9 +3577,9 @@
         if (abilityScanBtn) abilityScanBtn.title = "Scan Ping: Reveal all cloaked enemies until they are killed or reach the core.";
         if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret, then boost its fire rate for 30s. No selection = red flash.";
         if (abilityOverBtn) abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
-        const scanPct = scan.t > 0 ? (1 - clamp(scan.t / scan.cd, 0, 1)) : 1;
-        const pulsePct = pulse.t > 0 ? (1 - clamp(pulse.t / pulse.cd, 0, 1)) : 1;
-        const overPct = over.t > 0 ? (1 - clamp(over.t / over.cd, 0, 1)) : 1;
+        const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
+        const pulsePct = pulse.t > 0 ? clamp(pulse.t / pulse.cd, 0, 1) : 0;
+        const overPct = over.t > 0 ? clamp(over.t / over.cd, 0, 1) : 0;
         if (abilityScanBtn) abilityScanBtn.style.setProperty("--cd-pct", scanPct.toFixed(3));
         if (abilityPulseBtn) abilityPulseBtn.style.setProperty("--cd-pct", pulsePct.toFixed(3));
         if (abilityOverBtn) abilityOverBtn.style.setProperty("--cd-pct", overPct.toFixed(3));

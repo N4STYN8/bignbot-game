@@ -3660,7 +3660,8 @@
       toast(`SKIP BONUS: +${ratePct}% rate, +${dmgPct}% dmg for ${reward.duration}s`);
       setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash} gold`), 700);
     }
-) {
+
+    onResize() {
       this.map.onResize();
       for (const t of this.turrets) {
         if (t.gx != null) {

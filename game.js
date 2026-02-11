@@ -57,11 +57,8 @@
   const waveMaxEl = $("waveMax");
   const nextInEl = $("nextIn");
   const echoDebtEl = $("echoDebt");
-  const skipBonusEl = $("skipBonus");
-  const skipBonusPill = $("skipBonusPill");
 
   const startBtn = $("startBtn");
-  const skipBtn = $("skipBtn");
   const resetBtn = $("resetBtn");
   const pauseBtn = $("pauseBtn");
   const helpBtn = $("helpBtn");
@@ -2964,6 +2961,7 @@
     _bindUI() {
       startBtn.addEventListener("click", () => {
         if (this.gameOver || this.gameWon) return;
+        if (this.paused) return;
         if (!this.hasStarted) {
           this.hasStarted = true;
           this.startWave();
@@ -2971,26 +2969,9 @@
           this._save();
           return;
         }
-        if (!this.waveActive && this.intermission > 0) {
-          this.intermission = 0;
-          this.startWave();
-          this.audio.play("wave");
-          this._save();
-        }
-      });
-
-      skipBtn.addEventListener("click", () => {
-        if (this.gameOver || this.gameWon) return;
-        if (!this.hasStarted) return;
-        if (this.paused) return;
-        if (this.intermission > 0) {
-          this._applySkipReward(this.intermission);
-          this._applyEchoDebt(this.intermission);
-          this.intermission = 0;
-          this.startWave();
-          this.audio.play("skip");
-          this._save();
-        }
+        this.startWave();
+        this.audio.play("skip");
+        this._save();
       });
 
       abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
@@ -3223,22 +3204,6 @@
       echoDebtEl.textContent = echoInfo.short;
       const echoPill = echoDebtEl?.closest(".pill");
       if (echoPill) echoPill.setAttribute("title", echoInfo.detail);
-      if (skipBonusEl) {
-        const ratePct = Math.round((this.skipBuff.rateMul - 1) * 100);
-        const dmgPct = Math.round((this.skipBuff.dmgMul - 1) * 100);
-        if (this.skipBuff.t > 0 && (ratePct > 0 || dmgPct > 0)) {
-          skipBonusEl.textContent = `+${ratePct}% R / +${dmgPct}% D`;
-          if (skipBonusPill) {
-            skipBonusPill.setAttribute(
-              "title",
-              `Skip bonus active: +${ratePct}% rate, +${dmgPct}% damage for ${this.skipBuff.t.toFixed(1)}s.`
-            );
-          }
-        } else {
-          skipBonusEl.textContent = "—";
-          if (skipBonusPill) skipBonusPill.setAttribute("title", "Skip bonus inactive.");
-        }
-      }
 
       // auto-collapse panels unless pinned (after first interaction)
       if (this.collapseEnabled) {
@@ -3269,13 +3234,8 @@
         nextInEl.textContent = "—";
       }
 
-      skipBtn.disabled = !(
-        this.hasStarted &&
-        !this.gameOver &&
-        !this.gameWon &&
-        this.intermission > 0
-      );
-      startBtn.disabled = this.gameOver || this.gameWon || (this.hasStarted && (this.waveActive || this.intermission <= 0));
+      startBtn.disabled = this.gameOver || this.gameWon;
+      startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
       if (this.abilities && abilityScanCd) {
         const scan = this.abilities.scan;
@@ -3503,20 +3463,7 @@
     }
 
     _applyEchoDebt(remaining) {
-      if (remaining <= 0) return;
-      const total = this._calcEchoDebt(remaining);
-      const plan = this._planEchoDebt(total);
-      for (const [w, c] of Object.entries(plan)) {
-        this.echoPlan[w] = (this.echoPlan[w] || 0) + c;
-      }
-      this._recountEchoDebt();
-      const detail = Object.entries(plan)
-        .map(([w, c]) => ({ w: Number(w), c }))
-        .filter(x => x.c > 0)
-        .sort((a, b) => a.w - b.w)
-        .map(e => `W${e.w}: ${e.c}`)
-        .join(", ");
-      toast(`ECHO DEBT: +${total} (${detail})`);
+      return;
     }
 
     _injectEchoes(spawns, count, scalar) {

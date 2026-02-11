@@ -1,4 +1,4 @@
-<!-- index.html -->
+﻿<!-- index.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,187 +8,189 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app">
-    <canvas id="game"></canvas>
-    <div class="screenFx" aria-hidden="true"></div>
-    <img class="mapLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+  <div id="app" class="layout">
+    <aside id="leftHud" class="leftHud" aria-label="Game HUD">
+      <div class="hudBrand">
+        <img class="hudLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+        <div class="hudTitle">Orbit Echo</div>
+      </div>
 
-    <!-- HUD -->
-    <div id="hud">
-      <div class="topbar">
-        <div class="brand">
-          <img class="topLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+      <div class="hudSection">
+        <button id="startBtn" class="btn primary hudBtn">START</button>
+        <button id="pauseBtn" class="btn ghost hudBtn">PAUSE</button>
+        <button id="helpBtn" class="btn ghost hudBtn">HELP</button>
+        <button id="speedBtn" class="btn ghost hudBtn">SPEED: 1�</button>
+        <button id="audioBtn" class="btn ghost hudBtn audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: ON</span></button>
+        <button id="resetBtn" class="btn danger hudBtn">RESET</button>
+      </div>
+
+      <div class="hudSection hudStats">
+        <div class="pill">
+          <span class="k"><img class="statIcon" src="assets/images/coin.png" alt="Gold"></span>
+          <span id="gold" class="v">0</span>
+        </div>
+        <div class="pill">
+          <span class="k"><img class="statIcon" src="assets/images/lives.png" alt="Lives"></span>
+          <span id="lives" class="v">0</span>
+        </div>
+        <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
+        <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">�</span></div>
+        <div class="pill"><span class="k">Echo</span> <span id="echoDebt" class="v">�</span></div>
+        <div class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">�</span></div>
+      </div>
+    </aside>
+
+    <div id="gameWrap" class="gameWrap">
+      <canvas id="game"></canvas>
+      <div class="screenFx" aria-hidden="true"></div>
+      <img class="mapLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+
+      <!-- HUD -->
+      <div id="hud">
+        <div id="abilitiesBar" class="abilitiesBar">
+          <div class="abilitiesTitle">Abilities</div>
+          <div class="abilitiesRow">
+            <button id="abilityScanBtn" class="abilityBtn" data-ability="scan">
+              <div class="abilityTop">
+                <span class="abilityKey">1</span>
+                <span class="abilityName">Scan Ping</span>
+              </div>
+              <div class="abilityMeta">
+                <span id="abilityScanCd" class="abilityCooldown">Ready</span>
+              </div>
+            </button>
+            <button id="abilityPulseBtn" class="abilityBtn" data-ability="pulse">
+              <div class="abilityTop">
+                <span class="abilityKey">2</span>
+                <span class="abilityName">Pulse Burst</span>
+              </div>
+              <div class="abilityMeta">
+                <span id="abilityPulseCd" class="abilityCooldown">Ready</span>
+              </div>
+            </button>
+            <button id="abilityOverBtn" class="abilityBtn" data-ability="overcharge">
+              <div class="abilityTop">
+                <span class="abilityKey">3</span>
+                <span class="abilityName">Overcharge</span>
+              </div>
+              <div class="abilityMeta">
+                <span id="abilityOverCd" class="abilityCooldown">Ready</span>
+              </div>
+            </button>
+          </div>
         </div>
 
-        <div class="statRow">
-          <div class="pill">
-            <span class="k"><img class="statIcon" src="assets/images/coin.png" alt="Gold"></span>
-            <span id="gold" class="v">0</span>
+        <div class="panels">
+          <!-- Build panel -->
+          <div class="panel left">
+            <div class="panelHeader">
+              <div class="panelTitle">Build</div>
+              <div class="panelHint">Click a glowing tile to place</div>
+              <div class="panelActions">
+                <button class="panelBtn pinBtn" data-panel="left" data-action="pin" aria-pressed="false" title="Pin panel">
+                  <span class="pinIcon" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+            <div id="buildList" class="buildList"></div>
+            <div class="panelFooter">
+              <div class="tiny">
+                Tip: Skipping the intermission starts the next wave immediately.
+              </div>
+            </div>
           </div>
-          <div class="pill">
-            <span class="k"><img class="statIcon" src="assets/images/lives.png" alt="Lives"></span>
-            <span id="lives" class="v">0</span>
+
+          <!-- Selection/Upgrades panel -->
+          <div class="panel right">
+            <div class="panelHeader">
+              <div class="panelTitle">Selection</div>
+              <div id="selSub" class="panelHint">Select a turret</div>
+              <div class="panelActions">
+                <button class="panelBtn pinBtn" data-panel="right" data-action="pin" aria-pressed="false" title="Pin panel">
+                  <span class="pinIcon" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+
+            <div id="selectionBody" class="selectionBody">
+              <div class="emptyState">
+                <div class="emptyGlyph"></div>
+                <div class="emptyTitle">No turret selected</div>
+                <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
+              </div>
+            </div>
+
+            <div class="panelFooter">
+              <button id="sellBtn" class="btn danger" disabled>SELL</button>
+            </div>
           </div>
-          <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
-          <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
-        </div>
-
-        <div class="controls">
-          <button id="startBtn" class="btn primary">START</button>
-          <button id="resetBtn" class="btn danger">RESET</button>
-          <button id="pauseBtn" class="btn ghost">PAUSE</button>
-
-          <button id="speedBtn" class="btn ghost">SPEED: 1×</button>
         </div>
       </div>
 
-      <div class="anomalyBar" id="anomalyPill" title="Wave anomaly">
-        <span class="k">Anomaly</span> <span id="anomalyLabel" class="v">—</span>
-      </div>
+      <!-- Overlay -->
+      <div id="overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlayCard">
+          <div class="overlayHeader">
+            <div class="overlayTitle">How to Play</div>
+            <button id="closeHelp" class="btn ghost">Close</button>
+          </div>
+          <div class="overlayBody">
+            <div class="howGrid">
+              <div class="howBlock">
+                <div class="howH">Goal</div>
+                <div class="howP">
+                  Protect the Core. Enemies follow the path. If they reach the end, you lose Lives.
+                </div>
+              </div>
 
-      <div id="abilitiesBar" class="abilitiesBar">
-        <div class="abilitiesTitle">Abilities</div>
-        <div class="abilitiesRow">
-          <button id="abilityScanBtn" class="abilityBtn" data-ability="scan">
-            <div class="abilityTop">
-              <span class="abilityKey">1</span>
-              <span class="abilityName">Scan Ping</span>
-            </div>
-            <div class="abilityMeta">
-              <span id="abilityScanCd" class="abilityCooldown">Ready</span>
-            </div>
-          </button>
-          <button id="abilityPulseBtn" class="abilityBtn" data-ability="pulse">
-            <div class="abilityTop">
-              <span class="abilityKey">2</span>
-              <span class="abilityName">Pulse Burst</span>
-            </div>
-            <div class="abilityMeta">
-              <span id="abilityPulseCd" class="abilityCooldown">Ready</span>
-            </div>
-          </button>
-          <button id="abilityOverBtn" class="abilityBtn" data-ability="overcharge">
-            <div class="abilityTop">
-              <span class="abilityKey">3</span>
-              <span class="abilityName">Overcharge</span>
-            </div>
-            <div class="abilityMeta">
-              <span id="abilityOverCd" class="abilityCooldown">Ready</span>
-            </div>
-          </button>
-        </div>
-      </div>
+              <div class="howBlock">
+                <div class="howH">Waves</div>
+                <div class="howP">
+                  Waves <b>do not start</b> until you press <b>START</b>. After a wave ends, the next wave begins
+                  <b>15 seconds</b> after the last enemy dies. Press <b>START</b> or <b>SKIP</b> to begin early.
+                </div>
+              </div>
 
-      <div class="panels">
-        <!-- Build panel -->
-        <div class="panel left">
-          <div class="panelHeader">
-            <div class="panelTitle">Build</div>
-            <div class="panelHint">Click a glowing tile to place</div>
-            <div class="panelActions">
-              <button class="panelBtn pinBtn" data-panel="left" data-action="pin" aria-pressed="false" title="Pin panel">
-                <span class="pinIcon" aria-hidden="true"></span>
-              </button>
+              <div class="howBlock">
+                <div class="howH">Skipping</div>
+                <div class="howP">
+                  When you <b>SKIP</b>, the next wave begins immediately.
+                  Use it to speed up runs.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Turrets & Upgrades</div>
+                <div class="howP">
+                  Build on glowing tiles only. Select a turret to upgrade it up to <b>III</b>.
+                  Each tier changes <b>visuals</b> and <b>stats</b>, and you choose a <b>mod</b> each tier.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Speed</div>
+                <div class="howP">
+                  1�/2�/3�/4� affects <b>everything time-based</b>: movement, fire rates, projectile speed, DOT, and wave timers.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Damage & Resist</div>
+                <div class="howP">
+                  Enemies can have <b>Armor</b> (reduces Physical), <b>Shields</b> (absorbs Energy),
+                  <b>Stealth</b>, <b>Flying</b>, <b>Regen</b>, and more. Mix turret roles.
+                </div>
+              </div>
             </div>
           </div>
-          <div id="buildList" class="buildList"></div>
-          <div class="panelFooter">
-            <div class="tiny">
-              Tip: Skipping the intermission starts the next wave immediately.
-            </div>
-          </div>
-        </div>
-
-        <!-- Selection/Upgrades panel -->
-        <div class="panel right">
-          <div class="panelHeader">
-            <div class="panelTitle">Selection</div>
-            <div id="selSub" class="panelHint">Select a turret</div>
-            <div class="panelActions">
-              <button class="panelBtn pinBtn" data-panel="right" data-action="pin" aria-pressed="false" title="Pin panel">
-                <span class="pinIcon" aria-hidden="true"></span>
-              </button>
-            </div>
-          </div>
-
-          <div id="selectionBody" class="selectionBody">
-            <div class="emptyState">
-              <div class="emptyGlyph"></div>
-              <div class="emptyTitle">No turret selected</div>
-              <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
-            </div>
-          </div>
-
-          <div class="panelFooter">
-            <button id="sellBtn" class="btn danger" disabled>SELL</button>
+          <div class="overlayFooter">
+            <div class="tiny">Runs locally. No frameworks. Canvas-rendered with layered glow & particles.</div>
           </div>
         </div>
       </div>
+
+      <div id="toast" class="toast hidden"></div>
     </div>
-
-    <!-- Overlay -->
-    <div id="overlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlayCard">
-        <div class="overlayHeader">
-          <div class="overlayTitle">How to Play</div>
-          <button id="closeHelp" class="btn ghost">Close</button>
-        </div>
-        <div class="overlayBody">
-          <div class="howGrid">
-            <div class="howBlock">
-              <div class="howH">Goal</div>
-              <div class="howP">
-                Protect the Core. Enemies follow the path. If they reach the end, you lose Lives.
-              </div>
-            </div>
-
-            <div class="howBlock">
-              <div class="howH">Waves</div>
-              <div class="howP">
-                Waves <b>do not start</b> until you press <b>START</b>. After a wave ends, the next wave begins
-                <b>15 seconds</b> after the last enemy dies. Press <b>START</b> or <b>SKIP</b> to begin early.
-              </div>
-            </div>
-
-            <div class="howBlock">
-              <div class="howH">Skipping</div>
-              <div class="howP">
-                When you <b>SKIP</b>, the next wave begins immediately.
-                Use it to speed up runs.
-              </div>
-            </div>
-
-            <div class="howBlock">
-              <div class="howH">Turrets & Upgrades</div>
-              <div class="howP">
-                Build on glowing tiles only. Select a turret to upgrade it up to <b>III</b>.
-                Each tier changes <b>visuals</b> and <b>stats</b>, and you choose a <b>mod</b> each tier.
-              </div>
-            </div>
-
-            <div class="howBlock">
-              <div class="howH">Speed</div>
-              <div class="howP">
-                1×/2×/3×/4× affects <b>everything time-based</b>: movement, fire rates, projectile speed, DOT, and wave timers.
-              </div>
-            </div>
-
-            <div class="howBlock">
-              <div class="howH">Damage & Resist</div>
-              <div class="howP">
-                Enemies can have <b>Armor</b> (reduces Physical), <b>Shields</b> (absorbs Energy),
-                <b>Stealth</b>, <b>Flying</b>, <b>Regen</b>, and more. Mix turret roles.
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="overlayFooter">
-          <div class="tiny">Runs locally. No frameworks. Canvas-rendered with layered glow & particles.</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="toast" class="toast hidden"></div>
   </div>
 
   <button id="settingsBtn" class="settingsBtn" aria-label="Settings">
@@ -204,7 +206,6 @@
       <div class="modalBody settingsBody">
         <div class="settingsSection">
           <div class="settingsLabel">Audio</div>
-          <button id="audioBtn" class="btn ghost audioBtn"><span class="audioIcon" aria-hidden="true"></span><span class="audioLabel">AUDIO: OFF</span></button>
           <div class="audioSliders">
             <label class="audioCtl">
               <span>Music</span>
@@ -254,7 +255,7 @@
             <div class="howBlock">
               <div class="howH">Speed</div>
               <div class="howP">
-                Use the speed button to cycle 1×/2×/3×/4×. It affects <b>everything time-based</b>.
+                Use the speed button to cycle 1�/2�/3�/4�. It affects <b>everything time-based</b>.
               </div>
             </div>
 
@@ -280,6 +281,19 @@
       <div class="modalFooter">
         <button id="modalCancel" class="btn ghost">Cancel</button>
         <button id="modalConfirm" class="btn danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="waveStatsModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard statsCard" role="dialog" aria-modal="true" aria-labelledby="waveStatsTitle">
+      <div class="modalHeader">
+        <div id="waveStatsTitle" class="modalTitle">Wave Report</div>
+      </div>
+      <div id="waveStatsBody" class="modalBody statsBody"></div>
+      <div class="modalFooter">
+        <button id="waveStatsContinue" class="btn primary">Continue</button>
+        <button id="waveStatsSkip" class="btn ghost">Skip</button>
       </div>
     </div>
   </div>

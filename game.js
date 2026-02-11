@@ -64,6 +64,7 @@
   const waveEl = $("wave");
   const waveMaxEl = $("waveMax");
   const nextInEl = $("nextIn");
+  const echoDebtEl = $("echoDebt");
 
   const startBtn = $("startBtn");
   const resetBtn = $("resetBtn");
@@ -97,6 +98,10 @@
   const abilityOverCd = $("abilityOverCd");
   const anomalyLabel = $("anomalyLabel");
   const anomalyPill = $("anomalyPill");
+  const waveStatsModal = $("waveStatsModal");
+  const waveStatsBody = $("waveStatsBody");
+  const waveStatsContinue = $("waveStatsContinue");
+  const waveStatsSkip = $("waveStatsSkip");
 
   const speedBtn = $("speedBtn");
   const SAVE_KEY = "orbit_echo_save_v1";
@@ -114,6 +119,19 @@
     redDark: [170, 42, 70],
     yellow: [255, 207, 91],
     green: [109, 255, 154]
+  };
+  const INTERMISSION_SECS = 15;
+  const TOWER_UNLOCKS = {
+    PULSE: 1,
+    ARC: 1,
+    FROST: 1,
+    VENOM: 1,
+    LENS: 5,
+    MORTAR: 7,
+    NEEDLE: 9,
+    DRONE: 12,
+    AURA: 15,
+    TRAP: 15
   };
 
   const MAP_PRESETS = [
@@ -264,7 +282,8 @@
         beam: ["assets/sfx/sfx_beam.wav"],
         mortar: ["assets/sfx/sfx_mortar.wav"],
         trap: ["assets/sfx/sfx_trap.wav"],
-        drone: ["assets/sfx/sfx_drone.wav"]
+        drone: ["assets/sfx/sfx_drone.wav"],
+        hover: ["assets/sfx/sfx_Hoveroverbutton.wav"]
       };
       this.sfxVol = 0.6;
       this._last = {};
@@ -325,11 +344,11 @@
       try {
         const raw = localStorage.getItem(AUDIO_KEY);
         const data = raw ? JSON.parse(raw) : null;
-        this.enabled = data?.enabled === 1;
+        this.enabled = data ? data.enabled === 1 : true;
         if (typeof data?.music === "number") this.bgm.volume = clamp(data.music, 0, 1);
         if (typeof data?.sfx === "number") this.sfxVol = clamp(data.sfx, 0, 1);
       } catch (err) {
-        this.enabled = false;
+        this.enabled = true;
       }
       this._setButton();
     }
@@ -1075,6 +1094,7 @@
 
   // Damage interactions (simple but meaningful)
   function applyDamageToEnemy(enemy, amount, dmgType) {
+    const hpBefore = enemy.hp;
     if (enemy.elite && enemy.elite.tag === "PHASELINK") {
       const protectedState = !enemy.revealed && (!enemy._markedT || enemy._markedT <= 0);
       if (protectedState) amount *= 0.45;
@@ -1116,6 +1136,7 @@
     }
 
     enemy.hp -= amount;
+    return Math.max(0, hpBefore - enemy.hp);
   }
 
   class Enemy {
@@ -1271,13 +1292,16 @@
       this.pulse += dt * 2.0;
     }
 
-    takeHit(game, amount, dmgType) {
+    takeHit(game, amount, dmgType, sourceKey = null) {
       if (this._dead) return;
       this.hitFlash = 1;
-      applyDamageToEnemy(this, amount, dmgType);
+      const dealt = applyDamageToEnemy(this, amount, dmgType);
+      if (game && dealt > 0) {
+        game.recordDamage(sourceKey, dealt);
+      }
       // impact particles
       game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
-      const dmgText = Math.max(1, Math.floor(amount));
+      const dmgText = Math.max(1, Math.floor(dealt || amount));
       const dmgCol = dmgType === DAMAGE.ENGY ? "rgba(154,108,255,0.95)" :
         dmgType === DAMAGE.CHEM ? "rgba(109,255,154,0.95)" :
         dmgType === DAMAGE.TRUE ? "rgba(255,207,91,0.95)" :
@@ -1584,7 +1608,7 @@
           e._lastHitBy = this.owner;
           let dealt = this.dmg;
           if (e.flying) dealt *= this.vsFlying;
-          e.takeHit(game, dealt, this.dmgType);
+          e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
           if (this._blastSlow) e.applySlow(this._blastSlow.pct, this._blastSlow.dur);
         }
       }
@@ -1603,7 +1627,7 @@
               e._lastHitBy = this.owner;
               let dealt = this.dmg * 0.55;
               if (e.flying) dealt *= this.vsFlying;
-              e.takeHit(game, dealt, this.dmgType);
+              e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
             }
           }
         }
@@ -1611,8 +1635,13 @@
 
       if (this._linger) {
         game.lingering.push({
-          x: cx, y: cy, r: r * 0.7, t: this._lingerDur || 2.2, dps: Math.max(6, this.dmg * 0.12),
-          col: "rgba(255,207,91,0.25)"
+          x: cx,
+          y: cy,
+          r: r * 0.7,
+          t: this._lingerDur || 2.2,
+          dps: Math.max(6, this.dmg * 0.12),
+          col: "rgba(255,207,91,0.25)",
+          ownerKey: this.owner?.typeKey || null
         });
       }
 
@@ -1667,7 +1696,7 @@
           this.hit.add(e);
 
           e._lastHitBy = this.owner;
-          e.takeHit(game, this.dmg, this.dmgType);
+          e.takeHit(game, this.dmg, this.dmgType, this.owner?.typeKey || null);
 
           // special style effects
           if (this.style === "venom" && this.dotDps > 0) e.applyDot(this.dotDps, this.dotDur || 3.5);
@@ -1851,11 +1880,11 @@
         ],
         [
           { name: "Heat Soak", cost: 105, desc: "Applies burn DOT (chemical).", apply: t => { t.burn = { dps: 5, dur: 2.8 }; t.visual.glow = 1; } },
-          { name: "Shield Harrow", cost: 105, desc: "+45% vs shields.", apply: t => { t.vsShield *= 1.45; t.visual.antenna = true; } },
+          { name: "Shield Harrow", cost: 105, desc: "+30% vs shields.", apply: t => { t.vsShield *= 1.30; t.visual.antenna = true; } },
         ],
         [
-          { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 2.6; t.visual.rings += 2; } },
-          { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t.visual.glow = 1; } },
+          { name: "Corona Ring", cost: 170, desc: "Adds small aura chip damage in range.", apply: t => { t.auraDps = 1.8; t.visual.rings += 2; } },
+          { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t._rampStep = 0.08; t._rampMax = 1.8; t.visual.glow = 1; } },
         ],
         [
           { name: "Thermal Lens", cost: 210, desc: "+10% damage, -8% range.", apply: t => { t.dmg *= 1.10; t.range *= 0.92; t.visual.rings++; } },
@@ -1863,7 +1892,7 @@
         ],
         [
           { name: "Iridescent Flux", cost: 260, desc: "+15% vs shields, +8% damage.", apply: t => { t.vsShield *= 1.15; t.dmg *= 1.08; t.visual.glow = 1; } },
-          { name: "Persistent Beam", cost: 260, desc: "Ramp reaches higher cap, slower gain.", apply: t => { t.ramp = true; t._rampStep = 0.08; t._rampMax = 2.2; t.visual.spikes = true; } },
+          { name: "Persistent Beam", cost: 260, desc: "Ramp reaches higher cap, slower gain.", apply: t => { t.ramp = true; t._rampStep = 0.06; t._rampMax = 1.95; t.visual.spikes = true; } },
         ],
       ]
     },
@@ -2505,7 +2534,7 @@
               if (current.shield > 0) dealt *= this.vsShield;
               else dealt *= this.vsHp;
 
-              current.takeHit(game, dealt, DAMAGE.ENGY);
+              current.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
 
               if (this.slowOnHit) current.applySlow(this.slowOnHit.pct, this.slowOnHit.dur);
 
@@ -2543,7 +2572,7 @@
                 for (const e of game.enemies) {
                   if (e.hp <= 0) continue;
                   if (dist2(cx, cy, e.x, e.y) <= 60 * 60) {
-                    e.takeHit(game, dmgBase * 0.55, DAMAGE.ENGY);
+                    e.takeHit(game, dmgBase * 0.55, DAMAGE.ENGY, this.typeKey);
                     e.applySlow(0.12, 0.9);
                   }
                 }
@@ -2571,7 +2600,7 @@
               if (dot >= th) {
                 // damage and slow
                 const dealt = dmgBase * (e.shield > 0 ? this.vsShield : this.vsHp);
-                e.takeHit(game, dealt, DAMAGE.ENGY);
+                e.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
                 e.applySlow(this.slowPct, 1.4);
                 if (this.chillMark) {
                   e._marked = Math.max(e._marked || 0, this.chillMark);
@@ -2606,10 +2635,10 @@
             if (target.shield > 0) dealt *= this.vsShield;
             else dealt *= this.vsHp;
 
-            // damage ramp if enabled
+            // Balance: tone down Sun Lens ramp to prevent late-game dominance.
             if (this.ramp) {
-              const step = this._rampStep || 0.10;
-              const max = this._rampMax || 2.0;
+              const step = this._rampStep || 0.08;
+              const max = this._rampMax || 1.8;
               if (this._rampId === target._id) this._ramp = clamp((this._ramp || 1) + step, 1, max);
               else { this._rampId = target._id; this._ramp = 1; }
               dealt *= this._ramp;
@@ -2618,7 +2647,7 @@
             // chill mark increases damage taken (from Frost) – apply here too
             if (target._markedT > 0) dealt *= (1 + target._marked);
 
-            target.takeHit(game, dealt, DAMAGE.ENGY);
+            target.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
 
             if (this.burn) target.applyDot(this.burn.dps, this.burn.dur);
 
@@ -2632,7 +2661,7 @@
                 if (d2v < best && d2v < 120 * 120) { best = d2v; second = e; }
               }
               if (second) {
-                second.takeHit(game, dealt * 0.5, DAMAGE.ENGY);
+                second.takeHit(game, dealt * 0.5, DAMAGE.ENGY, this.typeKey);
                 game.beams.push({ ax: this.x, ay: this.y, bx: second.x, by: second.y, t: 0.08, col: "rgba(154,108,255,0.75)" });
               }
             }
@@ -2642,7 +2671,7 @@
               for (const e of game.enemies) {
                 if (e.hp <= 0) continue;
                 if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.65) * (this.range * 0.65)) {
-                  e.takeHit(game, this.auraDps * dt, DAMAGE.ENGY);
+                  e.takeHit(game, this.auraDps * dt, DAMAGE.ENGY, this.typeKey);
                 }
               }
             }
@@ -2956,6 +2985,9 @@
       this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
       this.waveAnomaly = null;
       this._warpRippleT = 0;
+      this.pendingIntermission = INTERMISSION_SECS;
+      this.statsOpen = false;
+      this.waveStats = this._newWaveStats(0);
       this.abilities = {
         scan: { cd: 18, t: 0 },
         pulse: { cd: 14, t: 0 },
@@ -2981,13 +3013,19 @@
     _bindUI() {
       startBtn.addEventListener("click", () => {
         if (this.gameOver || this.gameWon) return;
-        if (this.paused) return;
+        if (this.isPaused()) return;
+        this.audio.unlock();
+        if (this.statsOpen) return;
         if (!this.hasStarted) {
           this.hasStarted = true;
           this.startWave();
           this.audio.play("wave");
           this._save();
           return;
+        }
+        if (!this.waveActive && this.intermission > 0) {
+          this._applySkipReward(this.intermission);
+          this.intermission = 0;
         }
         this.startWave();
         this.audio.play("skip");
@@ -3066,6 +3104,20 @@
         }
       });
 
+      document.addEventListener("pointerover", (ev) => {
+        const btn = ev.target.closest("button");
+        if (!btn || btn.disabled) return;
+        const from = ev.relatedTarget;
+        if (from && (from === btn || btn.contains(from))) return;
+        this.audio?.playLimited("hover", 80);
+      });
+
+      waveStatsContinue?.addEventListener("click", () => this._closeWaveStats("continue"));
+      waveStatsSkip?.addEventListener("click", () => this._closeWaveStats("skip"));
+      waveStatsModal?.addEventListener("click", (ev) => {
+        if (ev.target === waveStatsModal) this._closeWaveStats("continue");
+      });
+
       sellBtn.addEventListener("click", () => this.sellSelected());
 
       canvas.addEventListener("mousemove", (ev) => {
@@ -3088,10 +3140,9 @@
         ev.preventDefault();
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
-        this.buildKey = null;
+        this.clearBuildMode();
         this.selectTurret(null);
         this.collapseEnabled = true;
-        [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
@@ -3166,16 +3217,137 @@
           return;
         }
         if (this.gameOver || this.gameWon) return;
-        if (this.paused) return;
+        if (this.statsOpen) {
+          if (ev.key === "Enter" || ev.key === " ") this._closeWaveStats("continue");
+          if (ev.key.toLowerCase() === "s") this._closeWaveStats("skip");
+          if (ev.key === "Escape") this._closeWaveStats("continue");
+          return;
+        }
+        if (this.isPaused()) return;
         if (ev.repeat) return;
+        if (ev.key === "Escape" && this.buildKey) {
+          this.clearBuildMode();
+          return;
+        }
         if (ev.key === "1") this.useAbility("scan");
         if (ev.key === "2") this.useAbility("pulse");
         if (ev.key === "3") this.useAbility("overcharge");
       });
     }
 
+    isUiBlocked() {
+      const overlayOpen = overlay && !overlay.classList.contains("hidden");
+      const settingsOpen = settingsModal && !settingsModal.classList.contains("hidden");
+      return overlayOpen || settingsOpen || this.statsOpen;
+    }
+
+    isPaused() {
+      return this.paused || this.isUiBlocked();
+    }
+
+    _newWaveStats(wave) {
+      return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
+    }
+
+    _resetWaveStats() {
+      this.waveStats = this._newWaveStats(this.wave);
+    }
+
+    recordDamage(sourceKey, amount) {
+      if (!sourceKey || !this.waveStats || !this.waveStats.dmgByType) return;
+      const key = String(sourceKey);
+      this.waveStats.dmgByType[key] = (this.waveStats.dmgByType[key] || 0) + amount;
+    }
+
+    getUnlockWave(key) {
+      return TOWER_UNLOCKS[key] || 1;
+    }
+
+    isTowerUnlocked(key) {
+      const wave = Math.max(1, this.wave || 1);
+      return wave >= this.getUnlockWave(key);
+    }
+
+    setBuildMode(key) {
+      this.buildKey = key;
+      this.collapseEnabled = true;
+      [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
+      const item = buildList.querySelector(`.buildItem[data-key="${key}"]`);
+      if (item) item.classList.add("selected");
+    }
+
+    clearBuildMode() {
+      this.buildKey = null;
+      [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
+    }
+
+    _refreshBuildList() {
+      if (!buildList) return;
+      buildList.querySelectorAll(".buildItem").forEach(item => {
+        const key = item.dataset.key;
+        const unlockWave = Number(item.dataset.unlock || "1");
+        const unlocked = this.isTowerUnlocked(key);
+        item.classList.toggle("locked", !unlocked);
+        const lockTag = item.querySelector(".lockTag");
+        if (lockTag) {
+          lockTag.textContent = `Unlocks at Wave ${unlockWave}`;
+          lockTag.style.display = unlocked ? "none" : "block";
+        }
+      });
+    }
+
+    _openWaveStats() {
+      if (this.statsOpen) return;
+      this.statsOpen = true;
+      this.pendingIntermission = INTERMISSION_SECS;
+
+      const stats = this.waveStats || this._newWaveStats(this.wave);
+      const dmgEntries = Object.entries(stats.dmgByType || {})
+        .map(([k, v]) => ({ k, v }))
+        .sort((a, b) => b.v - a.v)
+        .slice(0, 6);
+      const dmgLines = dmgEntries.length
+        ? dmgEntries.map(d => `<div class="tiny">${d.k}: ${fmt(d.v)}</div>`).join("")
+        : `<div class="tiny">No damage data.</div>`;
+
+      if (waveStatsBody) {
+        waveStatsBody.innerHTML = `
+          <div class="statsGrid">
+            <div class="statsRow"><div class="k">Wave</div><div class="v">${stats.wave}</div></div>
+            <div class="statsRow"><div class="k">Kills</div><div class="v">${stats.kills}</div></div>
+            <div class="statsRow"><div class="k">Leaks</div><div class="v">${stats.leaks}</div></div>
+            <div class="statsRow"><div class="k">Gold Earned</div><div class="v">${fmt(stats.gold)}</div></div>
+            <div class="statsRow"><div class="k">Towers Built</div><div class="v">${stats.towersBuilt}</div></div>
+          </div>
+          <div class="statsRow">
+            <div class="k">Damage By Tower</div>
+            <div class="v">${dmgLines}</div>
+          </div>
+        `;
+      }
+      waveStatsModal?.classList.remove("hidden");
+      waveStatsModal?.setAttribute("aria-hidden", "false");
+    }
+
+    _closeWaveStats(mode) {
+      if (!this.statsOpen) return;
+      this.statsOpen = false;
+      waveStatsModal?.classList.add("hidden");
+      waveStatsModal?.setAttribute("aria-hidden", "true");
+
+      if (mode === "skip") {
+        this._applySkipReward(this.pendingIntermission);
+        this.intermission = 0;
+        this.startWave();
+        this.audio.play("skip");
+      } else {
+        this.intermission = this.pendingIntermission;
+      }
+    }
+
     togglePause() {
       if (this.gameOver || this.gameWon) return;
+      if (this.statsOpen) return;
       this.paused = !this.paused;
       if (pauseBtn) pauseBtn.textContent = this.paused ? "RESUME" : "PAUSE";
       if (this.paused) {
@@ -3192,6 +3364,7 @@
         const item = document.createElement("div");
         item.className = "buildItem";
         item.dataset.key = key;
+        item.dataset.unlock = String(this.getUnlockWave(key));
         item.innerHTML = `
           <div class="buildIcon" data-icon="${key}"></div>
           <div class="buildMeta">
@@ -3201,21 +3374,26 @@
               <span class="tag">${t.role}</span>
               <span>${t.cost}g</span>
             </div>
+            <div class="lockTag">Unlocks at Wave ${this.getUnlockWave(key)}</div>
           </div>
         `;
         item.title = `${t.name} — ${t.cost}g`;
         item.addEventListener("click", () => {
-          this.buildKey = key;
-          this.collapseEnabled = true;
+          if (this.isPaused()) {
+            toast("Cannot build while paused.");
+            return;
+          }
+          if (!this.isTowerUnlocked(key)) return;
+          this.audio.unlock();
+          this.setBuildMode(key);
           if (leftPanel && !leftPanel.classList.contains("pinned")) {
             this.panelHold.left = Math.max(this.panelHold.left || 0, 0.2);
             leftPanel.classList.add("collapsed");
           }
-          [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
-          item.classList.add("selected");
         });
         buildList.appendChild(item);
       }
+      this._refreshBuildList();
     }
 
     updateHUD() {
@@ -3280,7 +3458,13 @@
         nextInEl.textContent = "—";
       }
 
-      startBtn.disabled = this.gameOver || this.gameWon;
+      if (echoDebtEl) {
+        const info = this._formatEchoPlan();
+        echoDebtEl.textContent = info.short;
+        echoDebtEl.setAttribute("title", info.detail);
+      }
+
+      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
       startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
       if (this.abilities && abilityScanCd) {
@@ -3464,7 +3648,7 @@
     }
 
     _calcEchoDebt(remaining) {
-      const ratio = clamp(remaining / 15, 0, 1);
+      const ratio = clamp(remaining / INTERMISSION_SECS, 0, 1);
       const total = clamp(Math.round(1 + ratio * 7), 1, 8);
       return total;
     }
@@ -3622,6 +3806,8 @@
       if (this.wave >= this.waveMax) return;
 
       this.wave++;
+      this._resetWaveStats();
+      this._refreshBuildList();
       if (this.abilities?.overcharge) {
         this.abilities.overcharge.charges = this.abilities.overcharge.maxCharges;
         this.abilities.overcharge.t = 0;
@@ -3857,6 +4043,7 @@
       } catch (err) {
         // ignore load errors
       }
+      this._resetWaveStats();
     }
 
     _resetRun() {
@@ -3889,11 +4076,15 @@
       this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
       this.waveAnomaly = null;
       this._warpRippleT = 0;
+      this.pendingIntermission = INTERMISSION_SECS;
+      this.statsOpen = false;
 
       this.buildKey = null;
       this.selectedTurret = null;
       this.hoverCell = null;
       this._id = 1;
+      this._resetWaveStats();
+      this._refreshBuildList();
       this.updateHUD();
     }
 
@@ -3926,6 +4117,10 @@
 
       // reward
       this.gold += enemy.reward;
+      if (this.waveStats) {
+        this.waveStats.kills += 1;
+        this.waveStats.gold += enemy.reward;
+      }
       this.audio.playLimited("kill", 140);
 
       // explosion animation
@@ -3946,6 +4141,7 @@
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
         const refund = Math.max(1, Math.floor(enemy.reward * 0.2));
         this.gold += refund;
+        if (this.waveStats) this.waveStats.gold += refund;
         this.particles.spawn(enemy.x, enemy.y, 4, "muzzle");
       }
 
@@ -3961,6 +4157,7 @@
     }
 
     onEnemyLeak(enemy) {
+      if (this.waveStats) this.waveStats.leaks += 1;
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
       this.audio.play("leak");
@@ -4000,6 +4197,35 @@
     }
 
     onClick(x, y) {
+      if (this.buildKey) {
+        if (this.isPaused()) {
+          toast("Cannot build while paused.");
+          return;
+        }
+        const cell = this.map.cellAt(x, y);
+        if (cell.v !== 1 && cell.v !== 3) { toast("Not buildable."); return; }
+        if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
+        const t = TURRET_TYPES[this.buildKey];
+        if (this.gold < t.cost) {
+          toast("Not enough gold.");
+          this.clearBuildMode();
+          return;
+        }
+        this.gold -= t.cost;
+        const w = this.map.worldFromCell(cell.gx, cell.gy);
+        const turret = new Turret(this.buildKey, w.x, w.y);
+        if (cell.v === 3) turret.applyPowerBoost();
+        turret.gx = cell.gx; turret.gy = cell.gy;
+        this.turrets.push(turret);
+        if (this.waveStats && this.hasStarted && this.wave > 0) {
+          this.waveStats.towersBuilt += 1;
+        }
+        this.particles.spawn(w.x, w.y, 8, "muzzle");
+        this.audio.play("build");
+        this._save();
+        return;
+      }
+
       // select turret if clicked
       let clickedTurret = null;
       for (const t of this.turrets) {
@@ -4014,28 +4240,7 @@
         return;
       }
 
-      // build
-      if (this.buildKey) {
-        const cell = this.map.cellAt(x, y);
-      if (cell.v !== 1 && cell.v !== 3) { toast("Not buildable."); return; }
-        if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
-        const t = TURRET_TYPES[this.buildKey];
-        if (this.gold < t.cost) { toast("Not enough gold."); return; }
-        this.gold -= t.cost;
-        const w = this.map.worldFromCell(cell.gx, cell.gy);
-      const turret = new Turret(this.buildKey, w.x, w.y);
-      if (cell.v === 3) turret.applyPowerBoost();
-        turret.gx = cell.gx; turret.gy = cell.gy;
-        this.turrets.push(turret);
-        this.selectTurret(turret);
-        this.particles.spawn(w.x, w.y, 8, "muzzle");
-        this.audio.play("build");
-        this._save();
-        this.buildKey = null;
-        [...buildList.querySelectorAll(".buildItem")].forEach(el => el.classList.remove("selected"));
-      } else {
-        this.selectTurret(null);
-      }
+      this.selectTurret(null);
     }
 
     selectTurret(turret) {
@@ -4151,6 +4356,7 @@
 
     applyUpgrade(turret, modIdx) {
       if (!turret || turret.level >= 5) return;
+      if (this.isPaused()) { toast("Cannot upgrade while paused."); return; }
       const cost = turret.getUpgradeCost(turret.level, modIdx);
       if (this.gold < cost) { toast("Not enough gold."); return; }
       const ok = turret.applyUpgrade(turret.level, modIdx, false);
@@ -4165,6 +4371,7 @@
 
     sellSelected() {
       if (!this.selectedTurret) return;
+      if (this.isPaused()) { toast("Cannot sell while paused."); return; }
       const t = this.selectedTurret;
       const refund = Math.max(1, Math.floor((t.costSpent || 0) * 0.7));
       this.gold += refund;
@@ -4180,7 +4387,7 @@
         this.updateHUD();
         return;
       }
-      if (this.paused) {
+      if (this.isPaused()) {
         this.updateHUD();
         return;
       }
@@ -4247,7 +4454,10 @@
             }
             this.audio.play("win");
           } else {
-            this.intermission = 15;
+            this.intermission = 0;
+            this._openWaveStats();
+            this.updateHUD();
+            return;
           }
         }
       } else if (this.hasStarted && this.intermission > 0) {
@@ -4315,7 +4525,7 @@
             tr._tick -= dtScaled;
             if (tr._tick <= 0) {
               tr._tick = 0.55;
-              e.takeHit(this, tr.dmg, DAMAGE.TRUE);
+            e.takeHit(this, tr.dmg, DAMAGE.TRUE, tr.owner?.typeKey || "TRAP");
               if (tr.dot) e.applyDot(tr.dot.dps, tr.dot.dur);
             }
             if (tr.noSplit && e.typeKey === "SPLITTER") {
@@ -4334,7 +4544,7 @@
         for (const e of this.enemies) {
           if (e.hp <= 0) continue;
           if (dist2(l.x, l.y, e.x, e.y) <= l.r * l.r) {
-            e.takeHit(this, l.dps * dtScaled, DAMAGE.TRUE);
+            e.takeHit(this, l.dps * dtScaled, DAMAGE.TRUE, l.ownerKey || null);
           }
         }
       }
@@ -4554,6 +4764,53 @@
   // Boot
   resize();
   const game = new Game();
+  window.game = game; // handy for debugging
+  window._orbitEchoSelfTest = () => {
+    const g = window.game;
+    if (!g) {
+      console.warn("Self-test: game not initialized.");
+      return;
+    }
+
+    console.assert(g.audio?.enabled === true, "Audio default should be ON.");
+
+    const prevWave = g.wave;
+    g.wave = 1;
+    console.assert(!g.isTowerUnlocked("AURA"), "AURA locked before wave 15.");
+    console.assert(!g.isTowerUnlocked("TRAP"), "TRAP locked before wave 15.");
+    g.wave = 15;
+    console.assert(g.isTowerUnlocked("AURA"), "AURA unlocks at wave 15.");
+    console.assert(g.isTowerUnlocked("TRAP"), "TRAP unlocks at wave 15.");
+    g.wave = prevWave;
+
+    const idx = g.map.cells.findIndex(v => v === 1 || v === 3);
+    if (idx >= 0) {
+      const gx = idx % g.map.cols;
+      const gy = (idx / g.map.cols) | 0;
+      const w = g.map.worldFromCell(gx, gy);
+
+      g.setBuildMode("PULSE");
+      const countBefore = g.turrets.length;
+      g.onClick(w.x, w.y);
+      console.assert(g.buildKey === "PULSE", "Build mode should persist after placement.");
+      console.assert(g.turrets.length === countBefore + 1, "Turret should be placed in build mode.");
+
+      g.paused = true;
+      const countPaused = g.turrets.length;
+      g.onClick(w.x, w.y);
+      console.assert(g.turrets.length === countPaused, "Building should be blocked while paused.");
+      g.paused = false;
+      g.clearBuildMode();
+    } else {
+      console.warn("Self-test: no buildable cell found.");
+    }
+
+    g._resetWaveStats();
+    g._openWaveStats();
+    console.assert(g.statsOpen === true, "Stats overlay should open.");
+    g._closeWaveStats("continue");
+    console.assert(g.statsOpen === false, "Stats overlay should close.");
+  };
   game.onResize();
   window.addEventListener("resize", () => {
     resize();

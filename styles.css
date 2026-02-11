@@ -32,7 +32,58 @@ body{
   font-family:var(--sans);
 }
 
-#app{position:relative; width:100%; height:100%;}
+.layout{display:flex; width:100%; height:100%;}
+.leftHud{
+  width:260px;
+  min-width:220px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding:16px 14px;
+  background: linear-gradient(180deg, rgba(8,12,26,0.95), rgba(8,12,26,0.78));
+  border-right:1px solid rgba(28,42,90,.9);
+  box-shadow: 10px 0 30px rgba(0,0,0,.35);
+  z-index:5;
+  overflow:auto;
+}
+.hudBrand{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:flex-start;
+}
+.hudLogo{
+  width:140px;
+  height:auto;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+}
+.hudTitle{
+  font-size:12px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.hudSection{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.hudBtn{
+  width:100%;
+  padding:12px 14px;
+  font-size:12px;
+  letter-spacing:.08em;
+}
+.hudStats .pill{
+  width:100%;
+  justify-content:space-between;
+}
+.gameWrap{
+  position:relative;
+  flex:1;
+  height:100%;
+  overflow:hidden;
+}
 #game{
   position:absolute;
   inset:0;
@@ -606,6 +657,19 @@ body{
   border-color: rgba(98,242,255,.55);
   box-shadow: 0 0 0 1px rgba(98,242,255,.18) inset;
 }
+.buildItem.locked{
+  opacity:0.55;
+  filter: grayscale(0.25);
+  pointer-events:none;
+  cursor:not-allowed;
+}
+.buildItem .lockTag{
+  margin-top:6px;
+  font-size:11px;
+  letter-spacing:.06em;
+  color:var(--warn);
+  text-transform:uppercase;
+}
 .buildIcon{
   width:44px;
   height:44px;
@@ -823,6 +887,34 @@ body{
 .modBtnRow{margin-top:10px; display:flex; gap:10px}
 .modBtnRow .btn{flex:1}
 
+.statsBody{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.statsGrid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:10px;
+}
+.statsRow{
+  padding:10px 12px;
+  border-radius:12px;
+  background: rgba(11,16,34,.65);
+  border:1px solid rgba(28,42,90,.75);
+}
+.statsRow .k{
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.statsRow .v{
+  font-family:var(--mono);
+  font-size:14px;
+  margin-top:4px;
+}
+
 .overlay{
   position:absolute;
   inset:0;
@@ -1011,4 +1103,9 @@ body{
   .controls{width:100%; justify-content:flex-start}
   .audioSliders{width:100%; justify-content:space-between}
   .audioCtl input[type="range"]{width:120px}
+}
+
+@media (max-width: 960px){
+  .leftHud{width:210px; padding:12px 10px;}
+  .hudBtn{padding:10px 12px;}
 }

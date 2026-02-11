@@ -3535,6 +3535,16 @@
       if (goldEl) {
         goldEl.style.color = this.gold < 55 ? "var(--bad)" : "var(--good)";
       }
+      if (selectionBody && this.selectedTurret) {
+        selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
+          const cost = Number(btn.dataset.cost || "0");
+          const affordable = this.gold >= cost;
+          btn.disabled = !affordable;
+          btn.classList.toggle("primary", affordable);
+          const card = btn.closest(".modChoice");
+          if (card) card.classList.toggle("poor", !affordable);
+        });
+      }
       this._refreshBuildList();
       livesEl.textContent = String(this.lives);
       if (livesEl) {
@@ -4349,13 +4359,14 @@
             <div class="modRow">
               ${mods.map((m, idx) => {
                 const preview = Turret.previewAfterUpgrade(turret, tierIdx, idx);
+                const affordable = this.gold >= m.cost;
                 const delta = [
                   `Dmg ${turret.dmg.toFixed(1)}→${preview.dmg.toFixed(1)}`,
                   `Fire ${turret.fire.toFixed(2)}→${preview.fire.toFixed(2)}`,
                   `Range ${turret.range.toFixed(0)}→${preview.range.toFixed(0)}`
                 ].join("  ");
                 return `
-                  <div class="modChoice">
+                  <div class="modChoice ${affordable ? "" : "poor"}">
                     <div class="modTop">
                       <div class="modName">${m.name}</div>
                       <div class="modCost">${m.cost}g</div>
@@ -4363,7 +4374,7 @@
                     <div class="modDesc">${m.desc}</div>
                     <div class="modDelta">${delta}</div>
                     <div class="modBtnRow">
-                      <button class="btn ${this.gold >= m.cost ? "primary" : ""}" data-mod="${idx}" ${this.gold >= m.cost ? "" : "disabled"}>Upgrade</button>
+                      <button class="btn ${affordable ? "primary" : ""}" data-mod="${idx}" data-cost="${m.cost}" ${affordable ? "" : "disabled"}>Upgrade</button>
                     </div>
                   </div>
                 `;

@@ -856,6 +856,10 @@ body{
   border:1px solid rgba(28,42,90,.75);
   background: rgba(7,10,18,.38);
 }
+.modChoice.poor{
+  opacity:0.55;
+  filter: grayscale(0.15);
+}
 .modTop{
   display:flex;
   justify-content:space-between;

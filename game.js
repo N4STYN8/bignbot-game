@@ -3383,7 +3383,10 @@
         const key = item.dataset.key;
         const unlockWave = Number(item.dataset.unlock || "1");
         const unlocked = this.isTowerUnlocked(key);
+        const cost = TURRET_TYPES[key]?.cost || 0;
+        const affordable = this.gold >= cost;
         item.classList.toggle("locked", !unlocked);
+        item.classList.toggle("poor", unlocked && !affordable);
         const lockTag = item.querySelector(".lockTag");
         if (lockTag) {
           lockTag.textContent = `Unlocks at Wave ${unlockWave}`;
@@ -3511,6 +3514,10 @@
             return;
           }
           if (!this.isTowerUnlocked(key)) return;
+          if (this.gold < t.cost) {
+            toast("Not enough gold.");
+            return;
+          }
           this.audio.unlock();
           this.setBuildMode(key);
           if (leftPanel && !leftPanel.classList.contains("pinned")) {
@@ -3528,6 +3535,7 @@
       if (goldEl) {
         goldEl.style.color = this.gold < 55 ? "var(--bad)" : "var(--good)";
       }
+      this._refreshBuildList();
       livesEl.textContent = String(this.lives);
       if (livesEl) {
         let col;
@@ -4355,7 +4363,7 @@
                     <div class="modDesc">${m.desc}</div>
                     <div class="modDelta">${delta}</div>
                     <div class="modBtnRow">
-                      <button class="btn ${this.gold >= m.cost ? "primary" : ""}" data-mod="${idx}">Upgrade</button>
+                      <button class="btn ${this.gold >= m.cost ? "primary" : ""}" data-mod="${idx}" ${this.gold >= m.cost ? "" : "disabled"}>Upgrade</button>
                     </div>
                   </div>
                 `;

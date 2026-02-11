@@ -647,6 +647,10 @@ body{
   pointer-events:none;
   cursor:not-allowed;
 }
+.buildItem.poor{
+  opacity:0.55;
+  filter: grayscale(0.15);
+}
 .buildItem .lockTag{
   margin-top:6px;
   font-size:11px;

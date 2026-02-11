@@ -3573,6 +3573,9 @@
         const scan = this.abilities.scan;
         const pulse = this.abilities.pulse;
         const over = this.abilities.overcharge;
+        if (abilityScanBtn) abilityScanBtn.title = "Scan Ping: Reveal all cloaked enemies until they are killed or reach the core.";
+        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret, then boost its fire rate for 60s. No selection = red flash.";
+        if (abilityOverBtn) abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
         abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
         abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
         abilityOverCd.textContent = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";

@@ -3788,8 +3788,8 @@
 
     _waveScalar(wave) {
       const i = wave - 1;
-      const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.90 : wave === 3 ? 0.96 : 1;
-      const earlySpd = wave === 1 ? 0.90 : wave === 2 ? 0.95 : 1;
+      const earlyHp = wave === 1 ? 0.78 : wave === 2 ? 0.86 : wave === 3 ? 0.92 : wave === 4 ? 0.96 : wave === 5 ? 0.98 : 1;
+      const earlySpd = wave === 1 ? 0.88 : wave === 2 ? 0.93 : wave === 3 ? 0.97 : wave <= 5 ? 0.99 : 1;
       const late = Math.max(0, wave - 8);
       const latePow = Math.pow(late, 1.12) * 0.016;
       return {
@@ -3814,6 +3814,8 @@
         : (wave === 3 ? 0.82
         : (wave === 4 ? 0.76
         : Math.max(0.22, (0.66 - i * 0.013) * 0.9))));
+      const earlyCountMul = wave <= 5 ? 0.88 : 1;
+      const earlySpacingMul = wave <= 5 ? 1.12 : 1;
       const spawns = [];
 
       const types = ["RUNNER", "BRUTE"];
@@ -3843,12 +3845,12 @@
         return pool[pool.length - 1].t;
       };
 
-      for (let n = 0; n < baseCount; n++) {
+      for (let n = 0; n < Math.max(1, Math.floor(baseCount * earlyCountMul)); n++) {
         let type = pickWeighted();
         if (i >= 12 && n % 7 === 0) type = "ARMORED";
         if (i >= 12 && n % 9 === 0) type = "SHIELDED";
         if (i >= 14 && n % 11 === 0) type = "REGEN";
-        const t = n * spacing + rand(-0.15, 0.15);
+        const t = n * (spacing * earlySpacingMul) + rand(-0.15, 0.15);
         let eliteTag = null;
         if (wave >= 7) {
           const eliteChance = Math.min(0.30, 0.10 + (wave - 7) * 0.012);

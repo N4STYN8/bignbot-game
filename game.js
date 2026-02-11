@@ -82,6 +82,7 @@
   const selSub = $("selSub");
   const sellBtn = $("sellBtn");
   const toastEl = $("toast");
+  const tooltipEl = $("tooltip");
   const confirmModal = $("confirmModal");
   const modalTitle = $("modalTitle");
   const modalBody = $("modalBody");
@@ -120,6 +121,7 @@
     yellow: [255, 207, 91],
     green: [109, 255, 154]
   };
+  const ABILITY_COOLDOWN = 90;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -441,6 +443,28 @@
     toastEl.classList.remove("hidden");
     clearTimeout(toastEl._t);
     toastEl._t = setTimeout(() => toastEl.classList.add("hidden"), 1400);
+  }
+
+  function showTooltip(msg, x, y) {
+    if (!tooltipEl) return;
+    tooltipEl.textContent = msg;
+    tooltipEl.style.left = `${x}px`;
+    tooltipEl.style.top = `${y}px`;
+    tooltipEl.classList.remove("hidden");
+  }
+
+  function hideTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.classList.add("hidden");
+  }
+
+  function flashAbilityButton(btn) {
+    if (!btn) return;
+    btn.classList.remove("btnFlashRed");
+    void btn.offsetWidth;
+    btn.classList.add("btnFlashRed");
+    clearTimeout(btn._flashT);
+    btn._flashT = setTimeout(() => btn.classList.remove("btnFlashRed"), 520);
   }
 
   let _modalOpen = false;
@@ -1167,6 +1191,7 @@
       // reveal for stealth
       this.revealed = !this.stealth;
       this.revealT = 0;
+      this._revealLock = false;
 
       this._dead = false;
       this._lastHitBy = null;
@@ -1238,8 +1263,11 @@
         if (this.slowT <= 0) this.slow = 0;
       }
 
-      // stealth reveal timer
-      if (this.revealT > 0) {
+      // stealth reveal timer (Scan Ping can lock reveal until death/leak)
+      if (this._revealLock && this.stealth) {
+        this.revealed = true;
+        this.revealT = 0;
+      } else if (this.revealT > 0) {
         this.revealT -= dt;
         if (this.revealT <= 0) this.revealed = false;
       }
@@ -2164,7 +2192,7 @@
       this.aimAng = 0;
       this.flash = 0;
       this.recoil = 0;
-      this.overchargeT = 0;
+      this.pulseBoostT = 0;
       this.targetMode = "FIRST";
       this.boosted = false;
       this._powerMul = { dmg: 1, range: 1 };
@@ -2287,8 +2315,9 @@
     update(game, dt) {
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 5.0);
-      if (this.overchargeT > 0) this.overchargeT = Math.max(0, this.overchargeT - dt);
-      const overMul = this.overchargeT > 0 ? 2 : 1;
+      if (this.pulseBoostT > 0) this.pulseBoostT = Math.max(0, this.pulseBoostT - dt);
+      const pulseMul = this.pulseBoostT > 0 ? 1.5 : 1;
+      const globalMul = game.globalOverchargeT > 0 ? 1.35 : 1;
 
       // Aura Grove special handling
       if (this.typeKey === "AURA") {
@@ -2338,7 +2367,7 @@
           const ox = Math.cos(d.ang) * (26 + d.r);
           const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
 
-          d.cool -= dt * buff.rateMul * skip.rateMul * overMul;
+          d.cool -= dt * buff.rateMul * skip.rateMul * pulseMul * globalMul;
           if (d.cool <= 0) {
             d.cool = this.droneFire; // drone fire cadence
             // pick target
@@ -2373,7 +2402,7 @@
       if (this.typeKey === "TRAP") {
         const skip = game.getSkipBuff();
         this.charges = clamp(this.charges, 0, this.maxCharges);
-        this.cool -= dt * skip.rateMul * overMul;
+        this.cool -= dt * skip.rateMul * pulseMul * globalMul;
         if (this.cool <= 0) {
           this.cool = this.fire;
           if (this.charges < this.maxCharges) this.charges++;
@@ -2410,7 +2439,7 @@
       const buff = this.getBuffedStats(game);
       const skip = game.getSkipBuff();
       const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
-      const fireInterval = this.fire / (buff.rateMul * skip.rateMul * overMul);
+      const fireInterval = this.fire / (buff.rateMul * skip.rateMul * pulseMul * globalMul);
       this.cool -= dt;
 
       const target = this.acquireTarget(game);
@@ -2933,9 +2962,9 @@
       this.intermission = 0;
       this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
       this.abilities = {
-        scan: { cd: 18, t: 0 },
-        pulse: { cd: 14, t: 0 },
-        overcharge: { cd: 22, t: 0, charges: 1, maxCharges: 1 }
+        scan: { cd: ABILITY_COOLDOWN, t: 0 },
+        pulse: { cd: ABILITY_COOLDOWN, t: 0 },
+        overcharge: { cd: ABILITY_COOLDOWN, t: 0 }
       };
       this.gameOver = false;
       this.gameWon = false;
@@ -2956,10 +2985,11 @@
       this.statsMode = null;
       this.waveStats = this._newWaveStats(0);
       this.abilities = {
-        scan: { cd: 18, t: 0 },
-        pulse: { cd: 14, t: 0 },
-        overcharge: { cd: 22, t: 0, charges: 1, maxCharges: 1 }
+        scan: { cd: ABILITY_COOLDOWN, t: 0 },
+        pulse: { cd: ABILITY_COOLDOWN, t: 0 },
+        overcharge: { cd: ABILITY_COOLDOWN, t: 0 }
       };
+      this.globalOverchargeT = 0;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -3110,12 +3140,18 @@
         this.mouse.x = ev.clientX - rect.left;
         this.mouse.y = ev.clientY - rect.top;
         this.hoverCell = this.map.cellAt(this.mouse.x, this.mouse.y);
+        if (this.hoverCell && this.hoverCell.v === 3) {
+          showTooltip("Power Tile: +25% damage, +15% range", ev.clientX + 12, ev.clientY + 12);
+        } else {
+          hideTooltip();
+        }
       });
 
       canvas.addEventListener("click", (ev) => {
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         this.audio.unlock();
+        hideTooltip();
         const rect = canvas.getBoundingClientRect();
         const x = ev.clientX - rect.left;
         const y = ev.clientY - rect.top;
@@ -3125,12 +3161,14 @@
         ev.preventDefault();
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
+        hideTooltip();
         this.clearBuildMode();
         this.selectTurret(null);
         this.collapseEnabled = true;
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
+      canvas.addEventListener("mouseleave", () => hideTooltip());
 
       document.querySelectorAll(".panelBtn").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -3483,15 +3521,10 @@
         const over = this.abilities.overcharge;
         abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
         abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
-        if (over.charges <= 0 && over.t <= 0) {
-          abilityOverCd.textContent = "Out";
-        } else {
-          const cdText = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";
-          abilityOverCd.textContent = `${cdText} (${over.charges}/${over.maxCharges})`;
-        }
+        abilityOverCd.textContent = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";
         abilityScanBtn.disabled = scan.t > 0;
         abilityPulseBtn.disabled = pulse.t > 0;
-        abilityOverBtn.disabled = over.t > 0 || over.charges <= 0;
+        abilityOverBtn.disabled = over.t > 0;
       }
 
       if (anomalyLabel) {
@@ -3535,9 +3568,31 @@
         toast("Ability cooling down.");
         return;
       }
-      if (key === "overcharge" && ability.charges <= 0) {
-        toast("Overcharge spent this wave.");
-        return;
+      if (key === "pulse") {
+        if (!this.selectedTurret) {
+          flashAbilityButton(abilityPulseBtn);
+          toast("Select a turret for Pulse Burst.");
+          return;
+        }
+        if (this.globalOverchargeT > 0) {
+          toast("Overcharge already active.");
+          return;
+        }
+        if (this.selectedTurret.pulseBoostT > 0) {
+          toast("Pulse Burst already active.");
+          return;
+        }
+      }
+      if (key === "overcharge") {
+        if (this.globalOverchargeT > 0) {
+          toast("Overcharge already active.");
+          return;
+        }
+        const anyPulse = this.turrets.some(t => t.pulseBoostT > 0);
+        if (anyPulse) {
+          toast("Pulse Burst active.");
+          return;
+        }
       }
 
       switch (key) {
@@ -3546,8 +3601,10 @@
           let found = 0;
           for (const e of this.enemies) {
             if (e.hp <= 0) continue;
-            if (!e.stealth && !(e.elite && e.elite.tag === "PHASELINK")) continue;
-            e.reveal(4.0);
+            if (!e.stealth) continue;
+            e._revealLock = true;
+            e.revealed = true;
+            e.revealT = 0;
             found++;
             this.particles.spawn(e.x, e.y, 6, "muzzle");
             this.explosions.push({
@@ -3577,40 +3634,7 @@
         }
         case "pulse": {
           ability.t = ability.cd;
-          const cx = this.mouse.x;
-          const cy = this.mouse.y;
-          const r = 110;
-          let hit = 0;
-          for (const e of this.enemies) {
-            if (e.hp <= 0) continue;
-            if (dist2(cx, cy, e.x, e.y) <= r * r) {
-              e.applySlow(0.45, 2.4);
-              hit++;
-              this.particles.spawn(e.x, e.y, 3, "muzzle");
-            }
-          }
-          this.explosions.push({
-            x: cx,
-            y: cy,
-            r: 16,
-            t: 0.3,
-            dur: 0.3,
-            max: r,
-            col: "rgba(154,108,255,0.8)",
-            boom: false
-          });
-          this.audio.playLimited("trap", 220);
-          toast(hit > 0 ? "PULSE BURST: slowed targets" : "PULSE BURST: no targets");
-          break;
-        }
-        case "overcharge": {
-          if (!this.selectedTurret) {
-            toast("Select a turret to overcharge.");
-            return;
-          }
-          ability.t = ability.cd;
-          ability.charges = Math.max(0, ability.charges - 1);
-          this.selectedTurret.overchargeT = 5.0;
+          this.selectedTurret.pulseBoostT = 60;
           this.explosions.push({
             x: this.selectedTurret.x,
             y: this.selectedTurret.y,
@@ -3618,12 +3642,30 @@
             t: 0.25,
             dur: 0.25,
             max: 60,
-            col: "rgba(255,207,91,0.9)",
+            col: "rgba(154,108,255,0.85)",
             boom: false
           });
           this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
           this.audio.playLimited("upgrade", 220);
-          toast("OVERCHARGE: double fire rate for 5s");
+          toast("PULSE BURST: turret fire rate boosted for 60s");
+          break;
+        }
+        case "overcharge": {
+          ability.t = ability.cd;
+          this.globalOverchargeT = 30;
+          this.explosions.push({
+            x: W * 0.5,
+            y: H * 0.5,
+            r: 22,
+            t: 0.3,
+            dur: 0.3,
+            max: Math.max(W, H) * 0.25,
+            col: "rgba(255,207,91,0.8)",
+            boom: false
+          });
+          this.particles.spawn(W * 0.5, H * 0.5, 16, "muzzle");
+          this.audio.playLimited("upgrade", 220);
+          toast("OVERCHARGE: all turrets fire faster for 30s");
           break;
         }
       }
@@ -3759,10 +3801,6 @@
       this.wave++;
       this._resetWaveStats();
       this._refreshBuildList();
-      if (this.abilities?.overcharge) {
-        this.abilities.overcharge.charges = this.abilities.overcharge.maxCharges;
-        this.abilities.overcharge.t = 0;
-      }
       {
         const keys = Object.keys(ANOMALIES);
         const key = keys[(Math.random() * keys.length) | 0];
@@ -3831,6 +3869,7 @@
           spawnIndex: this.spawnIndex,
           spawnT: this.spawnT,
           waveScalar: this.waveScalar,
+          globalOverchargeT: this.globalOverchargeT,
           turrets: this.turrets.map(t => ({
             typeKey: t.typeKey,
             x: t.x, y: t.y,
@@ -3854,6 +3893,7 @@
             dotT: e.dotT,
             revealed: e.revealed,
             revealT: e.revealT,
+            revealLock: e._revealLock || false,
             marked: e._marked || 0,
             markedT: e._markedT || 0,
             noSplit: e._noSplit || false,
@@ -3916,6 +3956,7 @@
         this.spawnIndex = data.spawnIndex || 0;
         this.spawnT = data.spawnT || 0;
         this.waveScalar = data.waveScalar || this.waveScalar;
+        this.globalOverchargeT = data.globalOverchargeT || 0;
 
         if (Array.isArray(data.turrets)) {
           this.turrets = [];
@@ -3951,6 +3992,7 @@
             e.dotT = s.dotT || 0;
             e.revealed = !!s.revealed;
             e.revealT = s.revealT || 0;
+            e._revealLock = !!s.revealLock;
             e._marked = s.marked || 0;
             e._markedT = s.markedT || 0;
             e._noSplit = !!s.noSplit;
@@ -4349,6 +4391,9 @@
         for (const a of Object.values(this.abilities)) {
           if (a.t > 0) a.t = Math.max(0, a.t - dtScaled);
         }
+      }
+      if (this.globalOverchargeT > 0) {
+        this.globalOverchargeT = Math.max(0, this.globalOverchargeT - dtScaled);
       }
 
       // wave logic

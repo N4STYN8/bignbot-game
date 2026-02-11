@@ -297,6 +297,14 @@ body{
 .btn:hover{filter:brightness(1.08); border-color: rgba(98,242,255,.45)}
 .btn:active{transform: translateY(1px)}
 .btn[disabled]{opacity:.45; cursor:not-allowed; filter:saturate(.8)}
+.btnFlashRed{
+  animation: btnFlashRed .5s ease;
+}
+@keyframes btnFlashRed{
+  0%{box-shadow:0 0 0 rgba(255,91,125,0)}
+  40%{box-shadow:0 0 18px rgba(255,91,125,.75)}
+  100%{box-shadow:0 0 0 rgba(255,91,125,0)}
+}
 
 .btn.primary{
   border-color: rgba(98,242,255,.55);
@@ -939,6 +947,20 @@ body{
   letter-spacing:.04em;
 }
 .toast.hidden{display:none}
+.tooltip{
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(11,16,34,0.9);
+  border: 1px solid rgba(28,42,90,0.9);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.tooltip.hidden{display:none}
 
 .modal{
   position:fixed;

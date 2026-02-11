@@ -243,11 +243,27 @@ body{
   border-radius: 14px;
   cursor:pointer;
   min-width:160px;
+  position: relative;
+  overflow: hidden;
   display:flex;
   flex-direction:column;
   gap:6px;
   box-shadow: 0 10px 22px rgba(0,0,0,.25);
   transition: transform .06s ease, filter .15s ease, border-color .15s ease;
+}
+.abilityBtn::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  width: calc(var(--cd-pct, 0) * 100%);
+  background: linear-gradient(90deg, rgba(98,242,255,0.18), rgba(154,108,255,0.12));
+  opacity: .9;
+  pointer-events: none;
+  transition: width .1s linear;
+}
+.abilityBtn > *{
+  position: relative;
+  z-index: 1;
 }
 .abilityBtn:hover{filter:brightness(1.08); border-color: rgba(98,242,255,.45)}
 .abilityBtn:active{transform: translateY(1px)}

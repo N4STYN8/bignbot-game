@@ -124,6 +124,7 @@
   const ABILITY_COOLDOWN = 90;
   const OVERCHARGE_COOLDOWN = 180;
   const SKIP_GOLD_BONUS = 25;
+  const SKIP_COOLDOWN_REDUCE = 15;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -3566,7 +3567,7 @@
       startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
       startBtn.textContent = this.hasStarted ? "SKIP" : "START";
       if (startBtn) {
-        startBtn.title = this.hasStarted ? "Skip for gold bonus" : "Start wave";
+        startBtn.title = this.hasStarted ? "Skip for gold bonus and -15s ability cooldowns" : "Start wave";
       }
 
       if (this.abilities && abilityScanCd) {
@@ -3574,8 +3575,14 @@
         const pulse = this.abilities.pulse;
         const over = this.abilities.overcharge;
         if (abilityScanBtn) abilityScanBtn.title = "Scan Ping: Reveal all cloaked enemies until they are killed or reach the core.";
-        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret, then boost its fire rate for 60s. No selection = red flash.";
+        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret, then boost its fire rate for 30s. No selection = red flash.";
         if (abilityOverBtn) abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
+        const scanPct = scan.t > 0 ? (1 - clamp(scan.t / scan.cd, 0, 1)) : 1;
+        const pulsePct = pulse.t > 0 ? (1 - clamp(pulse.t / pulse.cd, 0, 1)) : 1;
+        const overPct = over.t > 0 ? (1 - clamp(over.t / over.cd, 0, 1)) : 1;
+        if (abilityScanBtn) abilityScanBtn.style.setProperty("--cd-pct", scanPct.toFixed(3));
+        if (abilityPulseBtn) abilityPulseBtn.style.setProperty("--cd-pct", pulsePct.toFixed(3));
+        if (abilityOverBtn) abilityOverBtn.style.setProperty("--cd-pct", overPct.toFixed(3));
         abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
         abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
         abilityOverCd.textContent = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";
@@ -3645,11 +3652,6 @@
           toast("Overcharge already active.");
           return;
         }
-        const anyPulse = this.turrets.some(t => t.pulseBoostT > 0);
-        if (anyPulse) {
-          toast("Pulse Burst active.");
-          return;
-        }
       }
 
       switch (key) {
@@ -3691,7 +3693,7 @@
         }
         case "pulse": {
           ability.t = ability.cd;
-          this.selectedTurret.pulseBoostT = 60;
+          this.selectedTurret.pulseBoostT = 30;
           this.explosions.push({
             x: this.selectedTurret.x,
             y: this.selectedTurret.y,
@@ -3704,7 +3706,7 @@
           });
           this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
           this.audio.playLimited("upgrade", 220);
-          toast("PULSE BURST: turret fire rate boosted for 60s");
+          toast("PULSE BURST: turret fire rate boosted for 30s");
           break;
         }
         case "overcharge": {
@@ -3750,6 +3752,11 @@
 
       this.gold += reward.cash;
       this.gold += SKIP_GOLD_BONUS;
+      if (this.abilities) {
+        for (const a of Object.values(this.abilities)) {
+          if (a.t > 0) a.t = Math.max(0, a.t - SKIP_COOLDOWN_REDUCE);
+        }
+      }
 
       const ratePct = Math.round((this.skipBuff.rateMul - 1) * 100);
       const dmgPct = Math.round((this.skipBuff.dmgMul - 1) * 100);

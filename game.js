@@ -123,6 +123,7 @@
   };
   const ABILITY_COOLDOWN = 90;
   const OVERCHARGE_COOLDOWN = 180;
+  const SKIP_GOLD_BONUS = 25;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -3538,6 +3539,9 @@
 
       startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
       startBtn.textContent = this.hasStarted ? "SKIP" : "START";
+      if (startBtn) {
+        startBtn.title = this.hasStarted ? "Skip for gold bonus" : "Start wave";
+      }
 
       if (this.abilities && abilityScanCd) {
         const scan = this.abilities.scan;
@@ -3716,11 +3720,12 @@
       this.skipBuff.t = reward.duration;
 
       this.gold += reward.cash;
+      this.gold += SKIP_GOLD_BONUS;
 
       const ratePct = Math.round((this.skipBuff.rateMul - 1) * 100);
       const dmgPct = Math.round((this.skipBuff.dmgMul - 1) * 100);
       toast(`SKIP BONUS: +${ratePct}% rate, +${dmgPct}% dmg for ${reward.duration}s`);
-      setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash} gold`), 700);
+      setTimeout(() => toast(`SKIP CASHOUT: +${reward.cash + SKIP_GOLD_BONUS} gold`), 700);
     }
 
     onResize() {

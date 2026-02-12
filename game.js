@@ -3812,12 +3812,14 @@
       const earlySpd = wave === 1 ? 0.88 : wave === 2 ? 0.93 : wave === 3 ? 0.97 : wave <= 5 ? 0.99 : 1;
       const late = Math.max(0, wave - 8);
       const latePow = Math.pow(late, 1.12) * 0.016;
+      const post5 = Math.max(0, wave - 5);
+      const post5Boost = 1 + post5 * 0.08;
       return {
-        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35,
-        spd: (1 + i * 0.012) * earlySpd * 1.06,
-        armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.2,
-        shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.12,
-        regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.12,
+        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35 * post5Boost,
+        spd: (1 + i * 0.012) * earlySpd * 1.06 * (1 + post5 * 0.03),
+        armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.2 * (1 + post5 * 0.04),
+        shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.12 * (1 + post5 * 0.04),
+        regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.12 * (1 + post5 * 0.03),
         reward: (1 + i * 0.05) * 1.15
       };
     }

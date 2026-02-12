@@ -1248,9 +1248,13 @@
       if (this.dotT > 0) {
         this.dotT -= dt;
         const dmg = this.dot * dt;
-        applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
+        const dealt = applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
         // light shimmer
         game.particles.spawn(this.x, this.y, 1, "chem");
+        if (dealt > 0) {
+          const dmgText = Math.max(1, Math.floor(dealt));
+          game.spawnText(this.x, this.y - 8, `-${dmgText}`, "rgba(109,255,154,0.95)", 0.45);
+        }
         if (this.hp <= 0 && !this._dead) {
           this._dead = true;
           game.onEnemyKill(this);
@@ -3809,7 +3813,7 @@
       const late = Math.max(0, wave - 8);
       const latePow = Math.pow(late, 1.12) * 0.016;
       return {
-        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.18,
+        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35,
         spd: (1 + i * 0.012) * earlySpd * 1.06,
         armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.2,
         shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.12,

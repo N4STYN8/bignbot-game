@@ -3717,10 +3717,6 @@
         const delta = Math.sign(ev.deltaY);
         const next = this.zoom + (delta > 0 ? -0.1 : 0.1);
         this.zoom = clamp(next, 0.75, 1.5);
-        if (this.zoom <= 1) {
-          this.cam.x = 0;
-          this.cam.y = 0;
-        }
       }, { passive: false });
 
       document.querySelectorAll(".panelBtn").forEach(btn => {

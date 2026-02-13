@@ -121,6 +121,7 @@
   const SAVE_KEY = "orbit_echo_save_v1";
   const AUDIO_KEY = "orbit_echo_audio_v1";
   const START_GOLD = 330;
+  const START_GOLD_PER_LEVEL = 25;
   const START_LIVES = 30;
   const GOLD_LOW = 50;
   const GOLD_MID = 100;
@@ -3673,7 +3674,7 @@
       this.dragMoved = false;
       this.dragStart = { x: 0, y: 0 };
       this.camStart = { x: 0, y: 0 };
-      this.gold = START_GOLD;
+      this.gold = this._getStartGold();
       this.lives = START_LIVES;
       this.wave = 0;
       this.waveMax = 15;
@@ -4188,6 +4189,10 @@
 
     _newPlayerStats() {
       return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 };
+    }
+
+    _getStartGold() {
+      return START_GOLD + Math.max(0, this.levelIndex - 1) * START_GOLD_PER_LEVEL;
     }
 
     _snapshotRunStats() {
@@ -4756,7 +4761,7 @@
       const levelDef = 1 + Math.max(0, this.levelIndex - 1) * 0.02;
       const levelReward = 1 + Math.max(0, this.levelIndex - 1) * 0.03;
       return {
-        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
+        hp: (1 + i * 0.095 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
         spd: (1 + i * 0.012) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd,
         armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.15 * (1 + post2 * 0.012) * levelDef,
         shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.012) * levelDef,
@@ -5121,7 +5126,7 @@
       this.cones = [];
       this.lingering = [];
 
-      this.gold = START_GOLD;
+      this.gold = this._getStartGold();
       this.lives = START_LIVES;
       this.wave = 0;
       this.waveMax = 15;

@@ -3336,7 +3336,7 @@
       this.gold = START_GOLD;
       this.lives = START_LIVES;
       this.wave = 0;
-      this.waveMax = 30;
+      this.waveMax = 10;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
@@ -4498,7 +4498,7 @@
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;
-        this.waveMax = data.waveMax ?? this.waveMax;
+        this.waveMax = 10;
         this.hasStarted = !!data.hasStarted;
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
@@ -4597,6 +4597,7 @@
       this.gold = START_GOLD;
       this.lives = START_LIVES;
       this.wave = 0;
+      this.waveMax = 10;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;

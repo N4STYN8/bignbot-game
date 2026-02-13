@@ -113,6 +113,9 @@
   const waveStatsBody = $("waveStatsBody");
   const waveStatsContinue = $("waveStatsContinue");
   const waveStatsSkip = $("waveStatsSkip");
+  const waveStatsControls = $("waveStatsControls");
+  const controlsModal = $("controlsModal");
+  const controlsClose = $("controlsClose");
 
   const speedBtn = $("speedBtn");
   const SAVE_KEY = "orbit_echo_save_v1";
@@ -3945,9 +3948,23 @@
       });
 
       waveStatsContinue?.addEventListener("click", () => this._closeWaveStats("continue"));
+      waveStatsControls?.addEventListener("click", () => {
+        controlsModal?.classList.remove("hidden");
+        controlsModal?.setAttribute("aria-hidden", "false");
+      });
       waveStatsSkip?.addEventListener("click", () => this._closeWaveStats("skip"));
       waveStatsModal?.addEventListener("click", (ev) => {
         if (ev.target === waveStatsModal) this._closeWaveStats("continue");
+      });
+      controlsClose?.addEventListener("click", () => {
+        controlsModal?.classList.add("hidden");
+        controlsModal?.setAttribute("aria-hidden", "true");
+      });
+      controlsModal?.addEventListener("click", (ev) => {
+        if (ev.target === controlsModal) {
+          controlsModal.classList.add("hidden");
+          controlsModal.setAttribute("aria-hidden", "true");
+        }
       });
 
       sellBtn.addEventListener("click", () => this.sellSelected());
@@ -4302,6 +4319,9 @@
       }
       if (waveStatsContinue) {
         waveStatsContinue.textContent = mode === "pause" ? "Resume" : "Continue";
+      }
+      if (waveStatsControls) {
+        waveStatsControls.style.display = mode === "pause" ? "" : "none";
       }
       if (waveStatsSkip) {
         waveStatsSkip.style.display = mode === "pause" ? "none" : "";

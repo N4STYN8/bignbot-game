@@ -315,7 +315,27 @@
       <div id="waveStatsBody" class="modalBody statsBody"></div>
       <div class="modalFooter">
         <button id="waveStatsContinue" class="btn primary">Continue</button>
+        <button id="waveStatsControls" class="btn ghost">Controls</button>
         <button id="waveStatsSkip" class="btn ghost">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controlsModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="controlsTitle">
+      <div class="modalHeader">
+        <div id="controlsTitle" class="modalTitle">Controls</div>
+        <button id="controlsClose" class="btn ghost">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="statsGrid">
+          <div class="statsRow"><div class="k">Pan Camera</div><div class="v">Left-click and drag</div></div>
+          <div class="statsRow"><div class="k">Zoom</div><div class="v">Mouse wheel</div></div>
+          <div class="statsRow"><div class="k">Place Turret</div><div class="v">Left-click on build tile</div></div>
+          <div class="statsRow"><div class="k">Select Turret</div><div class="v">Left-click turret</div></div>
+          <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click or Esc</div></div>
+          <div class="statsRow"><div class="k">Abilities</div><div class="v">Click buttons or press 1/2/3</div></div>
+        </div>
       </div>
     </div>
   </div>

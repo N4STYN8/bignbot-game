@@ -87,6 +87,7 @@
   const toastEl = $("toast");
   const tooltipEl = $("tooltip");
   const topbarEl = document.querySelector(".topbar");
+  const abilitiesBarEl = $("abilitiesBar");
   const levelOverlay = $("levelOverlay");
   const levelOverlayText = $("levelOverlayText");
   const confirmModal = $("confirmModal");
@@ -363,15 +364,19 @@
     const pad = 12;
     if (leftPanel) {
       const r = leftPanel.getBoundingClientRect();
-      if (r.width > 20) left = Math.max(left, r.width + pad);
+      if (r.width > 20) left = Math.max(left, r.right + pad);
     }
     if (rightPanel) {
       const r = rightPanel.getBoundingClientRect();
-      if (r.width > 20) right = Math.min(right, W - r.width - pad);
+      if (r.width > 20) right = Math.min(right, r.left - pad);
     }
     if (topbarEl) {
       const r = topbarEl.getBoundingClientRect();
-      if (r.height > 20) top = Math.max(top, r.height + pad);
+      if (r.height > 20) top = Math.max(top, r.bottom + pad);
+    }
+    if (abilitiesBarEl) {
+      const r = abilitiesBarEl.getBoundingClientRect();
+      if (r.height > 10) top = Math.max(top, r.bottom + pad);
     }
     bottom = Math.min(bottom, H - pad);
     const w = Math.max(80, right - left);
@@ -3360,6 +3365,7 @@
       this.statsMode = null;
       this.corePulseT = 0;
       this.waveStats = this._newWaveStats(0);
+      this.runStats = this._newRunStats();
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
         pulse: { cd: ABILITY_COOLDOWN, t: 0 },
@@ -3754,6 +3760,10 @@
       return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
     }
 
+    _newRunStats() {
+      return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
+    }
+
     _resetWaveStats() {
       this.waveStats = this._newWaveStats(this.wave);
     }
@@ -3762,6 +3772,9 @@
       if (!sourceKey || !this.waveStats || !this.waveStats.dmgByType) return;
       const key = String(sourceKey);
       this.waveStats.dmgByType[key] = (this.waveStats.dmgByType[key] || 0) + amount;
+      if (this.runStats && this.runStats.dmgByType) {
+        this.runStats.dmgByType[key] = (this.runStats.dmgByType[key] || 0) + amount;
+      }
     }
 
     getUnlockWave(key) {
@@ -3812,7 +3825,10 @@
         this.pendingIntermission = INTERMISSION_SECS;
       }
 
-      const stats = this.waveStats || this._newWaveStats(this.wave);
+      const stats = mode === "pause"
+        ? (this.runStats || this._newRunStats())
+        : (this.waveStats || this._newWaveStats(this.wave));
+      const waveLabel = mode === "pause" ? this.wave : stats.wave;
       const dmgEntries = Object.entries(stats.dmgByType || {})
         .map(([k, v]) => ({ k, v }))
         .sort((a, b) => b.v - a.v)
@@ -3826,7 +3842,8 @@
         waveStatsBody.innerHTML = `
           ${banner}
           <div class="statsGrid">
-            <div class="statsRow"><div class="k">Wave</div><div class="v">${stats.wave}</div></div>
+            <div class="statsRow"><div class="k">Wave</div><div class="v">${waveLabel}</div></div>
+            <div class="statsRow"><div class="k">Level</div><div class="v">${this.levelIndex}</div></div>
             <div class="statsRow"><div class="k">Kills</div><div class="v">${stats.kills}</div></div>
             <div class="statsRow"><div class="k">Leaks</div><div class="v">${stats.leaks}</div></div>
             <div class="statsRow"><div class="k">Gold Earned</div><div class="v">${fmt(stats.gold)}</div></div>
@@ -4197,6 +4214,8 @@
 
       this.gold += reward.cash;
       this.gold += SKIP_GOLD_BONUS;
+      if (this.waveStats) this.waveStats.gold += reward.cash + SKIP_GOLD_BONUS;
+      if (this.runStats) this.runStats.gold += reward.cash + SKIP_GOLD_BONUS;
       if (this.abilities) {
         for (const a of Object.values(this.abilities)) {
           if (a.t > 0) a.t = Math.max(0, a.t - SKIP_COOLDOWN_REDUCE);
@@ -4602,6 +4621,7 @@
       this.hoverCell = null;
       this._id = 1;
       this._resetWaveStats();
+      this.runStats = this._newRunStats();
       this._refreshBuildList();
       this.updateHUD();
     }
@@ -4639,6 +4659,10 @@
         this.waveStats.kills += 1;
         this.waveStats.gold += enemy.reward;
       }
+      if (this.runStats) {
+        this.runStats.kills += 1;
+        this.runStats.gold += enemy.reward;
+      }
       this.audio.playLimited("kill", 140);
 
       // explosion animation
@@ -4660,6 +4684,7 @@
         const refund = Math.max(1, Math.floor(enemy.reward * 0.2));
         this.gold += refund;
         if (this.waveStats) this.waveStats.gold += refund;
+        if (this.runStats) this.runStats.gold += refund;
         this.particles.spawn(enemy.x, enemy.y, 4, "muzzle");
       }
 
@@ -4676,6 +4701,7 @@
 
     onEnemyLeak(enemy) {
       if (this.waveStats) this.waveStats.leaks += 1;
+      if (this.runStats) this.runStats.leaks += 1;
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
       this.audio.play("leak");
@@ -4754,6 +4780,7 @@
         if (this.waveStats && this.hasStarted && this.wave > 0) {
           this.waveStats.towersBuilt += 1;
         }
+        if (this.runStats) this.runStats.towersBuilt += 1;
         this.selectTurret(turret);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");

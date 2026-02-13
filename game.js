@@ -379,6 +379,14 @@
       if (r.height > 10) top = Math.max(top, r.bottom + pad);
     }
     bottom = Math.min(bottom, H - pad);
+    if ((right - left) < W * 0.55) {
+      left = 0;
+      right = W;
+    }
+    if ((bottom - top) < H * 0.55) {
+      top = 0;
+      bottom = H;
+    }
     const w = Math.max(80, right - left);
     const h = Math.max(80, bottom - top);
     return { x: left, y: top, w, h };

@@ -46,7 +46,10 @@
 
   let W = 0, H = 0, DPR = 1;
   function resize() {
-    DPR = clamp(window.devicePixelRatio || 1, 1, 2);
+    const dpr = window.devicePixelRatio || 1;
+    const area = Math.max(1, window.innerWidth * window.innerHeight);
+    const maxDpr = area > 3800000 ? 1 : 2;
+    DPR = clamp(dpr, 1, maxDpr);
     W = canvas.clientWidth;
     H = canvas.clientHeight;
     canvas.width = Math.floor(W * DPR);
@@ -894,6 +897,9 @@
     }
 
     drawBase(gfx) {
+      const area = W * H;
+      const perf = area > 7000000 ? 0.5 : area > 3800000 ? 0.7 : 1;
+      const gridStep = this.gridSize * (perf < 0.7 ? 2 : 1);
       gfx.save();
       const bg = gfx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, this.env.bg0 || "#070A12");
@@ -907,10 +913,10 @@
       gfx.globalAlpha = 0.35;
       gfx.strokeStyle = this.env.grid || "rgba(98,242,255,0.12)";
       gfx.lineWidth = 1;
-      for (let x = 0; x < W; x += this.gridSize) {
+      for (let x = 0; x < W; x += gridStep) {
         gfx.beginPath(); gfx.moveTo(x + 0.5, 0); gfx.lineTo(x + 0.5, H); gfx.stroke();
       }
-      for (let y = 0; y < H; y += this.gridSize) {
+      for (let y = 0; y < H; y += gridStep) {
         gfx.beginPath(); gfx.moveTo(0, y + 0.5); gfx.lineTo(W, y + 0.5); gfx.stroke();
       }
       gfx.restore();
@@ -923,6 +929,7 @@
         for (let gx = 0; gx < this.cols; gx++) {
           const v = this.cells[gy * this.cols + gx];
           if (v !== 1 && v !== 3) continue;
+          if (perf < 0.7 && ((gx + gy) % 2) === 1) continue;
           const x = gx * this.gridSize;
           const y = gy * this.gridSize;
 
@@ -983,22 +990,24 @@
           }
 
           // hologram scanlines (diagonal shimmer)
-          gfx.save();
-          gfx.globalAlpha = v === 3 ? 0.22 + pulse * 0.12 : 0.10 + pulse * 0.05;
-          gfx.beginPath();
-          gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
-          gfx.clip();
-          gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.8)" : "rgba(98,242,255,0.35)";
-          gfx.lineWidth = 1;
-          const step = 6;
-          const drift = (t * 22 + (gx + gy) * 3) % (this.gridSize * 2);
-          for (let s = -this.gridSize; s < this.gridSize * 2; s += step) {
+          if (perf >= 0.7) {
+            gfx.save();
+            gfx.globalAlpha = v === 3 ? 0.22 + pulse * 0.12 : 0.10 + pulse * 0.05;
             gfx.beginPath();
-            gfx.moveTo(x + s + drift, y - 2);
-            gfx.lineTo(x + s + drift + this.gridSize, y + this.gridSize + 2);
-            gfx.stroke();
+            gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+            gfx.clip();
+            gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.8)" : "rgba(98,242,255,0.35)";
+            gfx.lineWidth = 1;
+            const step = 6;
+            const drift = (t * 22 + (gx + gy) * 3) % (this.gridSize * 2);
+            for (let s = -this.gridSize; s < this.gridSize * 2; s += step) {
+              gfx.beginPath();
+              gfx.moveTo(x + s + drift, y - 2);
+              gfx.lineTo(x + s + drift + this.gridSize, y + this.gridSize + 2);
+              gfx.stroke();
+            }
+            gfx.restore();
           }
-          gfx.restore();
 
           // sparkle removed (too busy)
         }
@@ -1043,7 +1052,7 @@
       gfx.restore();
 
       // Flow-field lane energy ribbons
-      const ribbonCount = 10;
+      const ribbonCount = perf < 0.7 ? 6 : 10;
       for (let i = 0; i < ribbonCount; i++) {
         const prog = (t * 0.22 + i / ribbonCount) % 1;
         const d = this.totalLen * prog;
@@ -1063,7 +1072,7 @@
       }
 
       // traveling track streaks (aligned to path)
-      const streakCount = 2;
+      const streakCount = perf < 0.7 ? 1 : 2;
       for (let r = 0; r < streakCount; r++) {
         const prog = (t * 0.16 + r / streakCount) % 1;
         const d = this.totalLen * prog;

@@ -390,8 +390,16 @@
       top = 0;
       bottom = H;
     }
-    const w = Math.max(80, right - left);
-    const h = Math.max(80, bottom - top);
+    let w = Math.max(80, right - left);
+    let h = Math.max(80, bottom - top);
+    if (w < 300 || h < 220) {
+      left = 0;
+      top = 0;
+      right = W;
+      bottom = H;
+      w = Math.max(80, right - left);
+      h = Math.max(80, bottom - top);
+    }
     return { x: left, y: top, w, h };
   }
 
@@ -812,17 +820,23 @@
 
     _rebuild() {
       this._ensurePath();
-      const bounds = getPlayBounds();
+      let bounds = getPlayBounds();
       this.cols = Math.max(6, Math.floor(W / this.gridSize));
       this.rows = Math.max(6, Math.floor(H / this.gridSize));
       this.cells = new Array(this.cols * this.rows).fill(1);
       this.powerCells = [];
 
-      this.pathPts = this.pathN.map(([nx, ny]) => [
-        bounds.x + nx * bounds.w,
-        bounds.y + ny * bounds.h
+      const buildPathPts = (b) => this.pathN.map(([nx, ny]) => [
+        b.x + nx * b.w,
+        b.y + ny * b.h
       ]);
-      const segData = buildPathSegments(this.pathPts);
+      this.pathPts = buildPathPts(bounds);
+      let segData = buildPathSegments(this.pathPts);
+      if (!Number.isFinite(segData.totalLen) || segData.totalLen < Math.min(W, H) * 0.35) {
+        bounds = { x: 0, y: 0, w: W, h: H };
+        this.pathPts = buildPathPts(bounds);
+        segData = buildPathSegments(this.pathPts);
+      }
       this.segs = segData.segs;
       this.totalLen = segData.totalLen;
 

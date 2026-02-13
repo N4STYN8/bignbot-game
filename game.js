@@ -3781,11 +3781,6 @@
         this.mapStats.push(snap);
         this.playerStats = this.playerStats || this._newPlayerStats();
         this.playerStats.mapsCleared += 1;
-        this.playerStats.kills += snap.kills;
-        this.playerStats.leaks += snap.leaks;
-        this.playerStats.gold += snap.gold;
-        this.playerStats.towersBuilt += snap.towersBuilt;
-        this.playerStats.bosses += snap.bosses;
       }
       const nextLevel = this.levelIndex + 1;
       const nextSeed = this._makeSeed();
@@ -4213,6 +4208,26 @@
       this.waveStats = this._newWaveStats(this.wave);
     }
 
+    _reconcilePlayerStats() {
+      this.playerStats = this.playerStats || this._newPlayerStats();
+      const history = this.mapStats || [];
+      if (!history.length) return;
+      const totals = history.reduce((acc, h) => {
+        acc.kills += h.kills || 0;
+        acc.leaks += h.leaks || 0;
+        acc.gold += h.gold || 0;
+        acc.towersBuilt += h.towersBuilt || 0;
+        acc.bosses += h.bosses || 0;
+        return acc;
+      }, { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 });
+      this.playerStats.mapsCleared = Math.max(this.playerStats.mapsCleared || 0, history.length);
+      this.playerStats.kills = Math.max(this.playerStats.kills || 0, totals.kills);
+      this.playerStats.leaks = Math.max(this.playerStats.leaks || 0, totals.leaks);
+      this.playerStats.gold = Math.max(this.playerStats.gold || 0, totals.gold);
+      this.playerStats.towersBuilt = Math.max(this.playerStats.towersBuilt || 0, totals.towersBuilt);
+      this.playerStats.bosses = Math.max(this.playerStats.bosses || 0, totals.bosses);
+    }
+
     recordDamage(sourceKey, amount) {
       if (!sourceKey || !this.waveStats || !this.waveStats.dmgByType) return;
       const key = String(sourceKey);
@@ -4270,6 +4285,7 @@
         this.pendingIntermission = INTERMISSION_SECS;
       }
 
+      this._reconcilePlayerStats();
       const stats = mode === "pause"
         ? (this.runStats || this._newRunStats())
         : (this.waveStats || this._newWaveStats(this.wave));
@@ -4704,6 +4720,7 @@
       this.gold += SKIP_GOLD_BONUS;
       if (this.waveStats) this.waveStats.gold += reward.cash + SKIP_GOLD_BONUS;
       if (this.runStats) this.runStats.gold += reward.cash + SKIP_GOLD_BONUS;
+      if (this.playerStats) this.playerStats.gold += reward.cash + SKIP_GOLD_BONUS;
       if (this.abilities) {
         for (const a of Object.values(this.abilities)) {
           if (a.t > 0) a.t = Math.max(0, a.t - SKIP_COOLDOWN_REDUCE);
@@ -5133,8 +5150,8 @@
       this._id = 1;
       this._resetWaveStats();
       this.runStats = this._newRunStats();
-      this.mapStats = [];
-      this.playerStats = this._newPlayerStats();
+      this.mapStats = this.mapStats || [];
+      this.playerStats = this.playerStats || this._newPlayerStats();
       this._refreshBuildList();
       this.updateHUD();
     }
@@ -5178,6 +5195,11 @@
         this.runStats.gold += enemy.reward;
         if (enemy.isBoss) this.runStats.bosses += 1;
       }
+      if (this.playerStats) {
+        this.playerStats.kills += 1;
+        this.playerStats.gold += enemy.reward;
+        if (enemy.isBoss) this.playerStats.bosses += 1;
+      }
       this.audio.playLimited("kill", 140);
 
       // explosion animation
@@ -5200,6 +5222,7 @@
         this.gold += refund;
         if (this.waveStats) this.waveStats.gold += refund;
         if (this.runStats) this.runStats.gold += refund;
+        if (this.playerStats) this.playerStats.gold += refund;
         this.particles.spawn(enemy.x, enemy.y, 4, "muzzle");
       }
 
@@ -5217,6 +5240,7 @@
     onEnemyLeak(enemy) {
       if (this.waveStats) this.waveStats.leaks += 1;
       if (this.runStats) this.runStats.leaks += 1;
+      if (this.playerStats) this.playerStats.leaks += 1;
       this.lives--;
       this.particles.spawn(enemy.x, enemy.y, 8, "boom");
       this.audio.play("leak");
@@ -5296,6 +5320,7 @@
           this.waveStats.towersBuilt += 1;
         }
         if (this.runStats) this.runStats.towersBuilt += 1;
+        if (this.playerStats) this.playerStats.towersBuilt += 1;
         this.selectTurret(turret);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");
@@ -5439,6 +5464,9 @@
       const t = this.selectedTurret;
       const refund = Math.max(1, Math.floor((t.costSpent || 0) * 0.7));
       this.gold += refund;
+      if (this.waveStats) this.waveStats.gold += refund;
+      if (this.runStats) this.runStats.gold += refund;
+      if (this.playerStats) this.playerStats.gold += refund;
       this.turrets = this.turrets.filter(x => x !== t);
       this.selectTurret(null);
       this.particles.spawn(t.x, t.y, 10, "boom");

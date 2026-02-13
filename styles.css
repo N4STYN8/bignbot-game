@@ -83,6 +83,9 @@ body{
   display:flex;
   flex-direction:column;
   z-index:3;
+  user-select:none;
+  -webkit-user-select:none;
+  -ms-user-select:none;
 }
 
 .topbar{
@@ -143,7 +146,7 @@ body{
 .pill{
   display:flex;
   gap:10px;
-  align-items:baseline;
+  align-items:center;
   padding:10px 12px;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(11,16,34,.80), rgba(11,16,34,.48));
@@ -553,6 +556,9 @@ body{
   border-radius: var(--radius);
   background: var(--panel);
   border:1px solid rgba(28,42,90,.85);
+  user-select:none;
+  -webkit-user-select:none;
+  -ms-user-select:none;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   overflow:hidden;
@@ -686,6 +692,8 @@ body{
   overflow:auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(98,242,255,.4) rgba(7,10,18,.35);
 }
 .buildItem{
   display:flex;
@@ -811,6 +819,30 @@ body{
   height:100%;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(98,242,255,.4) rgba(7,10,18,.35);
+}
+
+.buildList::-webkit-scrollbar,
+.selectionBody::-webkit-scrollbar{
+  width:10px;
+}
+.buildList::-webkit-scrollbar-track,
+.selectionBody::-webkit-scrollbar-track{
+  background: rgba(7,10,18,.35);
+  border-radius: 999px;
+  border:1px solid rgba(28,42,90,.55);
+}
+.buildList::-webkit-scrollbar-thumb,
+.selectionBody::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(98,242,255,.55), rgba(154,108,255,.45));
+  border-radius: 999px;
+  border:2px solid rgba(7,10,18,.35);
+  box-shadow: 0 0 6px rgba(98,242,255,.35);
+}
+.buildList::-webkit-scrollbar-thumb:hover,
+.selectionBody::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(98,242,255,.8), rgba(154,108,255,.65));
 }
 .targetRow{
   margin-top:10px;

@@ -1968,7 +1968,7 @@
       this.shield = Math.min(cap, this.shield + amount);
     }
 
-    draw(gfx) {
+    draw(gfx, selected = false) {
       const t = performance.now() * 0.001;
       const bob = this.flying ? (Math.sin(t * 4 + this.pulse) * 3) : 0;
       const x = this.x, y = this.y + bob;
@@ -2195,6 +2195,15 @@
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW, barH);
       gfx.fillStyle = hpPct > 0.5 ? "rgba(109,255,154,0.85)" : (hpPct > 0.2 ? "rgba(255,207,91,0.85)" : "rgba(255,91,125,0.9)");
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
+      if (selected) {
+        gfx.globalAlpha = 0.95;
+        gfx.fillStyle = "rgba(234,240,255,0.9)";
+        gfx.font = "11px var(--mono), monospace";
+        gfx.textAlign = "right";
+        gfx.textBaseline = "middle";
+        const hpText = `${Math.max(0, Math.ceil(this.hp))}`;
+        gfx.fillText(hpText, x - barW / 2 - 6, y - this.r - 13);
+      }
 
       // shield bubble
       if (this.shield > 0) {
@@ -3739,6 +3748,7 @@
       this.decals = [];
       this.turrets = [];
       this.enemies = [];
+      this.selectedEnemy = null;
       this.projectiles = [];
       this.traps = [];
       this.beams = [];
@@ -3800,6 +3810,7 @@
 
       this.buildKey = null;
       this.selectedTurret = null;
+      this.selectedEnemy = null;
       this.hoverCell = null;
       this.mouse = { x: 0, y: 0 };
       this._id = 1;
@@ -5439,6 +5450,20 @@
         return;
       }
 
+      // select enemy if clicked
+      let clickedEnemy = null;
+      for (const e of this.enemies) {
+        if (e.hp <= 0) continue;
+        const rr = (e.r + 4) * (e.r + 4);
+        if (dist2(x, y, e.x, e.y) <= rr) { clickedEnemy = e; break; }
+      }
+      if (clickedEnemy) {
+        this.selectedEnemy = clickedEnemy;
+        this.selectTurret(null);
+        return;
+      }
+
+      this.selectedEnemy = null;
       this.selectTurret(null);
     }
 
@@ -5700,6 +5725,9 @@
       // update enemies
       for (const e of this.enemies) e.update(this, dtScaled);
       this.enemies = this.enemies.filter(e => e.hp > 0 || !e._dead);
+      if (this.selectedEnemy && (this.selectedEnemy.hp <= 0 || this.selectedEnemy._dead)) {
+        this.selectedEnemy = null;
+      }
 
       // update turrets
       for (const t of this.turrets) t.update(this, dtScaled);
@@ -5896,7 +5924,7 @@
       for (const t of this.turrets) t.draw(gfx, t === this.selectedTurret, this);
 
       // enemies
-      for (const e of this.enemies) e.draw(gfx);
+      for (const e of this.enemies) e.draw(gfx, e === this.selectedEnemy);
 
       // projectiles
       for (const p of this.projectiles) p.draw(gfx);

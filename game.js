@@ -81,6 +81,7 @@
   const settingsBtn = $("settingsBtn");
   const settingsModal = $("settingsModal");
   const settingsClose = $("settingsClose");
+  const settingsResetBtn = $("settingsResetBtn");
   const overlay = $("overlay");
   const closeHelp = $("closeHelp");
   const buildList = $("buildList");
@@ -1563,9 +1564,9 @@
       size: 20,
       size2: 14
     },
-    FINAL_BOSS: {
+    FINAL_BOSS_VORTEX: {
       name: "Vortex Dominus",
-      hp: 2600,
+      hp: 2400,
       speed: 34,
       armor: 0.25,
       shield: 420,
@@ -1598,9 +1599,89 @@
       },
       tint: "rgba(255,120,200,0.9)",
       reward: 120,
-      desc: "Final boss: massive shields with surge pulses.",
+      desc: "Boss: massive shields with surge pulses.",
       shape: "core",
       size: 26,
+      size2: 18
+    },
+    FINAL_BOSS_ABYSS: {
+      name: "Abyss Maw",
+      hp: 2300,
+      speed: 30,
+      armor: 0.32,
+      shield: 300,
+      regen: 2.4,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._shockT = (e._shockT ?? 2.2) - dt;
+        if (e._shockT > 0) return;
+        e._shockT = 3.2;
+        const r = 150;
+        for (const other of game.enemies) {
+          if (other.hp <= 0 || other === e) continue;
+          if (dist2(e.x, e.y, other.x, other.y) <= r * r) {
+            other.applySlow(0.2, 1.0);
+          }
+        }
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 24,
+          t: 0.32,
+          dur: 0.32,
+          max: r,
+          col: "rgba(98,242,255,0.8)",
+          boom: false
+        });
+        game.particles.spawn(e.x, e.y, 10, "muzzle");
+      },
+      tint: "rgba(98,242,255,0.9)",
+      reward: 120,
+      desc: "Boss: emits slowing shockwaves.",
+      shape: "diamond",
+      size: 26,
+      size2: 16
+    },
+    FINAL_BOSS_IRON: {
+      name: "Iron Regent",
+      hp: 2500,
+      speed: 28,
+      armor: 0.38,
+      shield: 260,
+      regen: 1.8,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._guardT = (e._guardT ?? 2.6) - dt;
+        if (e._guardT > 0) return;
+        e._guardT = 3.6;
+        const r = 170;
+        for (const other of game.enemies) {
+          if (other.hp <= 0 || other === e) continue;
+          if (dist2(e.x, e.y, other.x, other.y) <= r * r) {
+            other.armor = clamp(other.armor + 0.02, 0, 0.7);
+          }
+        }
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 26,
+          t: 0.34,
+          dur: 0.34,
+          max: r * 0.9,
+          col: "rgba(255,207,91,0.8)",
+          boom: false
+        });
+        game.particles.spawn(e.x, e.y, 10, "muzzle");
+      },
+      tint: "rgba(255,207,91,0.9)",
+      reward: 120,
+      desc: "Boss: hardens nearby enemies.",
+      shape: "hex",
+      size: 27,
       size2: 18
     }
   };
@@ -1651,7 +1732,7 @@
       const base = ENEMY_TYPES[typeKey];
       this.typeKey = typeKey;
       this.name = base.name;
-      this.isBoss = typeKey === "BOSS_PROJECTOR" || typeKey === "FINAL_BOSS";
+      this.isBoss = typeKey === "BOSS_PROJECTOR" || typeKey.startsWith("FINAL_BOSS_");
 
       // Scaling rules: HP, armor/shield slight, speed slight.
       this.maxHp = base.hp * waveScalar.hp;
@@ -1733,8 +1814,8 @@
         this.reward = Math.floor(this.reward * 1.35);
       }
       if (this.isBoss) {
-        this.r = typeKey === "FINAL_BOSS" ? 24 : 18;
-        this.reward = Math.max(this.reward, typeKey === "FINAL_BOSS" ? 120 : 55);
+        this.r = typeKey.startsWith("FINAL_BOSS_") ? 24 : 18;
+        this.reward = Math.max(this.reward, typeKey.startsWith("FINAL_BOSS_") ? 120 : 55);
       }
     }
 
@@ -2065,14 +2146,14 @@
       if (this.elite || this.isBoss) {
         const tag = this.elite?.tag;
         const eliteCol =
-          this.typeKey === "FINAL_BOSS" ? "rgba(255,120,200,0.95)" :
+          this.typeKey.startsWith("FINAL_BOSS_") ? "rgba(255,120,200,0.95)" :
           this.isBoss ? "rgba(98,242,255,0.95)" :
           tag === "HARDENED" ? "rgba(255,207,91,0.9)" :
           tag === "VOLATILE" ? "rgba(255,91,125,0.9)" :
           "rgba(154,108,255,0.9)";
         gfx.globalAlpha = 0.65;
         gfx.strokeStyle = eliteCol;
-        gfx.lineWidth = this.typeKey === "FINAL_BOSS" ? 3.5 : (this.isBoss ? 3 : 2);
+        gfx.lineWidth = this.typeKey.startsWith("FINAL_BOSS_") ? 3.5 : (this.isBoss ? 3 : 2);
         gfx.beginPath();
         gfx.ellipse(0, 0, this.r * 1.35, this.r * 1.05, t * 0.4, 0, Math.PI * 2);
         gfx.stroke();
@@ -2082,7 +2163,7 @@
           gfx.ellipse(0, 0, this.r * 1.8, this.r * 1.25, -t * 0.3, 0, Math.PI * 2);
           gfx.stroke();
         }
-        if (this.typeKey === "FINAL_BOSS") {
+        if (this.typeKey.startsWith("FINAL_BOSS_")) {
           gfx.globalAlpha = 0.55;
           gfx.strokeStyle = "rgba(255,207,91,0.9)";
           gfx.lineWidth = 2;
@@ -3677,7 +3758,7 @@
       this.gold = this._getStartGold();
       this.lives = START_LIVES;
       this.wave = 0;
-      this.waveMax = 15;
+      this.waveMax = 16;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
@@ -3874,6 +3955,12 @@
       if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
 
       resetBtn?.addEventListener("click", () => {
+        showConfirm("Reset Game", "Reset the game? This will clear your saved progress.", () => {
+          try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+          window.location.reload();
+        });
+      });
+      settingsResetBtn?.addEventListener("click", () => {
         showConfirm("Reset Game", "Reset the game? This will clear your saved progress.", () => {
           try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
           window.location.reload();
@@ -4761,8 +4848,8 @@
       const levelDef = 1 + Math.max(0, this.levelIndex - 1) * 0.02;
       const levelReward = 1 + Math.max(0, this.levelIndex - 1) * 0.03;
       return {
-        hp: (1 + i * 0.095 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
-        spd: (1 + i * 0.012) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd,
+        hp: (1 + i * 0.105 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
+        spd: (1 + i * 0.013) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd,
         armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.15 * (1 + post2 * 0.012) * levelDef,
         shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.012) * levelDef,
         regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.008) * levelDef,
@@ -4770,11 +4857,18 @@
       };
     }
 
+    _getBossKey() {
+      const bosses = ["FINAL_BOSS_VORTEX", "FINAL_BOSS_ABYSS", "FINAL_BOSS_IRON"];
+      const seed = (this.mapSeed || 0) ^ (this.levelIndex * 9973);
+      const rng = makeRNG(seed >>> 0);
+      return bosses[(rng() * bosses.length) | 0];
+    }
+
     _buildWave(wave, scalar) {
       const i = wave;
       if (wave === this.waveMax) {
         return [
-          { t: 0.8, type: "FINAL_BOSS", scalar, miniboss: true }
+          { t: 0.8, type: this._getBossKey(), scalar, miniboss: true }
         ];
       }
       const baseCount = Math.round(((wave === 1) ? 6
@@ -5030,7 +5124,7 @@
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;
-        this.waveMax = 15;
+        this.waveMax = 16;
         this.hasStarted = !!data.hasStarted;
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
@@ -5129,7 +5223,7 @@
       this.gold = this._getStartGold();
       this.lives = START_LIVES;
       this.wave = 0;
-      this.waveMax = 15;
+      this.waveMax = 16;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
@@ -5273,9 +5367,9 @@
         this.audio.play("lose");
         if (!this._gameOverPrompted) {
           this._gameOverPrompted = true;
-          showConfirm("Defeat", "Defeat. Reset the game?", () => {
-            try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
-            window.location.reload();
+          showConfirm("Defeat", "Defeat. Retry this level?", () => {
+            this._resetRun();
+            this._save();
           });
         }
       }

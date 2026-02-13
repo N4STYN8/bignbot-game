@@ -4120,17 +4120,19 @@
         ev.preventDefault();
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
+        if (this.dragging || this.dragMoved) return;
         hideTooltip();
         this.clearBuildMode();
         this.selectTurret(null);
         this.collapseEnabled = true;
       });
       canvas.addEventListener("mousedown", (ev) => {
-        if (ev.button !== 0) return;
+        if (ev.button !== 0 && ev.button !== 2) return;
         if (this.isUiBlocked()) return;
         const rect = canvas.getBoundingClientRect();
         this.dragging = true;
         this.dragMoved = false;
+        this.dragButton = ev.button;
         this.dragStart.x = ev.clientX - rect.left;
         this.dragStart.y = ev.clientY - rect.top;
         this.camStart.x = this.cam.x;
@@ -4139,6 +4141,7 @@
       window.addEventListener("mouseup", () => {
         this.dragging = false;
         this.dragMoved = false;
+        this.dragButton = null;
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });

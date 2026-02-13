@@ -66,6 +66,7 @@
   const nextInEl = $("nextIn");
 
   const startBtn = $("startBtn");
+  const skipBtn = $("skipBtn");
   const resetBtn = $("resetBtn");
   const pauseBtn = $("pauseBtn");
   const helpBtn = $("helpBtn");
@@ -125,6 +126,7 @@
   const OVERCHARGE_COOLDOWN = 180;
   const SKIP_GOLD_BONUS = 25;
   const SKIP_COOLDOWN_REDUCE = 15;
+  const SKIP_HOLD_SECS = 0.6;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -1051,6 +1053,77 @@
       reward: 17,
       desc: "Flying: avoids traps."
     },
+    PHASE: {
+      name: "Phase Runner",
+      hp: 80,
+      speed: 104,
+      armor: 0.04,
+      shield: 0,
+      regen: 0,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._blinkT = (e._blinkT ?? rand(1.6, 2.4)) - dt;
+        if (e._blinkT > 0) return;
+        e._blinkT = rand(2.2, 3.0);
+        const jump = 46;
+        e.pathD = Math.min(game.map.totalLen - 2, e.pathD + jump);
+        const p = game.map.posAt(e.pathD);
+        e.x = p.x; e.y = p.y; e.ang = p.ang;
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 10,
+          t: 0.24,
+          dur: 0.24,
+          max: 46,
+          col: "rgba(154,108,255,0.85)",
+          boom: false
+        });
+        game.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.85)");
+      },
+      tint: "rgba(154,108,255,0.75)",
+      reward: 18,
+      desc: "Blinks forward periodically."
+    },
+    SHIELD_DRONE: {
+      name: "Shield Drone",
+      hp: 95,
+      speed: 78,
+      armor: 0.06,
+      shield: 30,
+      regen: 0,
+      stealth: false,
+      flying: true,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._auraT = (e._auraT ?? 1.8) - dt;
+        if (e._auraT > 0) return;
+        e._auraT = 2.8;
+        const r = 110;
+        for (const other of game.enemies) {
+          if (other.hp <= 0 || other === e) continue;
+          if (dist2(e.x, e.y, other.x, other.y) <= r * r) {
+            other.addShield(10, 26);
+            game.particles.spawn(other.x, other.y, 2, "muzzle");
+          }
+        }
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 16,
+          t: 0.28,
+          dur: 0.28,
+          max: r * 0.8,
+          col: "rgba(98,242,255,0.75)",
+          boom: false
+        });
+      },
+      tint: "rgba(98,242,255,0.7)",
+      reward: 18,
+      desc: "Recharges nearby shields."
+    },
     // Support types used by split mechanic
     MINI: {
       name: "Sporelet",
@@ -1581,6 +1654,8 @@
       this.ttl = ttl;
       this.style = style; // "bullet", "venom", "mortar", "needle", "spark"
       this.hit = new Set();
+      this.prevX = x;
+      this.prevY = y;
 
       // optional behavior hooks (set by turret)
       this.owner = null;
@@ -1663,8 +1738,12 @@
     }
     update(game, dt) {
       this.ttl -= dt;
+      const px = this.x;
+      const py = this.y;
       this.x += this.vx * dt;
       this.y += this.vy * dt;
+      this.prevX = px;
+      this.prevY = py;
 
       if (this.style === "mortar") {
         game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "chem", "rgba(200,210,240,0.45)");
@@ -1735,6 +1814,19 @@
       if (this.style === "mortar") { col = "rgba(255,207,91,0.85)"; glow = "rgba(255,207,91,0.35)"; }
       if (this.style === "needle") { col = "rgba(154,108,255,0.85)"; glow = "rgba(154,108,255,0.35)"; }
       if (this.style === "spark")  { col = "rgba(98,242,255,0.85)"; glow = "rgba(98,242,255,0.35)"; }
+
+      const dx = this.x - this.prevX;
+      const dy = this.y - this.prevY;
+      const segLen = Math.hypot(dx, dy);
+      if (segLen > 0.4) {
+        gfx.globalAlpha = this.style === "mortar" ? 0.55 : 0.45;
+        gfx.strokeStyle = glow;
+        gfx.lineWidth = this.style === "needle" ? 2.0 : (this.style === "mortar" ? 2.6 : 1.4);
+        gfx.beginPath();
+        gfx.moveTo(this.prevX, this.prevY);
+        gfx.lineTo(this.x, this.y);
+        gfx.stroke();
+      }
 
       const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 6);
       g.addColorStop(0, glow);
@@ -2979,6 +3071,9 @@
       this.shakeT = 0;
       this.shakeMag = 0;
       this.damageFlash = 0;
+      this.corePulseT = 0;
+      this.skipHoldT = 0;
+      this.skipHoldActive = false;
       this.floatText = [];
       this.decals = [];
       this.turrets = [];
@@ -3023,6 +3118,9 @@
       this.pendingIntermission = INTERMISSION_SECS;
       this.statsOpen = false;
       this.statsMode = null;
+      this.corePulseT = 0;
+      this.skipHoldT = 0;
+      this.skipHoldActive = false;
       this.waveStats = this._newWaveStats(0);
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
@@ -3060,29 +3158,45 @@
           this._save();
           return;
         }
-        if (!this.waveActive && this.intermission > 0) {
-          this._applySkipReward(this.intermission);
-          this.intermission = 0;
-        }
-        this.startWave();
-        this.audio.play("skip");
-        this._save();
+        toast("Use SKIP to start the next wave early.");
       });
       startBtn.addEventListener("pointerenter", (ev) => {
         if (!startBtn || startBtn.disabled) return;
-        const msg = this.hasStarted
-          ? "Skip for gold bonus and -15s ability cooldowns"
-          : "Start wave";
+        const msg = "Start the first wave.";
         showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
       });
       startBtn.addEventListener("pointermove", (ev) => {
         if (!startBtn || startBtn.disabled) return;
-        const msg = this.hasStarted
-          ? "Skip for gold bonus and -15s ability cooldowns"
-          : "Start wave";
+        const msg = "Start the first wave.";
         showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
       });
       startBtn.addEventListener("pointerleave", () => hideTooltip());
+
+      skipBtn?.addEventListener("pointerdown", (ev) => {
+        if (!skipBtn || skipBtn.disabled) return;
+        if (!this._canSkipIntermission()) return;
+        ev.preventDefault();
+        this.skipHoldActive = true;
+        this.skipHoldT = 0;
+      });
+      const cancelSkipHold = () => {
+        this.skipHoldActive = false;
+        this.skipHoldT = 0;
+      };
+      skipBtn?.addEventListener("pointerup", cancelSkipHold);
+      skipBtn?.addEventListener("pointerleave", cancelSkipHold);
+      skipBtn?.addEventListener("pointercancel", cancelSkipHold);
+      skipBtn?.addEventListener("pointerenter", (ev) => {
+        if (!skipBtn) return;
+        const msg = `SKIP = start wave immediately + bonus gold + short power surge; reduces ability cooldown by ${SKIP_COOLDOWN_REDUCE}s. Hold ${SKIP_HOLD_SECS}s.`;
+        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+      });
+      skipBtn?.addEventListener("pointermove", (ev) => {
+        if (!skipBtn) return;
+        const msg = `SKIP = start wave immediately + bonus gold + short power surge; reduces ability cooldown by ${SKIP_COOLDOWN_REDUCE}s. Hold ${SKIP_HOLD_SECS}s.`;
+        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+      });
+      skipBtn?.addEventListener("pointerleave", () => hideTooltip());
 
       abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
       abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
@@ -3345,6 +3459,19 @@
       return this.paused || this.isUiBlocked();
     }
 
+    _canSkipIntermission() {
+      return this.hasStarted && !this.waveActive && this.intermission > 0 && !this.isPaused();
+    }
+
+    _skipIntermission() {
+      if (!this._canSkipIntermission()) return;
+      this._applySkipReward(this.intermission);
+      this.intermission = 0;
+      this.startWave();
+      this.audio.play("skip");
+      this._save();
+    }
+
     _newWaveStats(wave) {
       return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
     }
@@ -3599,8 +3726,18 @@
         nextInEl.textContent = "—";
       }
 
-      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
-      startBtn.textContent = this.hasStarted ? "SKIP" : "START";
+      const nextPill = nextInEl?.closest(".pill");
+      if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
+
+      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen || this.hasStarted;
+      startBtn.textContent = "START";
+
+      if (skipBtn) {
+        const canSkip = this._canSkipIntermission() && !this.statsOpen && !this.gameOver && !this.gameWon;
+        skipBtn.disabled = !canSkip;
+        const holdPct = this.skipHoldActive ? clamp(this.skipHoldT / SKIP_HOLD_SECS, 0, 1) : 0;
+        skipBtn.style.setProperty("--hold-pct", holdPct.toFixed(3));
+      }
 
       if (this.abilities && abilityScanCd) {
         const scan = this.abilities.scan;
@@ -3627,9 +3764,11 @@
         if (this.waveAnomaly) {
           anomalyLabel.textContent = this.waveAnomaly.name;
           anomalyPill?.setAttribute("title", this.waveAnomaly.desc);
+          anomalyPill?.classList.add("active");
         } else {
           anomalyLabel.textContent = "—";
           anomalyPill?.setAttribute("title", "Wave anomaly");
+          anomalyPill?.classList.remove("active");
         }
       }
     }
@@ -3847,6 +3986,8 @@
       if (i >= 9) types.push("REGEN");
       if (i >= 11) types.push("STEALTH");
       if (i >= 13) types.push("FLYING");
+      if (i >= 8) types.push("PHASE");
+      if (i >= 10) types.push("SHIELD_DRONE");
 
       const weights = {
         RUNNER: i <= 4 ? 1.6 : 1.1,
@@ -3856,7 +3997,9 @@
         SPLITTER: 0.7,
         REGEN: 0.75,
         STEALTH: 0.65,
-        FLYING: 0.7
+        FLYING: 0.7,
+        PHASE: 0.6,
+        SHIELD_DRONE: 0.55
       };
 
       const pickWeighted = () => {
@@ -3872,6 +4015,7 @@
         if (i >= 12 && n % 7 === 0) type = "ARMORED";
         if (i >= 12 && n % 9 === 0) type = "SHIELDED";
         if (i >= 14 && n % 11 === 0) type = "REGEN";
+        if (i >= 10 && n % 13 === 0) type = "SHIELD_DRONE";
         const t = n * (spacing * earlySpacingMul) + rand(-0.15, 0.15);
         let eliteTag = null;
         if (wave >= 7) {
@@ -3908,7 +4052,8 @@
         const base = ANOMALIES[key];
         this.waveAnomaly = { key, name: base.name, desc: base.desc };
         this._warpRippleT = 10;
-        setTimeout(() => toast(`ANOMALY: ${base.name}`), 700);
+        const shortDesc = base.desc.length > 70 ? `${base.desc.slice(0, 67)}...` : base.desc;
+        setTimeout(() => toast(`ANOMALY: ${base.name} — ${shortDesc}`), 700);
       }
       const scalar = this._waveScalar(this.wave);
       this.waveScalar = scalar;
@@ -4250,6 +4395,7 @@
           col: "rgba(98,242,255,0.85)",
           boom: false
         });
+        this.corePulseT = Math.max(this.corePulseT, 0.45);
         this.shakeT = Math.min(0.25, this.shakeT + 0.08);
         this.shakeMag = Math.min(6, this.shakeMag + 1.2);
       }
@@ -4484,11 +4630,27 @@
       if (this.damageFlash > 0) {
         this.damageFlash = Math.max(0, this.damageFlash - dtScaled * 1.8);
       }
+      if (this.corePulseT > 0) {
+        this.corePulseT = Math.max(0, this.corePulseT - dt);
+      }
       if (this.skipBuff.t > 0) {
         this.skipBuff.t = Math.max(0, this.skipBuff.t - dtScaled);
         if (this.skipBuff.t <= 0) {
           this.skipBuff.dmgMul = 1;
           this.skipBuff.rateMul = 1;
+        }
+      }
+      if (this.skipHoldActive) {
+        if (this._canSkipIntermission()) {
+          this.skipHoldT += dt;
+          if (this.skipHoldT >= SKIP_HOLD_SECS) {
+            this.skipHoldActive = false;
+            this.skipHoldT = 0;
+            this._skipIntermission();
+          }
+        } else {
+          this.skipHoldActive = false;
+          this.skipHoldT = 0;
         }
       }
       if (this.abilities) {
@@ -4669,15 +4831,88 @@
       }
       this.map.drawBase(gfx);
 
+      if (this.corePulseT > 0) {
+        const end = this.map.pathPts[this.map.pathPts.length - 1];
+        if (end) {
+          const k = 1 - clamp(this.corePulseT / 0.45, 0, 1);
+          const r = 24 + k * 80;
+          gfx.save();
+          gfx.globalAlpha = 0.65 * (1 - k);
+          gfx.strokeStyle = "rgba(98,242,255,0.85)";
+          gfx.lineWidth = 3;
+          gfx.beginPath();
+          gfx.arc(end[0], end[1], r, 0, Math.PI * 2);
+          gfx.stroke();
+          gfx.globalAlpha = 0.25 * (1 - k);
+          const grad = gfx.createRadialGradient(end[0], end[1], 0, end[0], end[1], r * 1.2);
+          grad.addColorStop(0, "rgba(98,242,255,0.35)");
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          gfx.fillStyle = grad;
+          gfx.beginPath();
+          gfx.arc(end[0], end[1], r * 1.2, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.restore();
+        }
+      }
+
       // hover highlight
       if (this.hoverCell && (this.hoverCell.v === 1 || this.hoverCell.v === 3)) {
         const x = this.hoverCell.gx * this.map.gridSize;
         const y = this.hoverCell.gy * this.map.gridSize;
+        const pulse = 0.35 + 0.25 * Math.sin(performance.now() * 0.006 + x * 0.01 + y * 0.01);
         gfx.save();
-        gfx.strokeStyle = this.hoverCell.v === 3 ? "rgba(255,207,91,0.55)" : "rgba(98,242,255,0.35)";
+        const baseCol = this.hoverCell.v === 3 ? "rgba(255,207,91,0.55)" : "rgba(98,242,255,0.45)";
+        gfx.strokeStyle = baseCol;
+        gfx.fillStyle = this.hoverCell.v === 3 ? `rgba(255,207,91,${0.08 + pulse * 0.08})` : `rgba(98,242,255,${0.05 + pulse * 0.06})`;
         gfx.lineWidth = 2;
+        gfx.fillRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
         gfx.strokeRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
         gfx.restore();
+      }
+
+      if (this.buildKey && this.hoverCell) {
+        const cell = this.hoverCell;
+        const inBounds = cell.gx >= 0 && cell.gy >= 0 && cell.gx < this.map.cols && cell.gy < this.map.rows;
+        if (inBounds) {
+          const buildValid = (cell.v === 1 || cell.v === 3) && !this.isCellOccupied(cell.gx, cell.gy);
+          const w = this.map.worldFromCell(cell.gx, cell.gy);
+          const base = TURRET_TYPES[this.buildKey];
+          const range = base ? base.range : 120;
+          const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.01);
+
+          // range preview
+          gfx.save();
+          gfx.globalAlpha = 1;
+          gfx.strokeStyle = buildValid ? "rgba(98,242,255,0.25)" : "rgba(255,91,125,0.25)";
+          gfx.lineWidth = 2;
+          gfx.beginPath();
+          gfx.arc(w.x, w.y, range, 0, Math.PI * 2);
+          gfx.stroke();
+          gfx.restore();
+
+          // ghost core
+          gfx.save();
+          gfx.globalAlpha = buildValid ? 0.55 : 0.45;
+          gfx.fillStyle = buildValid ? "rgba(98,242,255,0.18)" : "rgba(255,91,125,0.18)";
+          gfx.strokeStyle = buildValid ? "rgba(98,242,255,0.55)" : "rgba(255,91,125,0.65)";
+          gfx.lineWidth = 2;
+          gfx.beginPath();
+          gfx.arc(w.x, w.y, 14 + pulse * 1.5, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.restore();
+
+          if (!buildValid) {
+            const x = cell.gx * this.map.gridSize;
+            const y = cell.gy * this.map.gridSize;
+            gfx.save();
+            gfx.globalAlpha = 0.7 * pulse;
+            gfx.strokeStyle = "rgba(255,91,125,0.85)";
+            gfx.lineWidth = 2.5;
+            gfx.strokeRect(x + 1.5, y + 1.5, this.map.gridSize - 3, this.map.gridSize - 3);
+            gfx.restore();
+          }
+        }
       }
 
       // lingering zones
@@ -4760,6 +4995,15 @@
 
       // beams (multi-pass heat distortion)
       for (const b of this.beams) {
+        gfx.save();
+        gfx.globalAlpha = 0.18;
+        gfx.strokeStyle = b.col || "rgba(98,242,255,0.85)";
+        gfx.lineWidth = 9;
+        gfx.beginPath();
+        gfx.moveTo(b.ax, b.ay);
+        gfx.lineTo(b.bx, b.by);
+        gfx.stroke();
+        gfx.restore();
         for (let i = 0; i < 3; i++) {
           const off = (i - 1) * 1.6;
           const jx = rand(-0.6, 0.6);

@@ -3693,6 +3693,7 @@
       this.waveStats = this._newWaveStats(0);
       this.runStats = this._newRunStats();
       this.mapStats = [];
+      this.playerStats = this._newPlayerStats();
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
         pulse: { cd: ABILITY_COOLDOWN, t: 0 },
@@ -3762,7 +3763,15 @@
       this._transitioning = true;
       if (this.runStats) {
         this.mapStats = this.mapStats || [];
-        this.mapStats.push(this._snapshotRunStats());
+        const snap = this._snapshotRunStats();
+        this.mapStats.push(snap);
+        this.playerStats = this.playerStats || this._newPlayerStats();
+        this.playerStats.mapsCleared += 1;
+        this.playerStats.kills += snap.kills;
+        this.playerStats.leaks += snap.leaks;
+        this.playerStats.gold += snap.gold;
+        this.playerStats.towersBuilt += snap.towersBuilt;
+        this.playerStats.bosses += snap.bosses;
       }
       const nextLevel = this.levelIndex + 1;
       const nextSeed = this._makeSeed();
@@ -4140,6 +4149,10 @@
       return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, dmgByType: {} };
     }
 
+    _newPlayerStats() {
+      return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 };
+    }
+
     _snapshotRunStats() {
       const src = this.runStats || this._newRunStats();
       return {
@@ -4223,6 +4236,15 @@
       const historyLines = history.length
         ? history.map(h => `<div class="tiny">Level ${h.level}: K ${h.kills} · L ${h.leaks} · G ${fmt(h.gold)} · B ${h.bosses}</div>`).join("")
         : `<div class="tiny">No completed maps yet.</div>`;
+      const p = this.playerStats || this._newPlayerStats();
+      const playerLines = [
+        `<div class="tiny">Maps Cleared: ${p.mapsCleared}</div>`,
+        `<div class="tiny">Total Kills: ${p.kills}</div>`,
+        `<div class="tiny">Total Leaks: ${p.leaks}</div>`,
+        `<div class="tiny">Total Gold: ${fmt(p.gold)}</div>`,
+        `<div class="tiny">Towers Built: ${p.towersBuilt}</div>`,
+        `<div class="tiny">Bosses Defeated: ${p.bosses}</div>`
+      ].join("");
       const dmgEntries = Object.entries(stats.dmgByType || {})
         .map(([k, v]) => ({ k, v }))
         .sort((a, b) => b.v - a.v)
@@ -4252,6 +4274,10 @@
           <div class="statsRow">
             <div class="k">Map History</div>
             <div class="v">${historyLines}</div>
+          </div>
+          <div class="statsRow">
+            <div class="k">Player Stats</div>
+            <div class="v">${playerLines}</div>
           </div>
           ` : ""}
         `;
@@ -4813,6 +4839,7 @@
             poolsN: this.mapData.poolsN
           } : null,
           mapStats: this.mapStats || [],
+          playerStats: this.playerStats || this._newPlayerStats(),
           gold: this.gold,
           lives: this.lives,
           wave: this.wave,
@@ -4885,6 +4912,16 @@
 
         if (Array.isArray(data.mapStats)) {
           this.mapStats = data.mapStats.slice();
+        }
+        if (data.playerStats && typeof data.playerStats === "object") {
+          this.playerStats = {
+            mapsCleared: data.playerStats.mapsCleared || 0,
+            kills: data.playerStats.kills || 0,
+            leaks: data.playerStats.leaks || 0,
+            gold: data.playerStats.gold || 0,
+            towersBuilt: data.playerStats.towersBuilt || 0,
+            bosses: data.playerStats.bosses || 0
+          };
         }
         if (typeof data.levelIndex === "number" && Number.isFinite(data.levelIndex)) {
           this.levelIndex = Math.max(1, data.levelIndex | 0);
@@ -5036,6 +5073,7 @@
       this._resetWaveStats();
       this.runStats = this._newRunStats();
       this.mapStats = [];
+      this.playerStats = this._newPlayerStats();
       this._refreshBuildList();
       this.updateHUD();
     }

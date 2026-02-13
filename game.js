@@ -1512,6 +1512,43 @@
       tint: "rgba(98,242,255,0.85)",
       reward: 40,
       desc: "Miniboss: projects shields to nearby allies."
+    },
+    FINAL_BOSS: {
+      name: "Vortex Dominus",
+      hp: 2600,
+      speed: 34,
+      armor: 0.25,
+      shield: 420,
+      regen: 3.5,
+      stealth: false,
+      flying: false,
+      onDeath: null,
+      onUpdate: (game, e, dt) => {
+        e._pulseT = (e._pulseT ?? 2.4) - dt;
+        if (e._pulseT > 0) return;
+        e._pulseT = 3.8;
+        const r = 190;
+        for (const other of game.enemies) {
+          if (other.hp <= 0 || other === e) continue;
+          if (dist2(e.x, e.y, other.x, other.y) <= r * r) {
+            other.addShield(28, 60);
+          }
+        }
+        game.explosions.push({
+          x: e.x,
+          y: e.y,
+          r: 28,
+          t: 0.36,
+          dur: 0.36,
+          max: r * 0.9,
+          col: "rgba(255,91,125,0.8)",
+          boom: false
+        });
+        game.particles.spawn(e.x, e.y, 14, "muzzle");
+      },
+      tint: "rgba(255,120,200,0.9)",
+      reward: 120,
+      desc: "Final boss: massive shields with surge pulses."
     }
   };
 
@@ -1561,7 +1598,7 @@
       const base = ENEMY_TYPES[typeKey];
       this.typeKey = typeKey;
       this.name = base.name;
-      this.isBoss = typeKey === "BOSS_PROJECTOR";
+      this.isBoss = typeKey === "BOSS_PROJECTOR" || typeKey === "FINAL_BOSS";
 
       // Scaling rules: HP, armor/shield slight, speed slight.
       this.maxHp = base.hp * waveScalar.hp;
@@ -1641,8 +1678,8 @@
         this.reward = Math.floor(this.reward * 1.35);
       }
       if (this.isBoss) {
-        this.r = 18;
-        this.reward = Math.max(this.reward, 55);
+        this.r = typeKey === "FINAL_BOSS" ? 24 : 18;
+        this.reward = Math.max(this.reward, typeKey === "FINAL_BOSS" ? 120 : 55);
       }
     }
 
@@ -1848,13 +1885,14 @@
       if (this.elite || this.isBoss) {
         const tag = this.elite?.tag;
         const eliteCol =
+          this.typeKey === "FINAL_BOSS" ? "rgba(255,120,200,0.95)" :
           this.isBoss ? "rgba(98,242,255,0.95)" :
           tag === "HARDENED" ? "rgba(255,207,91,0.9)" :
           tag === "VOLATILE" ? "rgba(255,91,125,0.9)" :
           "rgba(154,108,255,0.9)";
         gfx.globalAlpha = 0.65;
         gfx.strokeStyle = eliteCol;
-        gfx.lineWidth = this.isBoss ? 3 : 2;
+        gfx.lineWidth = this.typeKey === "FINAL_BOSS" ? 3.5 : (this.isBoss ? 3 : 2);
         gfx.beginPath();
         gfx.ellipse(0, 0, this.r * 1.35, this.r * 1.05, t * 0.4, 0, Math.PI * 2);
         gfx.stroke();
@@ -1862,6 +1900,16 @@
           gfx.globalAlpha = 0.35;
           gfx.beginPath();
           gfx.ellipse(0, 0, this.r * 1.8, this.r * 1.25, -t * 0.3, 0, Math.PI * 2);
+          gfx.stroke();
+        }
+        if (this.typeKey === "FINAL_BOSS") {
+          gfx.globalAlpha = 0.55;
+          gfx.strokeStyle = "rgba(255,207,91,0.9)";
+          gfx.lineWidth = 2;
+          gfx.beginPath();
+          gfx.moveTo(-this.r * 0.2, -this.r * 1.35);
+          gfx.lineTo(0, -this.r * 1.9);
+          gfx.lineTo(this.r * 0.2, -this.r * 1.35);
           gfx.stroke();
         }
       }
@@ -3435,7 +3483,7 @@
       this.gold = START_GOLD;
       this.lives = START_LIVES;
       this.wave = 0;
-      this.waveMax = 10;
+      this.waveMax = 15;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
@@ -3902,11 +3950,11 @@
     }
 
     _newWaveStats(wave) {
-      return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
+      return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, dmgByType: {} };
     }
 
     _newRunStats() {
-      return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
+      return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, dmgByType: {} };
     }
 
     _resetWaveStats() {
@@ -3990,6 +4038,7 @@
             <div class="statsRow"><div class="k">Wave</div><div class="v">${waveLabel}</div></div>
             <div class="statsRow"><div class="k">Level</div><div class="v">${this.levelIndex}</div></div>
             <div class="statsRow"><div class="k">Kills</div><div class="v">${stats.kills}</div></div>
+            <div class="statsRow"><div class="k">Bosses Defeated</div><div class="v">${stats.bosses || 0}</div></div>
             <div class="statsRow"><div class="k">Leaks</div><div class="v">${stats.leaks}</div></div>
             <div class="statsRow"><div class="k">Gold Earned</div><div class="v">${fmt(stats.gold)}</div></div>
             <div class="statsRow"><div class="k">Towers Built</div><div class="v">${stats.towersBuilt}</div></div>
@@ -4385,28 +4434,33 @@
 
     _waveScalar(wave) {
       const i = wave - 1;
-      const earlyHp = wave === 1 ? 0.78 : wave === 2 ? 0.86 : wave === 3 ? 0.92 : wave === 4 ? 0.96 : wave === 5 ? 0.98 : 1;
-      const earlySpd = wave === 1 ? 0.88 : wave === 2 ? 0.93 : wave === 3 ? 0.97 : wave <= 5 ? 0.99 : 1;
+      const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.92 : 1;
+      const earlySpd = wave === 1 ? 0.9 : wave === 2 ? 0.96 : 1;
       const late = Math.max(0, wave - 8);
       const latePow = Math.pow(late, 1.12) * 0.016;
-      const post5 = Math.max(0, wave - 5);
-      const post5Boost = 1 + post5 * 0.02;
+      const post2 = Math.max(0, wave - 2);
+      const post2Boost = 1 + post2 * 0.035;
       const levelHp = 1 + Math.max(0, this.levelIndex - 1) * LEVEL_HP_SCALE;
       const levelSpd = 1 + Math.max(0, this.levelIndex - 1) * LEVEL_SPD_SCALE;
       const levelDef = 1 + Math.max(0, this.levelIndex - 1) * 0.02;
       const levelReward = 1 + Math.max(0, this.levelIndex - 1) * 0.03;
       return {
-        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35 * post5Boost * levelHp,
-        spd: (1 + i * 0.012) * earlySpd * 1.05 * (1 + post5 * 0.008) * levelSpd,
-        armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.15 * (1 + post5 * 0.012) * levelDef,
-        shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post5 * 0.012) * levelDef,
-        regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post5 * 0.008) * levelDef,
+        hp: (1 + i * 0.09 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
+        spd: (1 + i * 0.012) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd,
+        armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.15 * (1 + post2 * 0.012) * levelDef,
+        shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.012) * levelDef,
+        regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.008) * levelDef,
         reward: (1 + i * 0.05) * 1.15 * levelReward
       };
     }
 
     _buildWave(wave, scalar) {
       const i = wave;
+      if (wave === this.waveMax) {
+        return [
+          { t: 0.8, type: "FINAL_BOSS", scalar, miniboss: true }
+        ];
+      }
       const baseCount = Math.round(((wave === 1) ? 6
         : (wave === 2 ? 8
         : (wave === 3 ? 10
@@ -4645,7 +4699,7 @@
         this.gold = data.gold ?? this.gold;
         this.lives = data.lives ?? this.lives;
         this.wave = data.wave ?? this.wave;
-        this.waveMax = 10;
+        this.waveMax = 15;
         this.hasStarted = !!data.hasStarted;
         this.waveActive = !!data.waveActive;
         this.intermission = data.intermission ?? this.intermission;
@@ -4744,7 +4798,7 @@
       this.gold = START_GOLD;
       this.lives = START_LIVES;
       this.wave = 0;
-      this.waveMax = 10;
+      this.waveMax = 15;
       this.hasStarted = false;
       this.waveActive = false;
       this.intermission = 0;
@@ -4806,10 +4860,12 @@
       if (this.waveStats) {
         this.waveStats.kills += 1;
         this.waveStats.gold += enemy.reward;
+        if (enemy.isBoss) this.waveStats.bosses += 1;
       }
       if (this.runStats) {
         this.runStats.kills += 1;
         this.runStats.gold += enemy.reward;
+        if (enemy.isBoss) this.runStats.bosses += 1;
       }
       this.audio.playLimited("kill", 140);
 

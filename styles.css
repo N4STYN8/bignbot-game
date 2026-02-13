@@ -248,6 +248,7 @@ body{
   bottom:14px;
   transform: translateX(-50%);
   display:flex;
+  justify-content:center;
   align-items:center;
   gap:12px;
   padding:8px 14px 10px 14px;
@@ -271,9 +272,12 @@ body{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  width:100%;
+  justify-content:center;
 }
 .abilityBtn{
   border:1px solid rgba(28,42,90,.9);
+  box-sizing:border-box;
   background: linear-gradient(180deg, rgba(12,18,36,.85), rgba(9,13,27,.85));
   color:var(--text);
   padding:10px 12px;

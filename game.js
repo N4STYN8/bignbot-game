@@ -4477,16 +4477,16 @@
         const pulse = this.abilities.pulse;
         const over = this.abilities.overcharge;
         if (abilityScanBtn) {
-          abilityScanBtn.title = "EMP Pulse: Instantly destroys all enemy shields.";
-          abilityScanBtn.dataset.tooltip = abilityScanBtn.title;
+          abilityScanBtn.dataset.tooltip = "EMP Pulse: Instantly destroys all enemy shields.";
+          abilityScanBtn.removeAttribute("title");
         }
         if (abilityPulseBtn) {
-          abilityPulseBtn.title = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
-          abilityPulseBtn.dataset.tooltip = abilityPulseBtn.title;
+          abilityPulseBtn.dataset.tooltip = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
+          abilityPulseBtn.removeAttribute("title");
         }
         if (abilityOverBtn) {
-          abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
-          abilityOverBtn.dataset.tooltip = abilityOverBtn.title;
+          abilityOverBtn.dataset.tooltip = "Overcharge: Boost all turret fire rates for 30s. 90s cooldown.";
+          abilityOverBtn.removeAttribute("title");
         }
         const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
         const pulsePct = pulse.t > 0 ? clamp(pulse.t / pulse.cd, 0, 1) : 0;

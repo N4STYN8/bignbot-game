@@ -263,6 +263,9 @@ body{
   letter-spacing:.14em;
   text-transform:uppercase;
   color:var(--muted);
+  font-weight:700;
+  width:100%;
+  text-align:center;
 }
 .abilitiesRow{
   display:flex;

@@ -66,7 +66,6 @@
   const nextInEl = $("nextIn");
 
   const startBtn = $("startBtn");
-  const skipBtn = $("skipBtn");
   const resetBtn = $("resetBtn");
   const pauseBtn = $("pauseBtn");
   const helpBtn = $("helpBtn");
@@ -126,7 +125,6 @@
   const OVERCHARGE_COOLDOWN = 180;
   const SKIP_GOLD_BONUS = 25;
   const SKIP_COOLDOWN_REDUCE = 15;
-  const SKIP_HOLD_SECS = 0.6;
   const INTERMISSION_SECS = 15;
   const TOWER_UNLOCKS = {
     PULSE: 1,
@@ -3072,8 +3070,6 @@
       this.shakeMag = 0;
       this.damageFlash = 0;
       this.corePulseT = 0;
-      this.skipHoldT = 0;
-      this.skipHoldActive = false;
       this.floatText = [];
       this.decals = [];
       this.turrets = [];
@@ -3119,8 +3115,6 @@
       this.statsOpen = false;
       this.statsMode = null;
       this.corePulseT = 0;
-      this.skipHoldT = 0;
-      this.skipHoldActive = false;
       this.waveStats = this._newWaveStats(0);
       this.abilities = {
         scan: { cd: ABILITY_COOLDOWN, t: 0 },
@@ -3158,45 +3152,29 @@
           this._save();
           return;
         }
-        toast("Use SKIP to start the next wave early.");
+        if (!this.waveActive && this.intermission > 0) {
+          this._applySkipReward(this.intermission);
+          this.intermission = 0;
+        }
+        this.startWave();
+        this.audio.play("skip");
+        this._save();
       });
       startBtn.addEventListener("pointerenter", (ev) => {
         if (!startBtn || startBtn.disabled) return;
-        const msg = "Start the first wave.";
+        const msg = this.hasStarted
+          ? "Skip for gold bonus and -15s ability cooldowns"
+          : "Start wave";
         showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
       });
       startBtn.addEventListener("pointermove", (ev) => {
         if (!startBtn || startBtn.disabled) return;
-        const msg = "Start the first wave.";
+        const msg = this.hasStarted
+          ? "Skip for gold bonus and -15s ability cooldowns"
+          : "Start wave";
         showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
       });
       startBtn.addEventListener("pointerleave", () => hideTooltip());
-
-      skipBtn?.addEventListener("pointerdown", (ev) => {
-        if (!skipBtn || skipBtn.disabled) return;
-        if (!this._canSkipIntermission()) return;
-        ev.preventDefault();
-        this.skipHoldActive = true;
-        this.skipHoldT = 0;
-      });
-      const cancelSkipHold = () => {
-        this.skipHoldActive = false;
-        this.skipHoldT = 0;
-      };
-      skipBtn?.addEventListener("pointerup", cancelSkipHold);
-      skipBtn?.addEventListener("pointerleave", cancelSkipHold);
-      skipBtn?.addEventListener("pointercancel", cancelSkipHold);
-      skipBtn?.addEventListener("pointerenter", (ev) => {
-        if (!skipBtn) return;
-        const msg = `SKIP = start wave immediately + bonus gold + short power surge; reduces ability cooldown by ${SKIP_COOLDOWN_REDUCE}s. Hold ${SKIP_HOLD_SECS}s.`;
-        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
-      });
-      skipBtn?.addEventListener("pointermove", (ev) => {
-        if (!skipBtn) return;
-        const msg = `SKIP = start wave immediately + bonus gold + short power surge; reduces ability cooldown by ${SKIP_COOLDOWN_REDUCE}s. Hold ${SKIP_HOLD_SECS}s.`;
-        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
-      });
-      skipBtn?.addEventListener("pointerleave", () => hideTooltip());
 
       abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
       abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
@@ -3463,15 +3441,6 @@
       return this.hasStarted && !this.waveActive && this.intermission > 0 && !this.isPaused();
     }
 
-    _skipIntermission() {
-      if (!this._canSkipIntermission()) return;
-      this._applySkipReward(this.intermission);
-      this.intermission = 0;
-      this.startWave();
-      this.audio.play("skip");
-      this._save();
-    }
-
     _newWaveStats(wave) {
       return { wave, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, dmgByType: {} };
     }
@@ -3729,15 +3698,8 @@
       const nextPill = nextInEl?.closest(".pill");
       if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
 
-      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen || this.hasStarted;
-      startBtn.textContent = "START";
-
-      if (skipBtn) {
-        const canSkip = this._canSkipIntermission() && !this.statsOpen && !this.gameOver && !this.gameWon;
-        skipBtn.disabled = !canSkip;
-        const holdPct = this.skipHoldActive ? clamp(this.skipHoldT / SKIP_HOLD_SECS, 0, 1) : 0;
-        skipBtn.style.setProperty("--hold-pct", holdPct.toFixed(3));
-      }
+      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen;
+      startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
       if (this.abilities && abilityScanCd) {
         const scan = this.abilities.scan;
@@ -4638,19 +4600,6 @@
         if (this.skipBuff.t <= 0) {
           this.skipBuff.dmgMul = 1;
           this.skipBuff.rateMul = 1;
-        }
-      }
-      if (this.skipHoldActive) {
-        if (this._canSkipIntermission()) {
-          this.skipHoldT += dt;
-          if (this.skipHoldT >= SKIP_HOLD_SECS) {
-            this.skipHoldActive = false;
-            this.skipHoldT = 0;
-            this._skipIntermission();
-          }
-        } else {
-          this.skipHoldActive = false;
-          this.skipHoldT = 0;
         }
       }
       if (this.abilities) {

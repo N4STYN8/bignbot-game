@@ -86,6 +86,7 @@
   const sellBtn = $("sellBtn");
   const toastEl = $("toast");
   const tooltipEl = $("tooltip");
+  const topbarEl = document.querySelector(".topbar");
   const levelOverlay = $("levelOverlay");
   const levelOverlayText = $("levelOverlayText");
   const confirmModal = $("confirmModal");
@@ -354,6 +355,30 @@
     return compact;
   }
 
+  function getPlayBounds() {
+    let left = 0;
+    let right = W;
+    let top = 0;
+    let bottom = H;
+    const pad = 12;
+    if (leftPanel) {
+      const r = leftPanel.getBoundingClientRect();
+      if (r.width > 20) left = Math.max(left, r.width + pad);
+    }
+    if (rightPanel) {
+      const r = rightPanel.getBoundingClientRect();
+      if (r.width > 20) right = Math.min(right, W - r.width - pad);
+    }
+    if (topbarEl) {
+      const r = topbarEl.getBoundingClientRect();
+      if (r.height > 20) top = Math.max(top, r.height + pad);
+    }
+    bottom = Math.min(bottom, H - pad);
+    const w = Math.max(80, right - left);
+    const h = Math.max(80, bottom - top);
+    return { x: left, y: top, w, h };
+  }
+
   function generatePowerTiles(rng, segments, opts) {
     const tiles = [];
     const count = randInt(rng, opts.countMin, opts.countMax);
@@ -384,7 +409,12 @@
       const off = lerp(minBand, maxBand, rng()) * (rng() < 0.5 ? -1 : 1);
       const cx = px + nx * off;
       const cy = py + ny * off;
-      if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
+      if (opts.bounds) {
+        const b = opts.bounds;
+        if (cx < b.x + MAP_GRID_SIZE * 0.5 || cy < b.y + MAP_GRID_SIZE * 0.5 || cx > b.x + b.w - MAP_GRID_SIZE * 0.5 || cy > b.y + b.h - MAP_GRID_SIZE * 0.5) continue;
+      } else {
+        if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
+      }
       const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segments));
       if (d < minBand || d > maxBand) continue;
       if (!isFarFromOthers(cx, cy)) continue;
@@ -415,7 +445,12 @@
         const off = lerp(relaxedMinBand, maxBand, rng()) * (rng() < 0.5 ? -1 : 1);
         const cx = px + nx * off;
         const cy = py + ny * off;
-        if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
+        if (opts.bounds) {
+          const b = opts.bounds;
+          if (cx < b.x + MAP_GRID_SIZE * 0.5 || cy < b.y + MAP_GRID_SIZE * 0.5 || cx > b.x + b.w - MAP_GRID_SIZE * 0.5 || cy > b.y + b.h - MAP_GRID_SIZE * 0.5) continue;
+        } else {
+          if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
+        }
         const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segments));
         if (d < relaxedMinBand || d > maxBand) continue;
         let ok = true;
@@ -440,15 +475,19 @@
   function generateMap(seed, envId) {
     const rng = makeRNG(seed);
     const env = ENV_PRESETS[envId % ENV_PRESETS.length];
-    const gridW = Math.max(12, Math.floor(W / MAP_GRID_SIZE));
-    const gridH = Math.max(8, Math.floor(H / MAP_GRID_SIZE));
+    const bounds = getPlayBounds();
+    const gridW = Math.max(12, Math.floor(bounds.w / MAP_GRID_SIZE));
+    const gridH = Math.max(8, Math.floor(bounds.h / MAP_GRID_SIZE));
     const axis = env.axis || (rng() < 0.5 ? "LR" : "TB");
     const pathCells = generatePath(rng, gridW, gridH, axis);
     const pathN = pathCells.map(([gx, gy]) => [
       (gx + 0.5) / gridW,
       (gy + 0.5) / gridH
     ]);
-    const pathPts = pathN.map(([nx, ny]) => [nx * W, ny * H]);
+    const pathPts = pathN.map(([nx, ny]) => [
+      bounds.x + nx * bounds.w,
+      bounds.y + ny * bounds.h
+    ]);
     const segData = buildPathSegments(pathPts);
     const spawn = { x: pathPts[0][0], y: pathPts[0][1] };
     const goal = { x: pathPts[pathPts.length - 1][0], y: pathPts[pathPts.length - 1][1] };
@@ -470,9 +509,13 @@
       maxBand: POWER_NEAR_MAX,
       minDist: POWER_TILE_MIN_DIST,
       avoid: [spawn, goal],
-      avoidR: TRACK_RADIUS * 2.2
+      avoidR: TRACK_RADIUS * 2.2,
+      bounds
     });
-    const powerTilesN = powerTiles.map(p => [p.x / W, p.y / H]);
+    const powerTilesN = powerTiles.map(p => [
+      (p.x - bounds.x) / bounds.w,
+      (p.y - bounds.y) / bounds.h
+    ]);
     return {
       seed,
       envId: env.id,
@@ -753,12 +796,16 @@
 
     _rebuild() {
       this._ensurePath();
+      const bounds = getPlayBounds();
       this.cols = Math.max(6, Math.floor(W / this.gridSize));
       this.rows = Math.max(6, Math.floor(H / this.gridSize));
       this.cells = new Array(this.cols * this.rows).fill(1);
       this.powerCells = [];
 
-      this.pathPts = this.pathN.map(([nx, ny]) => [nx * W, ny * H]);
+      this.pathPts = this.pathN.map(([nx, ny]) => [
+        bounds.x + nx * bounds.w,
+        bounds.y + ny * bounds.h
+      ]);
       const segData = buildPathSegments(this.pathPts);
       this.segs = segData.segs;
       this.totalLen = segData.totalLen;
@@ -786,8 +833,8 @@
 
       if (this.powerTilesN && this.powerTilesN.length) {
         for (const p of this.powerTilesN) {
-          const px = p[0] * W;
-          const py = p[1] * H;
+          const px = bounds.x + p[0] * bounds.w;
+          const py = bounds.y + p[1] * bounds.h;
           const gx = clamp(Math.floor(px / this.gridSize), 0, this.cols - 1);
           const gy = clamp(Math.floor(py / this.gridSize), 0, this.rows - 1);
           const idx = gy * this.cols + gx;
@@ -1066,6 +1113,32 @@
         gfx.stroke();
       }
       gfx.restore();
+
+      // Start arrow (spawn direction)
+      if (pts.length >= 2) {
+        const sx = pts[0][0];
+        const sy = pts[0][1];
+        const nx = pts[1][0];
+        const ny = pts[1][1];
+        const ang = Math.atan2(ny - sy, nx - sx);
+        const tArrow = performance.now() * 0.001;
+        const pulse = 0.6 + 0.4 * Math.sin(tArrow * 2.2);
+        gfx.save();
+        gfx.translate(sx, sy);
+        gfx.rotate(ang);
+        gfx.globalAlpha = 0.7 + 0.2 * pulse;
+        gfx.fillStyle = this.env.accent || "rgba(98,242,255,0.9)";
+        gfx.strokeStyle = this.env.accent2 || "rgba(154,108,255,0.9)";
+        gfx.lineWidth = 2;
+        gfx.beginPath();
+        gfx.moveTo(12, 0);
+        gfx.lineTo(-8, -7);
+        gfx.lineTo(-8, 7);
+        gfx.closePath();
+        gfx.fill();
+        gfx.stroke();
+        gfx.restore();
+      }
     }
   }
 

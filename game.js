@@ -132,7 +132,7 @@
     green: [109, 255, 154]
   };
   const ABILITY_COOLDOWN = 90;
-  const OVERCHARGE_COOLDOWN = 180;
+  const OVERCHARGE_COOLDOWN = 90;
   const SKIP_GOLD_BONUS = 25;
   const SKIP_COOLDOWN_REDUCE = 15;
   const INTERMISSION_SECS = 15;
@@ -2982,7 +2982,8 @@
         const realDt = game._realDt || dt;
         this.pulseBoostT = Math.max(0, this.pulseBoostT - realDt);
       }
-      const pulseMul = this.pulseBoostT > 0 ? 1.5 : 1;
+      const pulseRateMul = this.pulseBoostT > 0 ? 4 : 1;
+      const pulseDmgMul = this.pulseBoostT > 0 ? 2 : 1;
       const globalMul = game.globalOverchargeT > 0 ? 1.35 : 1;
 
       // Aura Grove special handling
@@ -3033,7 +3034,7 @@
           const ox = Math.cos(d.ang) * (26 + d.r);
           const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
 
-          d.cool -= dt * buff.rateMul * skip.rateMul * pulseMul * globalMul;
+          d.cool -= dt * buff.rateMul * skip.rateMul * pulseRateMul * globalMul;
           if (d.cool <= 0) {
             d.cool = this.droneFire; // drone fire cadence
             // pick target
@@ -3050,7 +3051,7 @@
               const spd = 520 * (lowGravity ? 1.15 : 1);
               const vx = (dx / len) * spd;
               const vy = (dy / len) * spd;
-              const dmg = this.dmg * buff.dmgMul * skip.dmgMul;
+              const dmg = this.dmg * buff.dmgMul * skip.dmgMul * pulseDmgMul;
               const pierce = 1 + (lowGravity ? 1 : 0);
               const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, pierce, 1.4, "spark");
               game.projectiles.push(p);
@@ -3068,7 +3069,7 @@
       if (this.typeKey === "TRAP") {
         const skip = game.getSkipBuff();
         this.charges = clamp(this.charges, 0, this.maxCharges);
-        this.cool -= dt * skip.rateMul * pulseMul * globalMul;
+        this.cool -= dt * skip.rateMul * pulseRateMul * globalMul;
         if (this.cool <= 0) {
           this.cool = this.fire;
           if (this.charges < this.maxCharges) this.charges++;
@@ -3087,9 +3088,9 @@
               x: found.x, y: found.y,
               r: this.trapR,
               t: this.trapDur,
-              dmg: this.dmg * skip.dmgMul,
+              dmg: this.dmg * skip.dmgMul * pulseDmgMul,
               slow: this.trapSlow,
-              dot: this.trapDot ? { dps: this.trapDot.dps * skip.dmgMul, dur: this.trapDot.dur } : null,
+              dot: this.trapDot ? { dps: this.trapDot.dps * skip.dmgMul * pulseDmgMul, dur: this.trapDot.dur } : null,
               siphon: this.siphon,
               noSplit: this.noSplit,
               owner: this
@@ -3105,7 +3106,7 @@
       const buff = this.getBuffedStats(game);
       const skip = game.getSkipBuff();
       const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
-      const fireInterval = this.fire / (buff.rateMul * skip.rateMul * pulseMul * globalMul);
+      const fireInterval = this.fire / (buff.rateMul * skip.rateMul * pulseRateMul * globalMul);
       this.cool -= dt;
 
       const target = this.acquireTarget(game);
@@ -3123,7 +3124,7 @@
         this.flash = 1;
         this.recoil = 1;
 
-        const dmgBase = this.dmg * buff.dmgMul * skip.dmgMul;
+        const dmgBase = this.dmg * buff.dmgMul * skip.dmgMul * pulseDmgMul;
         const dmgType = this.dmgType;
 
         // Fire behavior by turret type
@@ -4461,8 +4462,8 @@
         const scan = this.abilities.scan;
         const pulse = this.abilities.pulse;
         const over = this.abilities.overcharge;
-        if (abilityScanBtn) abilityScanBtn.title = "Scan Ping: Reveal all cloaked enemies until they are killed or reach the core.";
-        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret, then boost its fire rate for 30s. No selection = red flash.";
+        if (abilityScanBtn) abilityScanBtn.title = "EMP Pulse: Instantly destroys all enemy shields.";
+        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
         if (abilityOverBtn) abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
         const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
         const pulsePct = pulse.t > 0 ? clamp(pulse.t / pulse.cd, 0, 1) : 0;
@@ -4547,24 +4548,25 @@
         case "scan": {
           ability.t = ability.cd;
           let found = 0;
+          let shields = 0;
           for (const e of this.enemies) {
             if (e.hp <= 0) continue;
-            if (!e.stealth) continue;
-            e._revealLock = true;
-            e.revealed = true;
-            e.revealT = 0;
+            if (e.shield > 0) {
+              e.shield = 0;
+              shields++;
+              this.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.9)");
+              this.explosions.push({
+                x: e.x,
+                y: e.y,
+                r: 12,
+                t: 0.28,
+                dur: 0.28,
+                max: 52,
+                col: "rgba(154,108,255,0.9)",
+                boom: false
+              });
+            }
             found++;
-            this.particles.spawn(e.x, e.y, 6, "muzzle");
-            this.explosions.push({
-              x: e.x,
-              y: e.y,
-              r: 10,
-              t: 0.28,
-              dur: 0.28,
-              max: 46,
-              col: "rgba(98,242,255,0.85)",
-              boom: false
-            });
           }
           this.explosions.push({
             x: W * 0.5,
@@ -4573,11 +4575,17 @@
             t: 0.32,
             dur: 0.32,
             max: Math.max(W, H) * 0.35,
-            col: "rgba(98,242,255,0.6)",
+            col: "rgba(154,108,255,0.65)",
             boom: false
           });
           this.audio.playLimited("beam", 220);
-          toast(found > 0 ? "SCAN PING: stealth revealed" : "SCAN PING: no stealth found");
+          if (found === 0) {
+            toast("EMP PULSE: no enemies found");
+          } else if (shields === 0) {
+            toast("EMP PULSE: no shields detected");
+          } else {
+            toast(`EMP PULSE: ${shields} shields destroyed`);
+          }
           break;
         }
         case "pulse": {
@@ -4595,7 +4603,7 @@
           });
           this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
           this.audio.playLimited("upgrade", 220);
-          toast("PULSE BURST: turret fire rate boosted for 30s");
+          toast("PULSE BURST: turret damage x2 and fire rate x4 for 30s");
           break;
         }
         case "overcharge": {

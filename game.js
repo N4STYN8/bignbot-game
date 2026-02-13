@@ -393,6 +393,16 @@
       top = 0;
       bottom = H;
     }
+    left = Math.ceil(left / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+    top = Math.ceil(top / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+    right = Math.floor(right / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+    bottom = Math.floor(bottom / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+    if (right - left < MAP_GRID_SIZE * 4 || bottom - top < MAP_GRID_SIZE * 3) {
+      left = 0;
+      top = 0;
+      right = Math.floor(W / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+      bottom = Math.floor(H / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+    }
     let w = Math.max(80, right - left);
     let h = Math.max(80, bottom - top);
     if (w < 300 || h < 220) {

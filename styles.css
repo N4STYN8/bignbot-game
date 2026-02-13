@@ -2,6 +2,8 @@
 :root{
   --bg0:#070A12;
   --bg1:#0B1022;
+  --glow1: rgba(98,242,255,.10);
+  --glow2: rgba(154,108,255,.10);
   --panel:#0B1020cc;
   --panel2:#0B1020f2;
   --line:#1C2A5A;
@@ -26,8 +28,8 @@ body{
   overflow:hidden;
   color:var(--text);
   background:
-    radial-gradient(1000px 600px at 20% 15%, rgba(98,242,255,.10), transparent 55%),
-    radial-gradient(900px 700px at 85% 35%, rgba(154,108,255,.10), transparent 55%),
+    radial-gradient(1000px 600px at 20% 15%, var(--glow1), transparent 55%),
+    radial-gradient(900px 700px at 85% 35%, var(--glow2), transparent 55%),
     linear-gradient(180deg, var(--bg0), var(--bg1));
   font-family:var(--sans);
 }
@@ -170,6 +172,12 @@ body{
 .value-low{color: var(--bad)}
 .value-mid{color: var(--warn)}
 .value-high{color: var(--good)}
+.seedPill{
+  opacity:0.7;
+}
+.seedPill .v{
+  font-size:12px;
+}
 .anomalyBar{
   pointer-events:none;
   position:absolute;
@@ -1011,6 +1019,33 @@ body{
   letter-spacing: .02em;
 }
 .tooltip.hidden{display:none}
+.levelOverlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:4;
+  background: rgba(7,10,18,0.82);
+  backdrop-filter: blur(6px);
+  opacity:0;
+  transition: opacity .45s ease;
+  pointer-events:none;
+}
+.levelOverlay.show{
+  opacity:1;
+}
+.levelOverlay.hidden{
+  opacity:0;
+}
+.levelOverlayText{
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  font-size: 28px;
+  color: var(--text);
+  text-transform: uppercase;
+  text-shadow: 0 12px 30px rgba(0,0,0,.45);
+}
 
 .modal{
   position:fixed;

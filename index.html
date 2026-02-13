@@ -30,8 +30,11 @@
               <span class="k"><img class="statIcon" src="assets/images/lives.png" alt="Lives"></span>
               <span id="lives" class="v">0</span>
             </div>
+            <div class="pill"><span class="k">Level</span> <span id="levelVal" class="v">1</span></div>
+            <div class="pill"><span class="k">Env</span> <span id="envVal" class="v">—</span></div>
             <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
             <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">—</span></div>
+            <div class="pill seedPill"><span class="k">Seed</span> <span id="seedVal" class="v">—</span></div>
             <div id="anomalyPill" class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">—</span></div>
           </div>
 
@@ -188,6 +191,9 @@
 
       <div id="toast" class="toast hidden"></div>
       <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+      <div id="levelOverlay" class="levelOverlay hidden" aria-hidden="true">
+        <div id="levelOverlayText" class="levelOverlayText">LEVEL 1</div>
+      </div>
     </div>
   </div>
 

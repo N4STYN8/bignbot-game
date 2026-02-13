@@ -3364,6 +3364,11 @@
       this.decals = [];
 
       this.speed = 1;
+      this.zoom = 1;
+      this.cam = { x: 0, y: 0 };
+      this.dragging = false;
+      this.dragStart = { x: 0, y: 0 };
+      this.camStart = { x: 0, y: 0 };
       this.gold = START_GOLD;
       this.lives = START_LIVES;
       this.wave = 0;
@@ -3630,8 +3635,17 @@
 
       canvas.addEventListener("mousemove", (ev) => {
         const rect = canvas.getBoundingClientRect();
-        this.mouse.x = ev.clientX - rect.left;
-        this.mouse.y = ev.clientY - rect.top;
+        const sx = ev.clientX - rect.left;
+        const sy = ev.clientY - rect.top;
+        if (this.dragging) {
+          const dx = sx - this.dragStart.x;
+          const dy = sy - this.dragStart.y;
+          this.cam.x = this.camStart.x - dx / this.zoom;
+          this.cam.y = this.camStart.y - dy / this.zoom;
+        }
+        const wp = this.screenToWorld(sx, sy);
+        this.mouse.x = wp.x;
+        this.mouse.y = wp.y;
         this.hoverCell = this.map.cellAt(this.mouse.x, this.mouse.y);
         let hoveredTurret = null;
         for (const t of this.turrets) {
@@ -3657,13 +3671,17 @@
       });
 
       canvas.addEventListener("click", (ev) => {
+        if (this.dragging) return;
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         this.audio.unlock();
         hideTooltip();
         const rect = canvas.getBoundingClientRect();
-        const x = ev.clientX - rect.left;
-        const y = ev.clientY - rect.top;
+        const sx = ev.clientX - rect.left;
+        const sy = ev.clientY - rect.top;
+        const wp = this.screenToWorld(sx, sy);
+        const x = wp.x;
+        const y = wp.y;
         this.onClick(x, y);
       });
       canvas.addEventListener("contextmenu", (ev) => {
@@ -3675,9 +3693,35 @@
         this.selectTurret(null);
         this.collapseEnabled = true;
       });
+      canvas.addEventListener("mousedown", (ev) => {
+        if (ev.button !== 0) return;
+        if (this.isUiBlocked()) return;
+        if (this.zoom <= 1) return;
+        const rect = canvas.getBoundingClientRect();
+        this.dragging = true;
+        this.dragStart.x = ev.clientX - rect.left;
+        this.dragStart.y = ev.clientY - rect.top;
+        this.camStart.x = this.cam.x;
+        this.camStart.y = this.cam.y;
+      });
+      window.addEventListener("mouseup", () => {
+        this.dragging = false;
+      });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
       canvas.addEventListener("mouseleave", () => hideTooltip());
+
+      canvas.addEventListener("wheel", (ev) => {
+        if (this.isUiBlocked()) return;
+        ev.preventDefault();
+        const delta = Math.sign(ev.deltaY);
+        const next = this.zoom + (delta > 0 ? -0.1 : 0.1);
+        this.zoom = clamp(next, 0.75, 1.5);
+        if (this.zoom <= 1) {
+          this.cam.x = 0;
+          this.cam.y = 0;
+        }
+      }, { passive: false });
 
       document.querySelectorAll(".panelBtn").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -3781,6 +3825,12 @@
 
     isPaused() {
       return this.paused || this.isUiBlocked();
+    }
+
+    screenToWorld(x, y) {
+      const zx = (x - W * 0.5) / this.zoom + W * 0.5 + this.cam.x;
+      const zy = (y - H * 0.5) / this.zoom + H * 0.5 + this.cam.y;
+      return { x: zx, y: zy };
     }
 
     _canSkipIntermission() {
@@ -5156,12 +5206,15 @@
 
     draw(gfx) {
       gfx.clearRect(0, 0, W, H);
+      gfx.save();
       if (this.shakeT > 0) {
         const sx = (Math.random() * 2 - 1) * this.shakeMag;
         const sy = (Math.random() * 2 - 1) * this.shakeMag;
-        gfx.save();
         gfx.translate(sx, sy);
       }
+      gfx.translate(W * 0.5, H * 0.5);
+      gfx.scale(this.zoom, this.zoom);
+      gfx.translate(-W * 0.5 - this.cam.x, -H * 0.5 - this.cam.y);
       this.map.drawBase(gfx);
 
       if (this.corePulseT > 0) {
@@ -5416,7 +5469,7 @@
         gfx.fillRect(0, 0, W, H);
         gfx.restore();
       }
-      if (this.shakeT > 0) gfx.restore();
+      gfx.restore();
     }
   }
 

@@ -1283,7 +1283,10 @@
       onDeath: null,
       tint: "rgba(98,242,255,0.85)",
       reward: 7,
-      desc: "Fast, fragile."
+      desc: "Fast, fragile.",
+      shape: "dart",
+      size: 11,
+      size2: 7
     },
     BRUTE: {
       name: "Bulwark",
@@ -1297,7 +1300,10 @@
       onDeath: null,
       tint: "rgba(234,240,255,0.75)",
       reward: 12,
-      desc: "High HP, slow."
+      desc: "High HP, slow.",
+      shape: "tank",
+      size: 16,
+      size2: 12
     },
     ARMORED: {
       name: "Plated",
@@ -1311,7 +1317,10 @@
       onDeath: null,
       tint: "rgba(160,190,255,0.65)",
       reward: 14,
-      desc: "Armor reduces Physical."
+      desc: "Armor reduces Physical.",
+      shape: "hex",
+      size: 13,
+      size2: 10
     },
     SHIELDED: {
       name: "Prism Guard",
@@ -1325,7 +1334,10 @@
       onDeath: null,
       tint: "rgba(154,108,255,0.8)",
       reward: 16,
-      desc: "Shield absorbs Energy."
+      desc: "Shield absorbs Energy.",
+      shape: "orb",
+      size: 13,
+      size2: 9
     },
     SPLITTER: {
       name: "Mitosis",
@@ -1339,6 +1351,9 @@
       tint: "rgba(255,207,91,0.8)",
       reward: 18,
       desc: "Splits into two minis on death.",
+      shape: "cell",
+      size: 12,
+      size2: 10,
       onDeath: (game, e) => {
         // spawn two minis at same path distance
         for (let i = 0; i < 2; i++) {
@@ -1360,7 +1375,10 @@
       onDeath: null,
       tint: "rgba(109,255,154,0.8)",
       reward: 16,
-      desc: "Regenerates over time."
+      desc: "Regenerates over time.",
+      shape: "pulse",
+      size: 12,
+      size2: 9
     },
     STEALTH: {
       name: "Veil",
@@ -1374,7 +1392,10 @@
       onDeath: null,
       tint: "rgba(234,240,255,0.35)",
       reward: 15,
-      desc: "Stealth until revealed."
+      desc: "Stealth until revealed.",
+      shape: "ghost",
+      size: 11,
+      size2: 8
     },
     FLYING: {
       name: "Skydart",
@@ -1388,7 +1409,10 @@
       onDeath: null,
       tint: "rgba(98,242,255,0.55)",
       reward: 17,
-      desc: "Flying: avoids traps."
+      desc: "Flying: avoids traps.",
+      shape: "wing",
+      size: 10,
+      size2: 7
     },
     PHASE: {
       name: "Phase Runner",
@@ -1422,7 +1446,10 @@
       },
       tint: "rgba(154,108,255,0.75)",
       reward: 18,
-      desc: "Blinks forward periodically."
+      desc: "Blinks forward periodically.",
+      shape: "dart",
+      size: 11,
+      size2: 8
     },
     SHIELD_DRONE: {
       name: "Shield Drone",
@@ -1459,7 +1486,10 @@
       },
       tint: "rgba(98,242,255,0.7)",
       reward: 18,
-      desc: "Recharges nearby shields."
+      desc: "Recharges nearby shields.",
+      shape: "orb",
+      size: 10,
+      size2: 7
     },
     // Support types used by split mechanic
     MINI: {
@@ -1474,7 +1504,10 @@
       onDeath: null,
       tint: "rgba(255,207,91,0.6)",
       reward: 4,
-      desc: "Spawned from Mitosis."
+      desc: "Spawned from Mitosis.",
+      shape: "cell",
+      size: 8,
+      size2: 6
     },
     BOSS_PROJECTOR: {
       name: "Shield Projector",
@@ -1511,7 +1544,10 @@
       },
       tint: "rgba(98,242,255,0.85)",
       reward: 40,
-      desc: "Miniboss: projects shields to nearby allies."
+      desc: "Miniboss: projects shields to nearby allies.",
+      shape: "core",
+      size: 20,
+      size2: 14
     },
     FINAL_BOSS: {
       name: "Vortex Dominus",
@@ -1548,7 +1584,10 @@
       },
       tint: "rgba(255,120,200,0.9)",
       reward: 120,
-      desc: "Final boss: massive shields with surge pulses."
+      desc: "Final boss: massive shields with surge pulses.",
+      shape: "core",
+      size: 26,
+      size2: 18
     }
   };
 
@@ -1626,7 +1665,9 @@
       this.x = 0; this.y = 0; this.ang = 0;
 
       // visuals
-      this.r = this.flying ? 10 : 12;
+      this.shape = base.shape || "oval";
+      this.r = base.size || (this.flying ? 10 : 12);
+      this.r2 = base.size2 || this.r * 0.8;
       this.pulse = rand(0, Math.PI * 2);
       this.hitFlash = 0;
 
@@ -1871,7 +1912,63 @@
       gfx.strokeStyle = this.tint;
       gfx.lineWidth = 2;
       gfx.beginPath();
-      gfx.ellipse(0, 0, this.r, this.r * 0.85, 0.2, 0, Math.PI * 2);
+      switch (this.shape) {
+        case "dart": {
+          gfx.moveTo(this.r, 0);
+          gfx.lineTo(-this.r * 0.6, -this.r2);
+          gfx.lineTo(-this.r * 0.6, this.r2);
+          gfx.closePath();
+          break;
+        }
+        case "tank": {
+          if (gfx.roundRect) {
+            gfx.roundRect(-this.r, -this.r2, this.r * 2, this.r2 * 2, 5);
+          } else {
+            gfx.rect(-this.r, -this.r2, this.r * 2, this.r2 * 2);
+          }
+          break;
+        }
+        case "hex": {
+          const a = this.r;
+          gfx.moveTo(a, 0);
+          gfx.lineTo(a * 0.5, a * 0.86);
+          gfx.lineTo(-a * 0.5, a * 0.86);
+          gfx.lineTo(-a, 0);
+          gfx.lineTo(-a * 0.5, -a * 0.86);
+          gfx.lineTo(a * 0.5, -a * 0.86);
+          gfx.closePath();
+          break;
+        }
+        case "orb": {
+          gfx.ellipse(0, 0, this.r, this.r, 0, 0, Math.PI * 2);
+          break;
+        }
+        case "cell": {
+          gfx.ellipse(0, 0, this.r, this.r2, 0.25, 0, Math.PI * 2);
+          break;
+        }
+        case "pulse": {
+          gfx.ellipse(0, 0, this.r, this.r2 * 0.95, 0.4, 0, Math.PI * 2);
+          break;
+        }
+        case "ghost": {
+          gfx.ellipse(0, 0, this.r, this.r2 * 1.05, -0.2, 0, Math.PI * 2);
+          break;
+        }
+        case "wing": {
+          gfx.moveTo(this.r, 0);
+          gfx.lineTo(0, -this.r2);
+          gfx.lineTo(-this.r, 0);
+          gfx.lineTo(0, this.r2);
+          gfx.closePath();
+          break;
+        }
+        case "core":
+        default: {
+          gfx.ellipse(0, 0, this.r, this.r * 0.85, 0.2, 0, Math.PI * 2);
+          break;
+        }
+      }
       gfx.fill();
       gfx.stroke();
 
@@ -1881,6 +1978,75 @@
       gfx.beginPath();
       gfx.ellipse(-this.r * 0.15, 0, this.r * 0.42, this.r * 0.32, -0.6, 0, Math.PI * 2);
       gfx.fill();
+
+      // detail accents
+      gfx.save();
+      gfx.globalAlpha = 0.55;
+      gfx.strokeStyle = "rgba(234,240,255,0.25)";
+      gfx.lineWidth = 1.5;
+      switch (this.shape) {
+        case "tank": {
+          gfx.beginPath();
+          gfx.moveTo(-this.r * 0.4, -this.r2 * 0.6);
+          gfx.lineTo(this.r * 0.6, -this.r2 * 0.6);
+          gfx.lineTo(this.r * 0.6, this.r2 * 0.6);
+          gfx.lineTo(-this.r * 0.4, this.r2 * 0.6);
+          gfx.stroke();
+          break;
+        }
+        case "hex": {
+          gfx.beginPath();
+          gfx.moveTo(0, -this.r * 0.9);
+          gfx.lineTo(this.r * 0.6, 0);
+          gfx.lineTo(0, this.r * 0.9);
+          gfx.lineTo(-this.r * 0.6, 0);
+          gfx.closePath();
+          gfx.stroke();
+          break;
+        }
+        case "dart": {
+          gfx.beginPath();
+          gfx.moveTo(-this.r * 0.2, 0);
+          gfx.lineTo(this.r * 0.6, 0);
+          gfx.stroke();
+          break;
+        }
+        case "wing": {
+          gfx.beginPath();
+          gfx.moveTo(-this.r * 0.2, -this.r2 * 0.7);
+          gfx.lineTo(this.r * 0.6, 0);
+          gfx.lineTo(-this.r * 0.2, this.r2 * 0.7);
+          gfx.stroke();
+          break;
+        }
+        case "cell": {
+          gfx.beginPath();
+          gfx.arc(0, 0, this.r * 0.35, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "ghost": {
+          gfx.beginPath();
+          gfx.arc(0, 0, this.r * 0.6, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "pulse": {
+          gfx.beginPath();
+          gfx.arc(0, 0, this.r * 0.7, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "orb":
+        case "core":
+        default: {
+          gfx.beginPath();
+          gfx.arc(0, 0, this.r * 0.55, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+      }
+      gfx.restore();
 
       if (this.elite || this.isBoss) {
         const tag = this.elite?.tag;
@@ -1935,12 +2101,25 @@
       gfx.fillStyle = hpPct > 0.5 ? "rgba(109,255,154,0.85)" : (hpPct > 0.2 ? "rgba(255,207,91,0.85)" : "rgba(255,91,125,0.9)");
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
 
-      // shield tick
+      // shield bubble
       if (this.shield > 0) {
+        const sh = clamp(this.shield / Math.max(1, this.maxShield), 0.15, 1);
+        gfx.save();
+        gfx.globalAlpha = 0.35 + sh * 0.25;
+        const g = gfx.createRadialGradient(x, y, 0, x, y, this.r + 12);
+        g.addColorStop(0, "rgba(154,108,255,0.25)");
+        g.addColorStop(0.6, "rgba(154,108,255,0.12)");
+        g.addColorStop(1, "rgba(154,108,255,0)");
+        gfx.fillStyle = g;
+        gfx.beginPath();
+        gfx.arc(x, y, this.r + 12, 0, Math.PI * 2);
+        gfx.fill();
+        gfx.restore();
+
         gfx.strokeStyle = "rgba(154,108,255,0.85)";
         gfx.lineWidth = 2;
         gfx.beginPath();
-        gfx.arc(x, y, this.r + 3, 0, Math.PI * 2);
+        gfx.arc(x, y, this.r + 4, 0, Math.PI * 2);
         gfx.stroke();
       }
       gfx.restore();

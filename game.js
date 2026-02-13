@@ -3835,6 +3835,20 @@
       abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
       abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
       abilityOverBtn?.addEventListener("click", () => this.useAbility("overcharge"));
+      const abilityBtns = [abilityScanBtn, abilityPulseBtn, abilityOverBtn].filter(Boolean);
+      abilityBtns.forEach((btn) => {
+        btn.addEventListener("pointerenter", (ev) => {
+          const msg = btn.dataset.tooltip || btn.title;
+          if (!msg) return;
+          showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+        });
+        btn.addEventListener("pointermove", (ev) => {
+          const msg = btn.dataset.tooltip || btn.title;
+          if (!msg) return;
+          showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+        });
+        btn.addEventListener("pointerleave", () => hideTooltip());
+      });
 
       pauseBtn?.addEventListener("click", () => this.togglePause());
 
@@ -4462,9 +4476,18 @@
         const scan = this.abilities.scan;
         const pulse = this.abilities.pulse;
         const over = this.abilities.overcharge;
-        if (abilityScanBtn) abilityScanBtn.title = "EMP Pulse: Instantly destroys all enemy shields.";
-        if (abilityPulseBtn) abilityPulseBtn.title = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
-        if (abilityOverBtn) abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
+        if (abilityScanBtn) {
+          abilityScanBtn.title = "EMP Pulse: Instantly destroys all enemy shields.";
+          abilityScanBtn.dataset.tooltip = abilityScanBtn.title;
+        }
+        if (abilityPulseBtn) {
+          abilityPulseBtn.title = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
+          abilityPulseBtn.dataset.tooltip = abilityPulseBtn.title;
+        }
+        if (abilityOverBtn) {
+          abilityOverBtn.title = "Overcharge: Boost all turret fire rates for 30s. 3 min cooldown.";
+          abilityOverBtn.dataset.tooltip = abilityOverBtn.title;
+        }
         const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
         const pulsePct = pulse.t > 0 ? clamp(pulse.t / pulse.cd, 0, 1) : 0;
         const overPct = over.t > 0 ? clamp(over.t / over.cd, 0, 1) : 0;

@@ -4629,9 +4629,18 @@
         const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
         const pulsePct = pulse.t > 0 ? clamp(pulse.t / pulse.cd, 0, 1) : 0;
         const overPct = over.t > 0 ? clamp(over.t / over.cd, 0, 1) : 0;
-        if (abilityScanBtn) abilityScanBtn.style.setProperty("--cd-pct", scanPct.toFixed(3));
-        if (abilityPulseBtn) abilityPulseBtn.style.setProperty("--cd-pct", pulsePct.toFixed(3));
-        if (abilityOverBtn) abilityOverBtn.style.setProperty("--cd-pct", overPct.toFixed(3));
+        if (abilityScanBtn) {
+          abilityScanBtn.style.setProperty("--cd-pct", scanPct.toFixed(3));
+          abilityScanBtn.classList.toggle("ready", scan.t <= 0);
+        }
+        if (abilityPulseBtn) {
+          abilityPulseBtn.style.setProperty("--cd-pct", pulsePct.toFixed(3));
+          abilityPulseBtn.classList.toggle("ready", pulse.t <= 0);
+        }
+        if (abilityOverBtn) {
+          abilityOverBtn.style.setProperty("--cd-pct", overPct.toFixed(3));
+          abilityOverBtn.classList.toggle("ready", over.t <= 0);
+        }
         abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
         abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
         abilityOverCd.textContent = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";

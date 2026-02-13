@@ -540,12 +540,42 @@
       (p.x - bounds.x) / bounds.w,
       (p.y - bounds.y) / bounds.h
     ]);
+    const poolsN = [];
+    const poolCount = randInt(rng, 2, 5);
+    const poolAttempts = poolCount * 18;
+    for (let i = 0; i < poolAttempts && poolsN.length < poolCount; i++) {
+      const s = segData.segs[(rng() * segData.segs.length) | 0];
+      const t = rng();
+      const px = lerp(s.ax, s.bx, t);
+      const py = lerp(s.ay, s.by, t);
+      const dx = s.bx - s.ax;
+      const dy = s.by - s.ay;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const off = lerp(TRACK_RADIUS + 24, TRACK_RADIUS + 90, rng()) * (rng() < 0.5 ? -1 : 1);
+      const cx = px + nx * off;
+      const cy = py + ny * off;
+      if (cx < bounds.x + 60 || cy < bounds.y + 60 || cx > bounds.x + bounds.w - 60 || cy > bounds.y + bounds.h - 60) continue;
+      const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segData.segs));
+      if (d < TRACK_RADIUS + 18 || d > TRACK_RADIUS + 110) continue;
+      const r = lerp(55, 120, rng());
+      let ok = true;
+      for (const p of poolsN) {
+        const dxp = (p[0] * bounds.w + bounds.x) - cx;
+        const dyp = (p[1] * bounds.h + bounds.y) - cy;
+        if (dxp * dxp + dyp * dyp < (r + p[2]) * (r + p[2])) { ok = false; break; }
+      }
+      if (!ok) continue;
+      poolsN.push([(cx - bounds.x) / bounds.w, (cy - bounds.y) / bounds.h, r]);
+    }
     return {
       seed,
       envId: env.id,
       env,
       pathN,
       powerTilesN,
+      poolsN,
       pathPoints: pathPts,
       trackSegments: segData.segs,
       blockedCells,
@@ -806,6 +836,7 @@
       if (!mapData) return;
       this.pathN = mapData.pathN || [];
       this.powerTilesN = mapData.powerTilesN || [];
+      this.poolsN = mapData.poolsN || [];
       this.env = mapData.env || ENV_PRESETS[mapData.envId || 0] || ENV_PRESETS[0];
       this._rebuild();
     }
@@ -825,6 +856,7 @@
       this.rows = Math.max(6, Math.floor(H / this.gridSize));
       this.cells = new Array(this.cols * this.rows).fill(1);
       this.powerCells = [];
+      this.poolsN = this.poolsN || [];
 
       const buildPathPts = (b) => this.pathN.map(([nx, ny]) => [
         b.x + nx * b.w,
@@ -858,6 +890,36 @@
           if (distanceToSegmentsSquared(px, py, this.segs) <= blockR2) {
             this.cells[idx] = 2;
           }
+        }
+      }
+
+      if (this.poolsN && this.poolsN.length) {
+        let buildableCount = 0;
+        for (let i = 0; i < this.cells.length; i++) if (this.cells[i] === 1) buildableCount++;
+        const minBuildable = Math.max(28, Math.floor(this.cells.length * 0.08));
+
+        for (const pool of this.poolsN) {
+          const cx = bounds.x + pool[0] * bounds.w;
+          const cy = bounds.y + pool[1] * bounds.h;
+          const r = pool[2];
+          const r2 = r * r;
+          let removed = 0;
+          const indices = [];
+          for (let gy = 0; gy < this.rows; gy++) {
+            for (let gx = 0; gx < this.cols; gx++) {
+              const idx = gy * this.cols + gx;
+              if (this.cells[idx] !== 1) continue;
+              const px = (gx + 0.5) * this.gridSize;
+              const py = (gy + 0.5) * this.gridSize;
+              if (dist2(px, py, cx, cy) <= r2) {
+                indices.push(idx);
+                removed++;
+              }
+            }
+          }
+          if (buildableCount - removed < minBuildable) continue;
+          for (const idx of indices) this.cells[idx] = 0;
+          buildableCount -= removed;
         }
       }
 
@@ -3367,6 +3429,7 @@
       this.zoom = 1;
       this.cam = { x: 0, y: 0 };
       this.dragging = false;
+      this.dragMoved = false;
       this.dragStart = { x: 0, y: 0 };
       this.camStart = { x: 0, y: 0 };
       this.gold = START_GOLD;
@@ -3640,6 +3703,9 @@
         if (this.dragging) {
           const dx = sx - this.dragStart.x;
           const dy = sy - this.dragStart.y;
+          if (!this.dragMoved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+            this.dragMoved = true;
+          }
           this.cam.x = this.camStart.x - dx / this.zoom;
           this.cam.y = this.camStart.y - dy / this.zoom;
         }
@@ -3671,7 +3737,7 @@
       });
 
       canvas.addEventListener("click", (ev) => {
-        if (this.dragging) return;
+        if (this.dragging || this.dragMoved) return;
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         this.audio.unlock();
@@ -3699,6 +3765,7 @@
         if (this.zoom <= 1) return;
         const rect = canvas.getBoundingClientRect();
         this.dragging = true;
+        this.dragMoved = false;
         this.dragStart.x = ev.clientX - rect.left;
         this.dragStart.y = ev.clientY - rect.top;
         this.camStart.x = this.cam.x;
@@ -3706,6 +3773,7 @@
       });
       window.addEventListener("mouseup", () => {
         this.dragging = false;
+        this.dragMoved = false;
       });
 
       window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
@@ -4480,7 +4548,8 @@
             seed: this.mapData.seed,
             envId: this.mapData.envId,
             pathN: this.mapData.pathN,
-            powerTilesN: this.mapData.powerTilesN
+            powerTilesN: this.mapData.powerTilesN,
+            poolsN: this.mapData.poolsN
           } : null,
           gold: this.gold,
           lives: this.lives,
@@ -4563,7 +4632,8 @@
             envId,
             env: ENV_PRESETS[envId] || ENV_PRESETS[0],
             pathN: data.mapData.pathN,
-            powerTilesN: Array.isArray(data.mapData.powerTilesN) ? data.mapData.powerTilesN : []
+            powerTilesN: Array.isArray(data.mapData.powerTilesN) ? data.mapData.powerTilesN : [],
+            poolsN: Array.isArray(data.mapData.poolsN) ? data.mapData.poolsN : []
           };
         } else if (typeof data.mapSeed === "number") {
           mapData = generateMap(data.mapSeed, data.envId || 0);

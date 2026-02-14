@@ -2208,7 +2208,7 @@
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
       gfx.globalAlpha = selected ? 0.98 : 0.86;
       gfx.fillStyle = "rgba(234,240,255,0.96)";
-      gfx.font = "700 14px var(--mono), monospace";
+      gfx.font = "800 16px var(--mono), monospace";
       gfx.textAlign = "center";
       gfx.textBaseline = "bottom";
       const hpText = `${Math.max(0, Math.ceil(this.hp))}`;

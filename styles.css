@@ -903,6 +903,9 @@ body{
   backdrop-filter: blur(8px);
   color: #F4F8FF;
   text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  user-select:none;
+  -webkit-user-select:none;
+  -ms-user-select:none;
 }
 .turretHud.hidden{display:none}
 .turretHudBody{
@@ -915,7 +918,13 @@ body{
   border-top:1px solid rgba(28,42,90,.8);
   padding:8px 10px;
   display:flex;
-  justify-content:flex-end;
+  justify-content:space-between;
+  gap:8px;
+}
+.turretHudFooter #turretHudSellBtn,
+.turretHudFooter #turretHudCloseBtn{
+  flex:1 1 0;
+  min-width:0;
 }
 .turretHud .selHeaderRow{
   align-items:center;
@@ -962,9 +971,12 @@ body{
   margin-top:8px;
 }
 .turretHud .modBtnRow .btn{
-  padding:8px 10px;
+  padding:12px 14px;
   border-radius:10px;
-  font-size:11px;
+  font-size:15px;
+  font-weight:900;
+  letter-spacing:.09em;
+  text-transform:uppercase;
 }
 .turretHud .modCost{
   color: #FFDF3A;
@@ -1004,6 +1016,18 @@ body{
   font-size:14px;
   font-weight:700;
   min-height:36px;
+}
+#turretHudCloseBtn{
+  border-color: rgba(109,255,154,.55);
+  color: var(--text);
+  background:
+    radial-gradient(120px 60px at 40% 10%, rgba(109,255,154,.25), transparent 70%),
+    linear-gradient(180deg, rgba(10,30,18,.92), rgba(9,13,27,.85));
+  box-shadow: 0 10px 30px rgba(109,255,154,.12), 0 14px 26px rgba(0,0,0,.35);
+}
+#turretHudCloseBtn:hover{
+  filter:brightness(1.08);
+  border-color: rgba(109,255,154,.75);
 }
 
 .emptyState{

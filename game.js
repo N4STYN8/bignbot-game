@@ -95,6 +95,7 @@
   const turretHud = $("turretHud");
   const turretHudBody = $("turretHudBody");
   const turretHudSellBtn = $("turretHudSellBtn");
+  const turretHudCloseBtn = $("turretHudCloseBtn");
   const turretStateBar = $("turretStateBar");
   const toastEl = $("toast");
   const tooltipEl = $("tooltip");
@@ -4475,6 +4476,7 @@
 
       sellBtn?.addEventListener("click", () => this.sellSelected());
       turretHudSellBtn?.addEventListener("click", () => this.sellSelected());
+      turretHudCloseBtn?.addEventListener("click", () => this.selectTurret(null));
 
       canvas.addEventListener("mousemove", (ev) => {
         const rect = canvas.getBoundingClientRect();
@@ -6616,7 +6618,7 @@
           gfx.stroke();
           gfx.restore();
 
-          // ghost core
+          // ghost core + turret glyph preview (matches build icon style)
           gfx.save();
           gfx.globalAlpha = buildValid ? 0.55 : 0.45;
           gfx.fillStyle = buildValid ? "rgba(98,242,255,0.18)" : "rgba(255,91,125,0.18)";
@@ -6626,6 +6628,85 @@
           gfx.arc(w.x, w.y, 14 + pulse * 1.5, 0, Math.PI * 2);
           gfx.fill();
           gfx.stroke();
+          gfx.restore();
+
+          gfx.save();
+          gfx.translate(w.x, w.y);
+          gfx.globalAlpha = buildValid ? 0.82 : 0.7;
+          gfx.fillStyle = buildValid ? "rgba(98,242,255,0.95)" : "rgba(255,91,125,0.92)";
+          gfx.strokeStyle = gfx.fillStyle;
+          gfx.lineWidth = 1.8;
+          const s = 9;
+          switch (this.buildKey) {
+            case "PULSE":
+            case "AURA":
+              gfx.beginPath();
+              gfx.arc(0, 0, s, 0, Math.PI * 2);
+              gfx.stroke();
+              break;
+            case "ARC":
+            case "DRONE":
+              gfx.beginPath();
+              gfx.moveTo(0, -s);
+              gfx.lineTo(s, 0);
+              gfx.lineTo(0, s);
+              gfx.lineTo(-s, 0);
+              gfx.closePath();
+              gfx.stroke();
+              break;
+            case "FROST":
+              gfx.beginPath();
+              for (let i = 0; i < 8; i++) {
+                const a = (Math.PI * 2 * i) / 8;
+                const rr = (i % 2 === 0) ? s : s * 0.58;
+                const x = Math.cos(a) * rr;
+                const y = Math.sin(a) * rr;
+                if (i === 0) gfx.moveTo(x, y);
+                else gfx.lineTo(x, y);
+              }
+              gfx.closePath();
+              gfx.stroke();
+              break;
+            case "LENS":
+              gfx.beginPath();
+              gfx.ellipse(0, 0, s + 1, s * 0.65, 0, 0, Math.PI * 2);
+              gfx.stroke();
+              break;
+            case "MORTAR":
+              gfx.beginPath();
+              gfx.rect(-s, -s, s * 2, s * 2);
+              gfx.stroke();
+              break;
+            case "VENOM":
+              gfx.beginPath();
+              gfx.moveTo(0, -s);
+              gfx.lineTo(s * 0.72, -s * 0.35);
+              gfx.lineTo(s * 0.88, s * 0.3);
+              gfx.lineTo(0, s);
+              gfx.lineTo(-s * 0.88, s * 0.3);
+              gfx.lineTo(-s * 0.72, -s * 0.35);
+              gfx.closePath();
+              gfx.stroke();
+              break;
+            case "NEEDLE":
+              gfx.beginPath();
+              gfx.moveTo(s, 0);
+              gfx.lineTo(-s, -s * 0.72);
+              gfx.lineTo(-s, s * 0.72);
+              gfx.closePath();
+              gfx.fill();
+              break;
+            case "TRAP":
+              gfx.beginPath();
+              gfx.rect(-s, -s * 0.35, s * 2, s * 0.7);
+              gfx.fill();
+              break;
+            default:
+              gfx.beginPath();
+              gfx.arc(0, 0, s * 0.8, 0, Math.PI * 2);
+              gfx.stroke();
+              break;
+          }
           gfx.restore();
 
           if (!buildValid) {

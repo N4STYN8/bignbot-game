@@ -2195,15 +2195,13 @@
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW, barH);
       gfx.fillStyle = hpPct > 0.5 ? "rgba(109,255,154,0.85)" : (hpPct > 0.2 ? "rgba(255,207,91,0.85)" : "rgba(255,91,125,0.9)");
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
-      if (selected) {
-        gfx.globalAlpha = 0.95;
-        gfx.fillStyle = "rgba(234,240,255,0.9)";
-        gfx.font = "11px var(--mono), monospace";
-        gfx.textAlign = "right";
-        gfx.textBaseline = "middle";
-        const hpText = `${Math.max(0, Math.ceil(this.hp))}`;
-        gfx.fillText(hpText, x - barW / 2 - 6, y - this.r - 13);
-      }
+      gfx.globalAlpha = selected ? 0.98 : 0.82;
+      gfx.fillStyle = "rgba(234,240,255,0.9)";
+      gfx.font = "11px var(--mono), monospace";
+      gfx.textAlign = "right";
+      gfx.textBaseline = "middle";
+      const hpText = `${Math.max(0, Math.ceil(this.hp))}`;
+      gfx.fillText(hpText, x - barW / 2 - 6, y - this.r - 13);
 
       // shield bubble
       if (this.shield > 0) {
@@ -2339,6 +2337,8 @@
       this._blastSlow = null;
       this._linger = false;
       this._cluster = false;
+      this._trailT = 0;
+      this._animSeed = rand(0, Math.PI * 2);
     }
     _explode(game) {
       if (this._exploded) return;
@@ -2415,6 +2415,12 @@
 
       if (this.style === "mortar") {
         game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "chem", "rgba(200,210,240,0.45)");
+      } else if (this.style === "bullet") {
+        this._trailT -= dt;
+        if (this._trailT <= 0) {
+          this._trailT = 0.02;
+          game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "muzzle", "rgba(98,242,255,0.65)");
+        }
       }
 
       // out of bounds
@@ -2463,14 +2469,12 @@
           }
           if (this.revealOnHit) e.reveal(0.7);
 
-          this.pierce--;
+          game.audio?.playLimited("hit", 60);
           const dirX = -this.vx;
           const dirY = -this.vy;
           game.particles.spawnDirectional(this.x, this.y, 4, dirX, dirY, "hit", "rgba(234,240,255,0.65)");
-          if (this.pierce <= 0) {
-            this.ttl = 0;
-            break;
-          }
+          this.ttl = 0;
+          break;
         }
       }
     }
@@ -2505,6 +2509,37 @@
 
       gfx.fillStyle = col;
       gfx.beginPath(); gfx.arc(this.x, this.y, this.r, 0, Math.PI * 2); gfx.fill();
+
+      if (this.style === "bullet") {
+        const t = performance.now() * 0.012 + this._animSeed;
+        const ang = Math.atan2(this.vy, this.vx);
+        const stretch = 1.8 + 0.3 * Math.sin(t * 1.8);
+        gfx.save();
+        gfx.translate(this.x, this.y);
+        gfx.rotate(ang);
+
+        gfx.globalAlpha = 0.85;
+        gfx.fillStyle = "rgba(234,240,255,0.95)";
+        gfx.beginPath();
+        gfx.ellipse(0, 0, this.r * stretch, this.r * 0.8, 0, 0, Math.PI * 2);
+        gfx.fill();
+
+        gfx.globalAlpha = 0.65;
+        gfx.strokeStyle = "rgba(98,242,255,0.95)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.ellipse(0, 0, this.r * (2.0 + 0.25 * Math.sin(t * 2.2)), this.r * 1.25, 0, 0, Math.PI * 2);
+        gfx.stroke();
+
+        gfx.globalAlpha = 0.4;
+        gfx.strokeStyle = "rgba(154,108,255,0.85)";
+        gfx.lineWidth = 1.2;
+        gfx.beginPath();
+        gfx.moveTo(-this.r * 3.4, 0);
+        gfx.lineTo(-this.r * 0.9, 0);
+        gfx.stroke();
+        gfx.restore();
+      }
       gfx.restore();
     }
   }
@@ -5458,16 +5493,15 @@
         if (dist2(x, y, e.x, e.y) <= rr) { clickedEnemy = e; break; }
       }
       if (clickedEnemy) {
-        this.selectedEnemy = clickedEnemy;
-        this.selectTurret(null);
+        this.selectEnemy(clickedEnemy);
         return;
       }
 
-      this.selectedEnemy = null;
-      this.selectTurret(null);
+      this.selectEnemy(null);
     }
 
     selectTurret(turret) {
+      this.selectedEnemy = null;
       this.selectedTurret = turret;
       sellBtn.disabled = !turret;
       if (!turret) {
@@ -5577,6 +5611,57 @@
           this._save();
         });
       }
+    }
+
+    selectEnemy(enemy) {
+      this.selectedTurret = null;
+      this.selectedEnemy = enemy || null;
+      sellBtn.disabled = true;
+
+      if (!enemy) {
+        selSub.textContent = "Select a turret";
+        selectionBody.innerHTML = `
+          <div class="emptyState">
+            <div class="emptyGlyph"></div>
+            <div class="emptyTitle">No turret selected</div>
+            <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const yesNo = (v) => v ? "Yes" : "No";
+      const hpNow = Math.max(0, Math.ceil(enemy.hp));
+      const hpMax = Math.max(1, Math.ceil(enemy.maxHp));
+      const shieldNow = Math.max(0, Math.ceil(enemy.shield || 0));
+      const shieldMax = Math.max(0, Math.ceil(enemy.maxShield || 0));
+      const regen = (enemy.regen || 0).toFixed(1);
+      const tags = [];
+      if (enemy.isBoss) tags.push("Boss");
+      if (enemy.elite?.tag) tags.push(`Elite: ${enemy.elite.tag}`);
+
+      selSub.textContent = enemy.desc || "Enemy";
+      selectionBody.innerHTML = `
+        <div class="selHeaderRow">
+          <div class="selName">${enemy.name}</div>
+          <div class="selLevel">${enemy.typeKey}</div>
+        </div>
+        <div class="statGrid">
+          <div class="statCard"><div class="k">HP</div><div class="v">${hpNow} / ${hpMax}</div></div>
+          <div class="statCard"><div class="k">Shield</div><div class="v">${shieldNow} / ${shieldMax}</div></div>
+          <div class="statCard"><div class="k">Armor</div><div class="v">${Math.round((enemy.armor || 0) * 100)}%</div></div>
+          <div class="statCard"><div class="k">Regen</div><div class="v">${regen}/s</div></div>
+        </div>
+        <div class="upgrades">
+          <div class="upTitle">Attributes</div>
+          <div class="statsGrid">
+            <div class="statsRow"><div class="k">Shielded</div><div class="v">${yesNo((enemy.maxShield || 0) > 0)}</div></div>
+            <div class="statsRow"><div class="k">Stealth</div><div class="v">${yesNo(!!enemy.stealth)}</div></div>
+            <div class="statsRow"><div class="k">Flying</div><div class="v">${yesNo(!!enemy.flying)}</div></div>
+            <div class="statsRow"><div class="k">Tags</div><div class="v">${tags.length ? tags.join(", ") : "None"}</div></div>
+          </div>
+        </div>
+      `;
     }
 
     applyUpgrade(turret, modIdx) {
@@ -5726,7 +5811,7 @@
       for (const e of this.enemies) e.update(this, dtScaled);
       this.enemies = this.enemies.filter(e => e.hp > 0 || !e._dead);
       if (this.selectedEnemy && (this.selectedEnemy.hp <= 0 || this.selectedEnemy._dead)) {
-        this.selectedEnemy = null;
+        this.selectEnemy(null);
       }
 
       // update turrets

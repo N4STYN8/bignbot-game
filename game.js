@@ -3972,7 +3972,8 @@
       const targetCam = { x: enemy.x - W * 0.5, y: enemy.y - H * 0.5 };
       this.bossCinematic = {
         timer: 0,
-        duration: 30,
+        duration: 10,
+        phase: "blast",
         x: enemy.x,
         y: enemy.y,
         fxPulse: 0,
@@ -3986,35 +3987,56 @@
         fade: 0,
         prepared: false,
         nextLevelData: null,
-        finalSfxPlayed: false
+        finalSfxPlayed: false,
+        revealT: 1.6,
+        revealDur: 1.6,
+        nextLevel: this.levelIndex + 1
       };
       this.toastLockT = 0;
       this.audio.play("explodingboss");
       toast("BOSS CORE COLLAPSE");
     }
 
-    _finishBossCinematic() {
+    _beginBossCinematicReveal() {
       const c = this.bossCinematic;
-      if (!c) return;
+      if (!c || c.phase !== "blast") return;
+      const prep = c.nextLevelData || this._prepareNextLevelData();
+      c.nextLevelData = prep;
+      c.phase = "reveal";
+      c.nextLevel = prep.nextLevel;
+
       if (this.runStats) {
         this.mapStats = this.mapStats || [];
         this.mapStats.push(this._snapshotRunStats());
         this.playerStats = this.playerStats || this._newPlayerStats();
         this.playerStats.mapsCleared += 1;
       }
-      const prep = c.nextLevelData || this._prepareNextLevelData();
+
       this.levelIndex = prep.nextLevel;
       this.loadGeneratedMap(prep.nextMap);
       this._resetRun();
+      this.gameState = GAME_STATE.BOSS_CINEMATIC;
+      this.bossCinematic = c;
+      c.phase = "reveal";
+      c.revealT = c.revealDur;
+      c.fade = 1;
       this.zoom = 1;
       this.cam.x = 0;
       this.cam.y = 0;
       this.explosions = [];
       this.decals = [];
+      this.beams = [];
+      this.arcs = [];
+      this.cones = [];
       this.particles.list = [];
       this.shakeT = 0;
       this.shakeMag = 0;
       this.damageFlash = 0;
+    }
+
+    _finishBossCinematic() {
+      const c = this.bossCinematic;
+      if (!c) return;
       this.gameState = GAME_STATE.GAMEPLAY;
       this.bossCinematic = null;
       this.updateHUD();
@@ -4045,71 +4067,83 @@
     _updateBossCinematic(dt) {
       const c = this.bossCinematic;
       if (!c) return;
-      c.timer = Math.min(c.duration, c.timer + dt);
-      const t = c.timer;
+      if (c.phase === "blast") {
+        c.timer = Math.min(c.duration, c.timer + dt);
+        const t = c.timer;
 
-      // Keep explosion SFX active during the cinematic blast window.
-      if (t < 29.1) this.audio.playLimited("explodingboss", 850);
-      if (!c.finalSfxPlayed && t >= 29.1) {
-        c.finalSfxPlayed = true;
-        this.audio.play("finalexplosionboss");
+        // Keep explosion SFX active during blast; final sound plays at the end.
+        if (t < c.duration - 0.35) this.audio.playLimited("explodingboss", 650);
+
+        c.fxPulse -= dt;
+        if (c.fxPulse <= 0) {
+          c.fxPulse = t < 4.5 ? 0.06 : 0.1;
+          this.particles.spawn(c.x + rand(-10, 10), c.y + rand(-10, 10), t < 5 ? 14 : 10, "boom", "rgba(255,207,91,0.92)");
+          this.particles.spawn(c.x, c.y, t < 6.5 ? 10 : 6, "shard", "rgba(255,120,200,0.9)");
+        }
+        c.fxRing -= dt;
+        if (c.fxRing <= 0) {
+          c.fxRing = t < 5 ? 0.55 : 0.85;
+          this.explosions.push({
+            x: c.x, y: c.y,
+            r: 18,
+            t: 0.58,
+            dur: 0.58,
+            max: t < 6.5 ? 180 : 220,
+            col: "rgba(255,207,91,0.9)",
+            boom: false
+          });
+        }
+        c.fxBurst -= dt;
+        if (c.fxBurst <= 0) {
+          c.fxBurst = t < 4 ? 1.0 : 1.6;
+          this.explosions.push({
+            x: c.x, y: c.y,
+            r: 24,
+            t: 0.5,
+            dur: 0.5,
+            max: t < 6 ? 140 : 170,
+            col: "rgba(255,91,125,0.9)",
+            boom: true
+          });
+        }
+
+        const shakeMul = t < 5.5 ? 1 : 0.6;
+        this.shakeT = Math.min(0.3, this.shakeT + 0.05 * shakeMul);
+        this.shakeMag = Math.min(9, this.shakeMag + 0.55 * shakeMul);
+
+        // Zoom/fade in final segment of the shorter cinematic.
+        const zoomPhase = clamp((t - 5) / 4.2, 0, 1);
+        const zoomEase = easeInOut(zoomPhase);
+        c.zoom = lerp(c.baseZoom, clamp(c.baseZoom * 1.4, 1.05, 2.15), zoomEase);
+        c.cam.x = lerp(c.baseCam.x, c.targetCam.x, zoomEase);
+        c.cam.y = lerp(c.baseCam.y, c.targetCam.y, zoomEase);
+        c.fade = clamp((t - 4.5) / 4.8, 0, 1) * 0.95;
+
+        if (!c.prepared && t >= 8.1) {
+          c.nextLevelData = this._prepareNextLevelData();
+          c.prepared = true;
+        }
+
+        this._updateVisualEffects(dt);
+        this.updateHUD();
+        if (t >= c.duration) {
+          if (!c.finalSfxPlayed) {
+            c.finalSfxPlayed = true;
+            this.audio.play("finalexplosionboss");
+          }
+          this._beginBossCinematicReveal();
+        }
+        return;
       }
 
-      // Long-form evolving explosion pulses.
-      c.fxPulse -= dt;
-      if (c.fxPulse <= 0) {
-        c.fxPulse = t < 8 ? 0.07 : (t < 18 ? 0.11 : 0.16);
-        this.particles.spawn(c.x + rand(-8, 8), c.y + rand(-8, 8), t < 10 ? 12 : 8, "boom", "rgba(255,207,91,0.92)");
-        this.particles.spawn(c.x, c.y, t < 12 ? 8 : 5, "shard", "rgba(255,120,200,0.88)");
+      // Reveal phase on new map: show level text before map fully appears.
+      if (c.phase === "reveal") {
+        c.revealT = Math.max(0, c.revealT - dt);
+        const k = clamp(c.revealT / Math.max(0.01, c.revealDur), 0, 1);
+        c.fade = k;
+        this.updateHUD();
+        if (c.revealT <= 0) this._finishBossCinematic();
       }
-      c.fxRing -= dt;
-      if (c.fxRing <= 0) {
-        c.fxRing = t < 12 ? 0.85 : 1.15;
-        this.explosions.push({
-          x: c.x, y: c.y,
-          r: 18,
-          t: 0.65,
-          dur: 0.65,
-          max: t < 15 ? 200 : 260,
-          col: "rgba(255,207,91,0.9)",
-          boom: false
-        });
-      }
-      c.fxBurst -= dt;
-      if (c.fxBurst <= 0) {
-        c.fxBurst = t < 10 ? 1.4 : 2.1;
-        this.explosions.push({
-          x: c.x, y: c.y,
-          r: 24,
-          t: 0.52,
-          dur: 0.52,
-          max: t < 14 ? 150 : 180,
-          col: "rgba(255,91,125,0.9)",
-          boom: true
-        });
-      }
-
-      const shakeMul = t < 12 ? 1 : (t < 20 ? 0.7 : 0.45);
-      this.shakeT = Math.min(0.28, this.shakeT + 0.04 * shakeMul);
-      this.shakeMag = Math.min(9, this.shakeMag + 0.45 * shakeMul);
-
-      // At 15s, zoom toward center + start fade; finish fade around 25s.
-      const zoomPhase = clamp((t - 15) / 10, 0, 1);
-      const zoomEase = easeInOut(zoomPhase);
-      c.zoom = lerp(c.baseZoom, clamp(c.baseZoom * 1.42, 1.05, 2.2), zoomEase);
-      c.cam.x = lerp(c.baseCam.x, c.targetCam.x, zoomEase);
-      c.cam.y = lerp(c.baseCam.y, c.targetCam.y, zoomEase);
-      c.fade = clamp((t - 15) / 10, 0, 1) * 0.92;
-
-      // Pre-generate next map once fade is mostly complete.
-      if (!c.prepared && t >= 22) {
-        c.nextLevelData = this._prepareNextLevelData();
-        c.prepared = true;
-      }
-
-      this._updateVisualEffects(dt);
-      this.updateHUD();
-      if (t >= c.duration) this._finishBossCinematic();
     }
 
     _bindUI() {
@@ -6469,6 +6503,14 @@
         gfx.globalAlpha = c.fade;
         gfx.fillStyle = "rgba(3,6,14,0.98)";
         gfx.fillRect(0, 0, W, H);
+        if (c.phase === "reveal") {
+          gfx.globalAlpha = clamp(1 - c.fade * 0.25, 0.65, 1);
+          gfx.fillStyle = "rgba(234,240,255,0.96)";
+          gfx.font = "700 34px " + getComputedStyle(document.body).fontFamily;
+          gfx.textAlign = "center";
+          gfx.textBaseline = "middle";
+          gfx.fillText(`LEVEL ${c.nextLevel || this.levelIndex}`, W * 0.5, H * 0.5);
+        }
         gfx.restore();
       }
     }

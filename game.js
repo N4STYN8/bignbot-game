@@ -5365,6 +5365,19 @@
       };
     }
 
+    _sanitizeWaveScalar(scalar) {
+      const s = scalar && typeof scalar === "object" ? scalar : {};
+      const num = (v, fallback) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+      return {
+        hp: Math.max(0.01, num(s.hp, 1)),
+        spd: Math.max(0.01, num(s.spd, 1)),
+        armor: Math.max(0, num(s.armor, 0)),
+        shield: Math.max(0.01, num(s.shield, 1)),
+        regen: Math.max(0.01, num(s.regen, 1)),
+        reward: Math.max(0.01, num(s.reward, 1))
+      };
+    }
+
     _getBossKey() {
       const bosses = ["FINAL_BOSS_VORTEX", "FINAL_BOSS_ABYSS", "FINAL_BOSS_IRON"];
       const seed = (this.mapSeed || 0) ^ (this.levelIndex * 9973);
@@ -5472,7 +5485,7 @@
         setTimeout(() => toast(`ANOMALY: ${base.name} — ${shortDesc}`), 700);
       }
       const scalar = this._waveScalar(this.wave);
-      this.waveScalar = scalar;
+      this.waveScalar = this._sanitizeWaveScalar(scalar);
       const newSpawns = this._buildWave(this.wave, scalar);
       if (!this.waveActive) {
         this.waveActive = true;
@@ -5490,7 +5503,7 @@
     }
 
     spawnEnemy(typeKey, startD = 0, scalarOverride = null, eliteTag = null) {
-      const scalar = scalarOverride || this.waveScalar;
+      const scalar = this._sanitizeWaveScalar(scalarOverride || this.waveScalar);
       const e = new Enemy(typeKey, scalar, startD, eliteTag);
       e._game = this;
       if (this.waveAnomaly?.key === "ION_STORM") {
@@ -5631,9 +5644,18 @@
           mapData = this.mapData || generateMap(this._makeSeed(), (Math.random() * ENV_PRESETS.length) | 0);
         }
         this.loadGeneratedMap(mapData);
-        this.gold = data.gold ?? this.gold;
-        this.lives = data.lives ?? this.lives;
-        this.wave = data.wave ?? this.wave;
+        {
+          const g = Number(data.gold);
+          this.gold = Number.isFinite(g) ? g : this.gold;
+        }
+        {
+          const l = Number(data.lives);
+          this.lives = Number.isFinite(l) ? l : this.lives;
+        }
+        {
+          const w = Number(data.wave);
+          this.wave = Number.isFinite(w) ? w : this.wave;
+        }
         this.waveMax = 16;
         this.hasStarted = !!data.hasStarted;
         this.waveActive = !!data.waveActive;
@@ -5656,7 +5678,7 @@
         this.spawnQueue = data.spawnQueue || [];
         this.spawnIndex = data.spawnIndex || 0;
         this.spawnT = data.spawnT || 0;
-        this.waveScalar = data.waveScalar || this.waveScalar;
+        this.waveScalar = this._sanitizeWaveScalar(data.waveScalar || this.waveScalar);
         this.globalOverchargeT = data.globalOverchargeT || 0;
 
         if (Array.isArray(data.turrets)) {
@@ -5682,7 +5704,7 @@
         if (Array.isArray(data.enemies)) {
           this.enemies = [];
           for (const s of data.enemies) {
-            const e = new Enemy(s.typeKey, s.scalar || this.waveScalar, s.pathD || 0, s.eliteTag || null);
+            const e = new Enemy(s.typeKey, this._sanitizeWaveScalar(s.scalar || this.waveScalar), s.pathD || 0, s.eliteTag || null);
             e._game = this;
             e.hp = s.hp ?? e.hp;
             e.shield = s.shield ?? e.shield;
@@ -5880,7 +5902,22 @@
       }
     }
 
+    _grantKillReward(enemy) {
+      if (!enemy || enemy._rewardGranted || enemy._leaked) return 0;
+      const baseReward = ENEMY_TYPES[enemy.typeKey]?.reward ?? 1;
+      const scalarReward = Number.isFinite(enemy.scalar?.reward) ? enemy.scalar.reward : 1;
+      const fallbackReward = Math.max(1, Math.floor(baseReward * scalarReward));
+      const rewardRaw = Number(enemy.reward);
+      const reward = Number.isFinite(rewardRaw) && rewardRaw > 0 ? Math.max(1, Math.floor(rewardRaw)) : fallbackReward;
+      if (!Number.isFinite(this.gold)) this.gold = this._getStartGold();
+      this.gold += reward;
+      enemy._rewardGranted = true;
+      return reward;
+    }
+
     onEnemyKill(enemy) {
+      if (!enemy || enemy._killHandled) return;
+      enemy._killHandled = true;
       // on-death effects
       if (enemy.onDeath && !enemy._noSplit) enemy.onDeath(this, enemy);
 
@@ -5908,20 +5945,20 @@
       }
 
       // reward
-      this.gold += enemy.reward;
+      const reward = this._grantKillReward(enemy);
       if (this.waveStats) {
         this.waveStats.kills += 1;
-        this.waveStats.gold += enemy.reward;
+        this.waveStats.gold += reward;
         if (enemy.isBoss) this.waveStats.bosses += 1;
       }
       if (this.runStats) {
         this.runStats.kills += 1;
-        this.runStats.gold += enemy.reward;
+        this.runStats.gold += reward;
         if (enemy.isBoss) this.runStats.bosses += 1;
       }
       if (this.playerStats) {
         this.playerStats.kills += 1;
-        this.playerStats.gold += enemy.reward;
+        this.playerStats.gold += reward;
         if (enemy.isBoss) this.playerStats.bosses += 1;
       }
       this.audio.playLimited("kill", 140);
@@ -5931,7 +5968,7 @@
 
       // siphon from traps
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
-        const refund = Math.max(1, Math.floor(enemy.reward * 0.2));
+        const refund = Math.max(1, Math.floor(reward * 0.2));
         this.gold += refund;
         if (this.waveStats) this.waveStats.gold += refund;
         if (this.runStats) this.runStats.gold += refund;
@@ -5944,7 +5981,7 @@
         for (const e of this.enemies) {
           if (e.hp <= 0) continue;
           if (dist2(enemy.x, enemy.y, e.x, e.y) <= 80 * 80) {
-            e.applyDot(Math.max(4, enemy.reward * 0.6), 2.4);
+            e.applyDot(Math.max(4, reward * 0.6), 2.4);
           }
         }
       }
@@ -5956,6 +5993,7 @@
     }
 
     onEnemyLeak(enemy) {
+      enemy._leaked = true;
       enemy.hp = 0;
       if (this.waveStats) this.waveStats.leaks += 1;
       if (this.runStats) this.runStats.leaks += 1;
@@ -6127,7 +6165,7 @@
                     <div class="modDesc">${m.desc}</div>
                     <div class="modDelta">${delta}</div>
                     <div class="modBtnRow">
-                      <button class="btn ${affordable ? "primary" : ""}" data-mod="${idx}" data-cost="${m.cost}" ${affordable ? "" : "disabled"}>Upgrade</button>
+                      <button class="btn ${affordable ? "primary" : ""}" data-mod="${idx}" data-cost="${m.cost}" ${affordable ? "" : "disabled"}>UPGRADE</button>
                     </div>
                   </div>
                 `;
@@ -6406,8 +6444,21 @@
           e.update(this, dtScaled);
         } catch (err) {
           this._reportRuntimeError("enemy.update", err);
+          // Keep enemy alive on recovery; force-killing here can skip reward flow.
+        }
+      }
+      // Safety net: finalize all dead enemies before cleanup.
+      for (const e of this.enemies) {
+        if (e.hp <= 0 && !e._dead) {
           e._dead = true;
-          e.hp = 0;
+          try {
+            this.onEnemyKill(e);
+          } catch (err) {
+            this._reportRuntimeError("enemy.finalizeKill", err);
+            this._grantKillReward(e);
+          }
+        } else if (e._dead && e.hp <= 0 && !e._leaked && !e._rewardGranted) {
+          this._grantKillReward(e);
         }
       }
       this.enemies = this.enemies.filter(e => e.hp > 0 && !e._dead);

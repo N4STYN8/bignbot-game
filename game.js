@@ -4079,9 +4079,7 @@
       const now = performance.now();
       if (now - this._lastRuntimeErrAt < 1200) return;
       this._lastRuntimeErrAt = now;
-      const msg = err && err.message ? err.message : String(err);
       console.error(`[runtime:${scope}]`, err);
-      toast(`Runtime recovered (${scope}): ${msg}`);
     }
 
     _prepareNextLevelData() {

@@ -4472,8 +4472,8 @@
         }
       });
 
-      sellBtn?.addEventListener("click", () => this.sellSelected());
-      turretHudSellBtn?.addEventListener("click", () => this.sellSelected());
+      sellBtn?.addEventListener("click", () => this.confirmSellSelected());
+      turretHudSellBtn?.addEventListener("click", () => this.confirmSellSelected());
       turretHudCloseBtn?.addEventListener("click", () => this.selectTurret(null));
 
       canvas.addEventListener("mousemove", (ev) => {
@@ -6313,6 +6313,14 @@
       this.particles.spawn(t.x, t.y, 10, "boom");
       this.audio.play("sell");
       this._save();
+    }
+
+    confirmSellSelected() {
+      if (!this.selectedTurret) return;
+      if (this.isPaused()) { toast("Cannot sell while paused."); return; }
+      const t = this.selectedTurret;
+      const refund = Math.max(1, Math.floor((t.costSpent || 0) * 0.7));
+      showConfirm("Sell Turret", `Sell ${t.name} for ${refund} gold?`, () => this.sellSelected());
     }
 
     update(dt) {

@@ -636,9 +636,20 @@
         hit: ["assets/sfx/sfx_hit.wav"],
         kill: ["assets/sfx/sfx_kill.wav"],
         beam: ["assets/sfx/sfx_beam.wav"],
+        lens: ["assets/sfx/sfx_beam.wav"],
         mortar: ["assets/sfx/sfx_mortar.wav"],
         trap: ["assets/sfx/sfx_trap.wav"],
         drone: ["assets/sfx/sfx_drone.wav"],
+        turret_pulse: ["assets/sfx/sfx_turret_pulse.wav"],
+        turret_arc: ["assets/sfx/sfx_turret_arc.wav"],
+        turret_frost: ["assets/sfx/sfx_turret_frost.wav"],
+        turret_lens: ["assets/sfx/sfx_turret_lens.wav"],
+        turret_mortar: ["assets/sfx/sfx_turret_mortar.wav"],
+        turret_venom: ["assets/sfx/sfx_turret_venom.wav"],
+        turret_needle: ["assets/sfx/sfx_turret_needle.wav"],
+        turret_aura: ["assets/sfx/sfx_turret_aura.wav"],
+        turret_drone: ["assets/sfx/sfx_turret_drone.wav"],
+        turret_trap: ["assets/sfx/sfx_turret_trap.wav"],
         abilities_btn: ["assets/sfx/sfx_abilities_btn.wav"],
         explodingboss: ["assets/sfx/sfx_explodingboss.wav"],
         finalexplosionboss: ["assets/sfx/sfx_finalexplosionboss.wav"],
@@ -646,15 +657,48 @@
         click: ["assets/sfx/sfx_clickme.wav"]
       };
       this.sfxVol = 0.6;
+      this.sfxGain = {
+        kill: 1.5,
+        lens: 1.15,
+        turret_lens: 1.15,
+        explodingboss: 1.2,
+        finalexplosionboss: 1.2
+      };
       this._last = {};
       this._errorShown = false;
       this._lastEnsure = 0;
       this.maxSfxVoices = 18;
       this._activeSfx = [];
-      this._lowPrioritySfx = new Set(["shot", "hit", "drone", "beam", "mortar", "trap"]);
-      this._streamedSfx = new Set(["shot", "drone", "beam", "mortar", "trap"]);
+      this._lowPrioritySfx = new Set([
+        "shot", "hit", "drone", "beam", "mortar", "trap",
+        "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
+        "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap"
+      ]);
+      this._streamedSfx = new Set([
+        "shot", "drone", "beam", "mortar", "trap",
+        "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
+        "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap"
+      ]);
       this._sfxChannel = {};
+      this._sfxPool = {};
+      this._sfxPoolIdx = {};
       this._sfxSrc = {};
+      this._sfxPoolSize = {
+        kill: 5,
+        lens: 4,
+        turret_lens: 4,
+        turret_pulse: 4,
+        turret_arc: 4,
+        turret_frost: 4,
+        turret_mortar: 4,
+        turret_venom: 4,
+        turret_needle: 4,
+        turret_aura: 3,
+        turret_drone: 4,
+        turret_trap: 4,
+        explodingboss: 4,
+        finalexplosionboss: 3
+      };
       for (const [key, sources] of Object.entries(this.sfx)) {
         this._sfxSrc[key] = this._pickSource(sources);
       }
@@ -836,43 +880,36 @@
       const src = this._sfxSrc[name] || (this.sfx[name] ? this._pickSource(this.sfx[name]) : null);
       if (!src) return;
 
-      // High-frequency turret sounds reuse a dedicated channel to avoid voice exhaustion.
-      if (this._streamedSfx.has(name)) {
-        let ch = this._sfxChannel[name];
-        if (!ch) {
-          ch = new Audio(src);
-          ch.preload = "auto";
-          this._sfxChannel[name] = ch;
-        } else if (!ch.src || !ch.src.includes(src)) {
-          ch.src = src;
-          ch.load();
-        }
-        ch.volume = this.sfxVol;
-        try { ch.currentTime = 0; } catch (err) {}
-        ch.play().catch(() => {});
-        return;
+      // Reuse pooled channels for every SFX key to avoid browser channel starvation.
+      if (!this._sfxPool[name]) {
+        const heavy = this._streamedSfx.has(name) || this._lowPrioritySfx.has(name);
+        const size = this._sfxPoolSize[name] || (heavy ? 4 : 2);
+        this._sfxPool[name] = Array.from({ length: size }, () => {
+          const a = new Audio(src);
+          a.preload = "auto";
+          return a;
+        });
+        this._sfxPoolIdx[name] = 0;
       }
-
-      if (!this._reserveVoice(name)) return;
-
-      const a = new Audio(src);
-      a.preload = "auto";
-      a.volume = this.sfxVol;
-      a._name = name;
-      a._startedAt = performance.now();
-      a._maxAge = this._lowPrioritySfx.has(name) ? 1200 : 2600;
-      const cleanup = () => this._removeActiveSfx(a);
-      a.addEventListener("ended", cleanup, { once: true });
-      a.addEventListener("error", cleanup, { once: true });
-      this._activeSfx.push(a);
-
-      a.play().catch(() => {
-        cleanup();
-        if (!this._errorShown) {
-          this._errorShown = true;
-          toast("Audio blocked. Click once on the game, then toggle Audio.");
+      const pool = this._sfxPool[name];
+      let idx = this._sfxPoolIdx[name] || 0;
+      let chosen = pool[idx % pool.length];
+      for (let i = 0; i < pool.length; i++) {
+        const c = pool[(idx + i) % pool.length];
+        if (c.paused || c.ended) {
+          chosen = c;
+          idx = (idx + i) % pool.length;
+          break;
         }
-      });
+      }
+      this._sfxPoolIdx[name] = (idx + 1) % pool.length;
+      if (!chosen.src || !chosen.src.includes(src)) {
+        chosen.src = src;
+        chosen.load();
+      }
+      chosen.volume = clamp(this.sfxVol * (this.sfxGain[name] || 1), 0, 1);
+      try { chosen.currentTime = 0; } catch (err) {}
+      chosen.play().catch(() => {});
     }
 
     playLimited(name, cooldownMs) {
@@ -3403,7 +3440,7 @@
               boom: false
             });
             game.particles.spawn(this.x, this.y, 16, "muzzle");
-            game.audio.playLimited("beam", 240);
+            game.audio.playLimited("turret_aura", 240);
           }
         }
         return;
@@ -3455,7 +3492,7 @@
               p.owner = this;
               game.projectiles.push(p);
               game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
-              game.audio.playLimited("drone", 160);
+              game.audio.playLimited("turret_drone", 160);
             } else {
               this.targetId = -1;
             }
@@ -3497,7 +3534,7 @@
               owner: this
             });
             game.particles.spawn(found.x, found.y, 10, "muzzle");
-            game.audio.playLimited("trap", 220);
+            game.audio.playLimited("turret_trap", 220);
           }
         }
         return;
@@ -3559,7 +3596,13 @@
           case "PULSE":
           case "VENOM":
           case "NEEDLE": {
-            game.audio.playLimited("shot", 120);
+            const turretSfxKey = this.typeKey === "PULSE"
+              ? "turret_pulse"
+              : this.typeKey === "VENOM"
+                ? "turret_venom"
+                : "turret_needle";
+            const turretSfxCd = this.typeKey === "PULSE" ? 120 : this.typeKey === "VENOM" ? 150 : 130;
+            game.audio.playLimited(turretSfxKey, turretSfxCd);
             // projectiles
             const shots = this.multishot || 1;
             for (let s = 0; s < shots; s++) {
@@ -3608,7 +3651,7 @@
           }
 
           case "ARC": {
-            game.audio.playLimited("shot", 160);
+            game.audio.playLimited("turret_arc", 160);
             // chain lightning: direct instant hits + visual arcs
             const chainCount = this.chain;
             const visited = new Set();
@@ -3674,7 +3717,7 @@
           }
 
           case "FROST": {
-            game.audio.playLimited("shot", 180);
+            game.audio.playLimited("turret_frost", 180);
             // cone chill: hits enemies in cone
             const ang = this.aimAng;
             const cosA = Math.cos(ang), sinA = Math.sin(ang);
@@ -3748,7 +3791,7 @@
           }
 
           case "LENS": {
-            game.audio.playLimited("beam", 110);
+            game.audio.playLimited("turret_lens", 70);
             // beam turret handled in draw/update pass by storing target
             // apply damage per tick (fire is small interval)
             let dealt = dmgBase;
@@ -3803,7 +3846,7 @@
           }
 
           case "MORTAR": {
-            game.audio.playLimited("mortar", 240);
+            game.audio.playLimited("turret_mortar", 240);
             // lob projectile; on impact do AoE. We'll simulate travel as projectile that explodes on near target.
             const ang = this.aimAng;
             const spd = this.projSpd * (lowGravity ? 1.15 : 1);
@@ -6167,7 +6210,7 @@
         this.playerStats.gold += reward;
         if (enemy.isBoss) this.playerStats.bosses += 1;
       }
-      this.audio.playLimited("kill", 140);
+      this.audio.playLimited("kill", 80);
 
       // type-specific death animation
       this._spawnEnemyDeathFx(enemy);

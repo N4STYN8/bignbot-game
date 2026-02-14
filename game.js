@@ -3993,6 +3993,7 @@
       this._id = 1;
       this.collapseEnabled = false;
       this.panelHold = { left: 0, right: 0 };
+      this._lastRuntimeErrAt = 0;
       this.panelHover = { left: false, right: false };
 
       this.audio.loadPref();
@@ -4071,6 +4072,15 @@
         this._hideLevelOverlay();
         this._transitioning = false;
       }, 1800);
+    }
+
+    _reportRuntimeError(scope, err) {
+      const now = performance.now();
+      if (now - this._lastRuntimeErrAt < 1200) return;
+      this._lastRuntimeErrAt = now;
+      const msg = err && err.message ? err.message : String(err);
+      console.error(`[runtime:${scope}]`, err);
+      toast(`Runtime recovered (${scope}): ${msg}`);
     }
 
     _prepareNextLevelData() {
@@ -5639,7 +5649,10 @@
           this.waveAnomaly = { key: data.waveAnomaly, name: base.name, desc: base.desc };
         }
         this._warpRippleT = data.warpRippleT || 0;
-        this.speed = data.speed ?? this.speed;
+        {
+          const loadedSpeed = Number(data.speed);
+          this.speed = Number.isFinite(loadedSpeed) ? clamp(Math.round(loadedSpeed), 1, 4) : this.speed;
+        }
         this.spawnQueue = data.spawnQueue || [];
         this.spawnIndex = data.spawnIndex || 0;
         this.spawnT = data.spawnT || 0;
@@ -6264,6 +6277,11 @@
     }
 
     update(dt) {
+      // Recover from stale UI pause state if modal was closed externally.
+      if (this.statsOpen && waveStatsModal?.classList.contains("hidden")) {
+        this.statsOpen = false;
+        this.statsMode = null;
+      }
       if (this.gameOver || this.gameWon) {
         this.updateHUD();
         return;
@@ -6278,6 +6296,8 @@
       }
 
       this._realDt = dt;
+      // Guard against bad saved/runtime values that can freeze simulation at dtScaled=0.
+      if (!Number.isFinite(this.speed) || this.speed <= 0) this.speed = 1;
       const dtScaled = dt * this.speed;
       if (this.shakeT > 0) {
         this.shakeT = Math.max(0, this.shakeT - dt);
@@ -6380,7 +6400,15 @@
       }
 
       // update enemies
-      for (const e of this.enemies) e.update(this, dtScaled);
+      for (const e of this.enemies) {
+        try {
+          e.update(this, dtScaled);
+        } catch (err) {
+          this._reportRuntimeError("enemy.update", err);
+          e._dead = true;
+          e.hp = 0;
+        }
+      }
       this.enemies = this.enemies.filter(e => e.hp > 0 && !e._dead);
       if (this.selectedEnemy && (this.selectedEnemy.hp <= 0 || this.selectedEnemy._dead)) {
         this.selectEnemy(null);
@@ -6392,10 +6420,23 @@
       }
 
       // update turrets
-      for (const t of this.turrets) t.update(this, dtScaled);
+      for (const t of this.turrets) {
+        try {
+          t.update(this, dtScaled);
+        } catch (err) {
+          this._reportRuntimeError("turret.update", err);
+        }
+      }
 
       // update projectiles
-      for (const p of this.projectiles) p.update(this, dtScaled);
+      for (const p of this.projectiles) {
+        try {
+          p.update(this, dtScaled);
+        } catch (err) {
+          this._reportRuntimeError("projectile.update", err);
+          p.ttl = 0;
+        }
+      }
       this.projectiles = this.projectiles.filter(p => p.ttl > 0);
 
       // traps
@@ -6799,8 +6840,12 @@
   function loop(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
-    game.update(dt);
-    game.draw(ctx);
+    try {
+      game.update(dt);
+      game.draw(ctx);
+    } catch (err) {
+      game._reportRuntimeError?.("frame.loop", err);
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

@@ -423,8 +423,8 @@
     if (w < 300 || h < 220) {
       left = 0;
       top = 0;
-      right = W;
-      bottom = H;
+      right = Math.floor(W / MAP_GRID_SIZE) * MAP_GRID_SIZE;
+      bottom = Math.floor(H / MAP_GRID_SIZE) * MAP_GRID_SIZE;
       w = Math.max(80, right - left);
       h = Math.max(80, bottom - top);
     }
@@ -648,6 +648,16 @@
       this.sfxVol = 0.6;
       this._last = {};
       this._errorShown = false;
+      this._lastEnsure = 0;
+      this.maxSfxVoices = 18;
+      this._activeSfx = [];
+      this._lowPrioritySfx = new Set(["shot", "hit", "drone", "beam", "mortar", "trap"]);
+      this._streamedSfx = new Set(["shot", "drone", "beam", "mortar", "trap"]);
+      this._sfxChannel = {};
+      this._sfxSrc = {};
+      for (const [key, sources] of Object.entries(this.sfx)) {
+        this._sfxSrc[key] = this._pickSource(sources);
+      }
     }
 
     _pickSource(sources) {
@@ -726,12 +736,22 @@
     }
 
     unlock() {
-      if (this.unlocked) return;
-      this.unlocked = true;
-      // try to prime audio; if blocked, it will no-op
-      this.bgm.play().then(() => {
-        if (!this.enabled) this.bgm.pause();
-      }).catch(() => {});
+      if (!this.unlocked) this.unlocked = true;
+      this.ensureActive(true);
+    }
+
+    ensureActive(force = false) {
+      if (!this.enabled) return;
+      this._pruneActiveSfx();
+      const now = performance.now();
+      if (!force && (now - this._lastEnsure) < 1200) return;
+      this._lastEnsure = now;
+      if (!this.bgm) return;
+      if (this.bgm.paused) {
+        this.bgm.play().then(() => {
+          if (!this.enabled) this.bgm.pause();
+        }).catch(() => {});
+      }
     }
 
     setEnabled(on) {
@@ -772,12 +792,82 @@
       this.setEnabled(!this.enabled);
     }
 
+    _pruneActiveSfx(now = performance.now()) {
+      this._activeSfx = this._activeSfx.filter(a => {
+        if (!a) return false;
+        if (a.ended) return false;
+        if (a.paused && a.currentTime > 0) return false;
+        // hard timeout safety for stalled elements
+        if ((now - (a._startedAt || now)) > (a._maxAge || 2200)) {
+          try { a.pause(); } catch (err) {}
+          return false;
+        }
+        return true;
+      });
+    }
+
+    _removeActiveSfx(a) {
+      const idx = this._activeSfx.indexOf(a);
+      if (idx >= 0) this._activeSfx.splice(idx, 1);
+    }
+
+    _reserveVoice(name) {
+      const now = performance.now();
+      this._pruneActiveSfx(now);
+      if (this._activeSfx.length < this.maxSfxVoices) return true;
+
+      const isLow = this._lowPrioritySfx.has(name);
+      if (isLow) return false;
+
+      // For higher-priority/UI sounds, evict one low-priority voice first.
+      const victim = this._activeSfx.find(a => this._lowPrioritySfx.has(a._name));
+      if (victim) {
+        try { victim.pause(); } catch (err) {}
+        this._removeActiveSfx(victim);
+        return true;
+      }
+
+      return false;
+    }
+
     play(name) {
       if (!this.enabled) return;
-      const sources = this.sfx[name];
-      if (!sources) return;
-      const a = this._makeAudio(sources, false, this.sfxVol);
+      this.ensureActive();
+      const src = this._sfxSrc[name] || (this.sfx[name] ? this._pickSource(this.sfx[name]) : null);
+      if (!src) return;
+
+      // High-frequency turret sounds reuse a dedicated channel to avoid voice exhaustion.
+      if (this._streamedSfx.has(name)) {
+        let ch = this._sfxChannel[name];
+        if (!ch) {
+          ch = new Audio(src);
+          ch.preload = "auto";
+          this._sfxChannel[name] = ch;
+        } else if (!ch.src || !ch.src.includes(src)) {
+          ch.src = src;
+          ch.load();
+        }
+        ch.volume = this.sfxVol;
+        try { ch.currentTime = 0; } catch (err) {}
+        ch.play().catch(() => {});
+        return;
+      }
+
+      if (!this._reserveVoice(name)) return;
+
+      const a = new Audio(src);
+      a.preload = "auto";
+      a.volume = this.sfxVol;
+      a._name = name;
+      a._startedAt = performance.now();
+      a._maxAge = this._lowPrioritySfx.has(name) ? 1200 : 2600;
+      const cleanup = () => this._removeActiveSfx(a);
+      a.addEventListener("ended", cleanup, { once: true });
+      a.addEventListener("error", cleanup, { once: true });
+      this._activeSfx.push(a);
+
       a.play().catch(() => {
+        cleanup();
         if (!this._errorShown) {
           this._errorShown = true;
           toast("Audio blocked. Click once on the game, then toggle Audio.");
@@ -787,11 +877,18 @@
 
     playLimited(name, cooldownMs) {
       if (!this.enabled) return;
+      this.ensureActive();
       const now = performance.now();
       const last = this._last[name] || 0;
       if (now - last < cooldownMs) return;
       this._last[name] = now;
       this.play(name);
+    }
+
+    tick() {
+      if (!this.enabled) return;
+      this._pruneActiveSfx();
+      this.ensureActive();
     }
   }
 
@@ -3253,8 +3350,9 @@
     }
 
     update(game, dt) {
-      if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.5);
-      if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 5.0);
+      const visualDt = game._realDt || dt;
+      if (this.flash > 0) this.flash = Math.max(0, this.flash - visualDt * 2.5);
+      if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - visualDt * 5.0);
       if (this.pulseBoostT > 0) {
         const realDt = game._realDt || dt;
         this.pulseBoostT = Math.max(0, this.pulseBoostT - realDt);
@@ -3284,7 +3382,28 @@
           this.pulseT -= dt;
           if (this.pulseT <= 0) {
             this.pulseT = this.pulseInterval;
+            game.explosions.push({
+              x: this.x,
+              y: this.y,
+              r: 12,
+              t: 0.34,
+              dur: 0.34,
+              max: this.range * 0.42,
+              col: "rgba(98,242,255,0.82)",
+              boom: false
+            });
+            game.explosions.push({
+              x: this.x,
+              y: this.y,
+              r: 10,
+              t: 0.28,
+              dur: 0.28,
+              max: this.range * 0.28,
+              col: "rgba(154,108,255,0.72)",
+              boom: false
+            });
             game.particles.spawn(this.x, this.y, 16, "muzzle");
+            game.audio.playLimited("beam", 240);
           }
         }
         return;
@@ -3306,6 +3425,7 @@
         const buff = this.getBuffedStats(game);
         const skip = game.getSkipBuff();
         const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
+        const inHiveRange = (e) => e && this.canTarget(e) && dist2(this.x, this.y, e.x, e.y) <= this.range * this.range;
         for (const d of this.drones) {
           d.ang += dt * 2.0;
           const ox = Math.cos(d.ang) * (26 + d.r);
@@ -3317,7 +3437,8 @@
             // pick target
             let target = null;
             if (this.link && this.targetId !== -1) {
-              target = game.enemies.find(e => e._id === this.targetId && e.hp > 0);
+              const linked = game.enemies.find(e => e._id === this.targetId && e.hp > 0);
+              if (inHiveRange(linked)) target = linked;
             }
             if (!target) target = this.acquireTarget(game);
             if (target) {
@@ -3335,6 +3456,8 @@
               game.projectiles.push(p);
               game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
               game.audio.playLimited("drone", 160);
+            } else {
+              this.targetId = -1;
             }
           }
         }
@@ -3401,6 +3524,32 @@
         this.cool = fireInterval;
         this.flash = 1;
         this.recoil = 1;
+        const muzzleX = this.x + Math.cos(this.aimAng) * 14;
+        const muzzleY = this.y + Math.sin(this.aimAng) * 14;
+        const shotColMap = {
+          PULSE: "rgba(98,242,255,0.88)",
+          ARC: "rgba(186,140,255,0.9)",
+          FROST: "rgba(180,225,255,0.9)",
+          LENS: "rgba(255,207,91,0.9)",
+          MORTAR: "rgba(255,150,110,0.9)",
+          VENOM: "rgba(109,255,154,0.9)",
+          NEEDLE: "rgba(190,155,255,0.92)",
+          DRONE: "rgba(98,242,255,0.9)",
+          AURA: "rgba(98,242,255,0.85)",
+          TRAP: "rgba(255,207,91,0.88)"
+        };
+        const shotCol = shotColMap[this.typeKey] || "rgba(234,240,255,0.88)";
+        game.explosions.push({
+          x: muzzleX,
+          y: muzzleY,
+          r: 5,
+          t: 0.16,
+          dur: 0.16,
+          max: 20,
+          col: shotCol,
+          boom: false
+        });
+        game.particles.spawnDirectional(muzzleX, muzzleY, 3, Math.cos(this.aimAng), Math.sin(this.aimAng), "muzzle", shotCol);
 
         const dmgBase = this.dmg * buff.dmgMul * skip.dmgMul * pulseDmgMul;
         const dmgType = this.dmgType;
@@ -3496,7 +3645,7 @@
                 ay: hop === 0 ? this.y : visited.size === 1 ? this.y : current.y,
                 bx: current.x,
                 by: current.y,
-                t: 0.12
+                t: 0.22
               });
 
               dmg *= this.chainFalloff;
@@ -3565,7 +3714,36 @@
                 game.particles.spawn(this.x, this.y, 10, "muzzle");
               }
             }
-            game.cones.push({ x: this.x, y: this.y, ang: this.aimAng, cone: this.cone, r: this.range, t: 0.10 });
+            game.cones.push({ x: this.x, y: this.y, ang: this.aimAng, cone: this.cone, r: this.range, t: 0.26 });
+            game.explosions.push({
+              x: this.x,
+              y: this.y,
+              r: 12,
+              t: 0.22,
+              dur: 0.22,
+              max: 54,
+              col: "rgba(175,230,255,0.95)",
+              boom: false
+            });
+            game.explosions.push({
+              x: this.x + Math.cos(this.aimAng) * (this.range * 0.24),
+              y: this.y + Math.sin(this.aimAng) * (this.range * 0.24),
+              r: 10,
+              t: 0.18,
+              dur: 0.18,
+              max: 42,
+              col: "rgba(120,205,255,0.85)",
+              boom: false
+            });
+            game.particles.spawnDirectional(
+              this.x + Math.cos(this.aimAng) * 12,
+              this.y + Math.sin(this.aimAng) * 12,
+              8,
+              Math.cos(this.aimAng),
+              Math.sin(this.aimAng),
+              "shard",
+              "rgba(175,230,255,0.92)"
+            );
             break;
           }
 
@@ -4560,7 +4738,17 @@
         this.dragButton = null;
       });
 
-      window.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
+      const nudgeAudio = () => {
+        this.audio.unlock();
+        this.audio.ensureActive(true);
+      };
+      window.addEventListener("pointerdown", nudgeAudio);
+      window.addEventListener("keydown", nudgeAudio);
+      window.addEventListener("touchstart", nudgeAudio, { passive: true });
+      window.addEventListener("focus", () => this.audio.ensureActive(true));
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") this.audio.ensureActive(true);
+      });
       canvas.addEventListener("mouseleave", () => hideTooltip());
 
       canvas.addEventListener("wheel", (ev) => {
@@ -5118,68 +5306,86 @@
     }
 
     spawnText(x, y, text, color = "rgba(234,240,255,0.9)", ttl = 0.9) {
-      if (!text) return;
-      if (!this._textLimiter) this._textLimiter = new Map();
-      const now = performance.now() * 0.001;
-      const isDamage = /^-\d+/.test(String(text));
-      const gx = Math.floor(x / 42);
-      const gy = Math.floor(y / 34);
+      try {
+        if (!text) return;
+        if (!(this._textLimiter instanceof Map)) this._textLimiter = new Map();
+        if (!Array.isArray(this.floatText)) this.floatText = [];
+        const now = performance.now() * 0.001;
+        const isDamage = /^-\d+/.test(String(text));
+        const gx = Math.floor(x / 42);
+        const gy = Math.floor(y / 34);
 
-      // Hard cap to avoid unreadable walls of text.
-      if (this.floatText.length > (isDamage ? 85 : 100)) {
-        if (isDamage) return;
-        this.floatText.splice(0, Math.max(1, this.floatText.length - 90));
-      }
+        // Hard cap to avoid unreadable walls of text.
+        if (this.floatText.length > (isDamage ? 85 : 100)) {
+          if (isDamage) return;
+          this.floatText.splice(0, Math.max(1, this.floatText.length - 90));
+        }
 
-      if (isDamage) {
-        const cellKey = `d:${gx}:${gy}`;
-        const last = this._textLimiter.get(cellKey) || 0;
-        const incoming = Number(String(text).slice(1)) || 0;
-        // If same area was just hit, merge into nearby existing damage text.
-        if (now - last < 0.14) {
-          for (let i = this.floatText.length - 1; i >= 0; i--) {
-            const ft = this.floatText[i];
-            if (!ft._damage) continue;
-            if (ft.t <= 0) continue;
-            if (dist2(ft.x, ft.y, x, y) > 24 * 24) continue;
-            ft._sum = (ft._sum || (Number(String(ft.text).slice(1)) || 0)) + incoming;
-            ft.text = `-${Math.max(1, Math.floor(ft._sum))}`;
-            ft.t = Math.max(ft.t, 0.42);
-            ft.ttl = Math.max(ft.ttl, 0.42);
-            return;
+        if (isDamage) {
+          const cellKey = `d:${gx}:${gy}`;
+          const last = this._textLimiter.get(cellKey) || 0;
+          const incoming = Number(String(text).slice(1)) || 0;
+          // If same area was just hit, merge into nearby existing damage text.
+          if (now - last < 0.14) {
+            let merged = false;
+            for (let i = this.floatText.length - 1; i >= 0; i--) {
+              const ft = this.floatText[i];
+              if (!ft._damage) continue;
+              if (ft.t <= 0) continue;
+              if (dist2(ft.x, ft.y, x, y) > 24 * 24) continue;
+              ft._sum = (ft._sum || (Number(String(ft.text).slice(1)) || 0)) + incoming;
+              ft.text = `-${Math.max(1, Math.floor(ft._sum))}`;
+              ft.t = Math.max(ft.t, 0.42);
+              ft.ttl = Math.max(ft.ttl, 0.42);
+              merged = true;
+              break;
+            }
+            if (merged) return;
           }
-          return;
+          this._textLimiter.set(cellKey, now);
+        } else {
+          const statusText = /^(SLOWED|MARKED|STUN|BURN|REVEALED|SHIELD BREAK|MINIBOSS)$/i.test(String(text));
+          if (statusText) {
+            const key = `s:${text}:${gx}:${gy}`;
+            const last = this._textLimiter.get(key) || 0;
+            if (now - last < 0.9) return;
+            this._textLimiter.set(key, now);
+          }
         }
-        this._textLimiter.set(cellKey, now);
-      } else {
-        const statusText = /^(SLOWED|MARKED|STUN|BURN|REVEALED|SHIELD BREAK|MINIBOSS)$/i.test(String(text));
-        if (statusText) {
-          const key = `s:${text}:${gx}:${gy}`;
-          const last = this._textLimiter.get(key) || 0;
-          if (now - last < 0.9) return;
-          this._textLimiter.set(key, now);
+
+        this.floatText.push({
+          x,
+          y,
+          text,
+          color,
+          t: ttl,
+          ttl,
+          vy: 18,
+          _damage: isDamage,
+          _sum: isDamage ? (Number(String(text).slice(1)) || 0) : 0
+        });
+
+        // prune stale limiter entries (lazy)
+        if ((this._textLimiterTick = (this._textLimiterTick || 0) + 1) % 80 === 0 && (this._textLimiter instanceof Map)) {
+          for (const [k, ts] of this._textLimiter.entries()) {
+            if (now - ts > 2.2) this._textLimiter.delete(k);
+          }
         }
+      } catch (err) {
+        this._reportRuntimeError("spawnText", err);
+        if (!Array.isArray(this.floatText)) this.floatText = [];
+        this.floatText.push({
+          x,
+          y,
+          text: String(text),
+          color,
+          t: ttl,
+          ttl,
+          vy: 18,
+          _damage: false,
+          _sum: 0
+        });
       }
-
-      this.floatText.push({
-        x,
-        y,
-        text,
-        color,
-        t: ttl,
-        ttl,
-        vy: 18,
-        _damage: isDamage,
-        _sum: isDamage ? (Number(String(text).slice(1)) || 0) : 0
-      });
-
-      // prune stale limiter entries (lazy)
-      if ((this._textLimiterTick = (this._textLimiterTick || 0) + 1) % 80 === 0) {
-        for (const [k, ts] of this._textLimiter.entries()) {
-          if (now - ts > 2.2) this._textLimiter.delete(k);
-        }
-      }
-
     }
 
     useAbility(key) {
@@ -6343,6 +6549,7 @@
       }
 
       this._realDt = dt;
+      if (this.audio?.enabled) this.audio.tick();
       // Guard against bad saved/runtime values that can freeze simulation at dtScaled=0.
       if (!Number.isFinite(this.speed) || this.speed <= 0) this.speed = 1;
       const dtScaled = dt * this.speed;
@@ -6474,7 +6681,7 @@
         this.selectEnemy(null);
       }
       if (this.gameState === GAME_STATE.BOSS_CINEMATIC) {
-        this._updateVisualEffects(dtScaled);
+        this._updateVisualEffects(dt);
         this.updateHUD();
         return;
       }
@@ -6540,7 +6747,7 @@
       }
 
       // effects timers
-      this._updateVisualEffects(dtScaled);
+      this._updateVisualEffects(dt);
       this._saveT += dt;
       if (this._saveT >= 1) {
         this._saveT = 0;
@@ -6760,13 +6967,16 @@
       if (this.floatText.length) {
         gfx.save();
         if (!this._combatTextFont) {
-          this._combatTextFont = "700 12px " + getComputedStyle(document.body).fontFamily;
+          this._combatTextFont = "800 14px " + getComputedStyle(document.body).fontFamily;
         }
         gfx.font = this._combatTextFont;
         gfx.textAlign = "center";
         for (const ft of this.floatText) {
           const a = clamp(ft.t / ft.ttl, 0, 1);
           gfx.globalAlpha = a;
+          gfx.lineWidth = 3;
+          gfx.strokeStyle = "rgba(4,8,18,0.65)";
+          gfx.strokeText(ft.text, ft.x, ft.y);
           gfx.fillStyle = ft.color;
           gfx.fillText(ft.text, ft.x, ft.y);
         }
@@ -6776,30 +6986,48 @@
       // cones
       for (const c of this.cones) {
         gfx.save();
-        gfx.globalAlpha = 0.18;
-        gfx.fillStyle = "rgba(160,190,255,0.45)";
+        const coneLife = clamp(c.t / 0.26, 0, 1);
+        const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.02 + c.x * 0.01 + c.y * 0.01);
+        gfx.globalAlpha = 0.28 * coneLife * pulse + 0.18;
+        const g = gfx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+        g.addColorStop(0, "rgba(210,245,255,0.85)");
+        g.addColorStop(0.45, "rgba(160,220,255,0.55)");
+        g.addColorStop(1, "rgba(120,190,255,0.08)");
+        gfx.fillStyle = g;
         gfx.beginPath();
         gfx.moveTo(c.x, c.y);
         gfx.arc(c.x, c.y, c.r, c.ang - c.cone / 2, c.ang + c.cone / 2);
         gfx.closePath();
         gfx.fill();
+        gfx.globalAlpha = 0.9 * coneLife;
+        gfx.strokeStyle = "rgba(225,245,255,0.98)";
+        gfx.lineWidth = 1.8;
+        gfx.beginPath();
+        gfx.arc(c.x, c.y, c.r, c.ang - c.cone / 2, c.ang + c.cone / 2);
+        gfx.stroke();
+        gfx.globalAlpha = 0.55 * coneLife;
+        gfx.strokeStyle = "rgba(150,210,255,0.92)";
+        gfx.lineWidth = 1.2;
+        gfx.beginPath();
+        gfx.arc(c.x, c.y, c.r * 0.62, c.ang - c.cone / 2, c.ang + c.cone / 2);
+        gfx.stroke();
         gfx.restore();
       }
 
       // arcs
       for (const a of this.arcs) {
         gfx.save();
-        gfx.globalAlpha = 0.7;
-        gfx.strokeStyle = "rgba(154,108,255,0.85)";
-        gfx.lineWidth = 2;
+        gfx.globalAlpha = 0.92;
+        gfx.strokeStyle = "rgba(186,140,255,0.98)";
+        gfx.lineWidth = 2.8;
         gfx.beginPath();
         gfx.moveTo(a.ax, a.ay);
         gfx.lineTo(a.bx, a.by);
         gfx.stroke();
 
         // faint branching
-        gfx.globalAlpha = 0.35;
-        gfx.lineWidth = 1.5;
+        gfx.globalAlpha = 0.56;
+        gfx.lineWidth = 1.8;
         const mx = (a.ax + a.bx) * 0.5 + rand(-14, 14);
         const my = (a.ay + a.by) * 0.5 + rand(-14, 14);
         gfx.beginPath();

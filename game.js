@@ -5639,6 +5639,18 @@
       const tags = [];
       if (enemy.isBoss) tags.push("Boss");
       if (enemy.elite?.tag) tags.push(`Elite: ${enemy.elite.tag}`);
+      const specials = [];
+      if ((enemy.maxShield || 0) > 0) specials.push("Shielded");
+      if (enemy.stealth) specials.push("Stealth");
+      if (enemy.flying) specials.push("Flying");
+      if ((enemy.regen || 0) > 0) specials.push("Regenerates");
+      if (enemy.typeKey === "SPLITTER") specials.push("Splits On Death");
+      if (enemy.typeKey === "PHASE") specials.push("Blink Forward");
+      if (enemy.typeKey === "SHIELD_DRONE" || enemy.typeKey === "BOSS_PROJECTOR") specials.push("Shields Nearby Allies");
+      if (enemy.typeKey === "FINAL_BOSS_VORTEX") specials.push("Shield Surge Pulses");
+      if (enemy.typeKey === "FINAL_BOSS_ABYSS") specials.push("Void Zone Spawns");
+      if (enemy.typeKey === "FINAL_BOSS_IRON") specials.push("Shockwave Bursts");
+      const anomaly = this.waveAnomaly?.name || "None";
 
       selSub.textContent = enemy.desc || "Enemy";
       selectionBody.innerHTML = `
@@ -5659,6 +5671,8 @@
             <div class="statsRow"><div class="k">Stealth</div><div class="v">${yesNo(!!enemy.stealth)}</div></div>
             <div class="statsRow"><div class="k">Flying</div><div class="v">${yesNo(!!enemy.flying)}</div></div>
             <div class="statsRow"><div class="k">Tags</div><div class="v">${tags.length ? tags.join(", ") : "None"}</div></div>
+            <div class="statsRow"><div class="k">Specials</div><div class="v">${specials.length ? specials.join(", ") : "None"}</div></div>
+            <div class="statsRow"><div class="k">Anomaly</div><div class="v">${anomaly}</div></div>
           </div>
         </div>
       `;

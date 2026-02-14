@@ -2195,13 +2195,13 @@
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW, barH);
       gfx.fillStyle = hpPct > 0.5 ? "rgba(109,255,154,0.85)" : (hpPct > 0.2 ? "rgba(255,207,91,0.85)" : "rgba(255,91,125,0.9)");
       gfx.fillRect(x - barW / 2, y - this.r - 16, barW * hpPct, barH);
-      gfx.globalAlpha = selected ? 0.98 : 0.82;
-      gfx.fillStyle = "rgba(234,240,255,0.9)";
-      gfx.font = "11px var(--mono), monospace";
-      gfx.textAlign = "right";
-      gfx.textBaseline = "middle";
+      gfx.globalAlpha = selected ? 0.98 : 0.86;
+      gfx.fillStyle = "rgba(234,240,255,0.96)";
+      gfx.font = "700 14px var(--mono), monospace";
+      gfx.textAlign = "center";
+      gfx.textBaseline = "bottom";
       const hpText = `${Math.max(0, Math.ceil(this.hp))}`;
-      gfx.fillText(hpText, x - barW / 2 - 6, y - this.r - 13);
+      gfx.fillText(hpText, x, y - this.r - 18);
 
       // shield bubble
       if (this.shield > 0) {

@@ -46,6 +46,8 @@
           </div>
         </div>
 
+        <div id="turretStateBar" class="turretStateBar hidden" aria-live="polite"></div>
+
         <div id="abilitiesBar" class="abilitiesBar">
           <div class="abilitiesTitle">Abilities</div>
           <div class="abilitiesRow">
@@ -190,6 +192,12 @@
 
       <div id="toast" class="toast hidden"></div>
       <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+      <div id="turretHud" class="turretHud hidden" aria-live="polite">
+        <div id="turretHudBody" class="turretHudBody"></div>
+        <div class="turretHudFooter">
+          <button id="turretHudSellBtn" class="btn danger" disabled>Sell</button>
+        </div>
+      </div>
       <div id="levelOverlay" class="levelOverlay hidden" aria-hidden="true">
         <div id="levelOverlayText" class="levelOverlayText">LEVEL 1</div>
       </div>

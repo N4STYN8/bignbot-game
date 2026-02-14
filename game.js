@@ -92,6 +92,10 @@
   const selectionBody = $("selectionBody");
   const selSub = $("selSub");
   const sellBtn = $("sellBtn");
+  const turretHud = $("turretHud");
+  const turretHudBody = $("turretHudBody");
+  const turretHudSellBtn = $("turretHudSellBtn");
+  const turretStateBar = $("turretStateBar");
   const toastEl = $("toast");
   const tooltipEl = $("tooltip");
   const topbarEl = document.querySelector(".topbar");
@@ -1947,7 +1951,7 @@
           dmgType === DAMAGE.TRUE ? "rgba(255,207,91,0.95)" :
           "rgba(234,240,255,0.95)";
         game.spawnText(this.x, this.y - 10, `-${dmgText}`, dmgCol, 0.9);
-        this._combatTextCd = this.isBoss ? 0.22 : 0.14;
+        this._combatTextCd = this.isBoss ? 0.18 : 0.10;
       }
       game.explosions.push({
         x: this.x,
@@ -3915,6 +3919,7 @@
       this.corePulseT = 0;
       this.floatText = [];
       this.decals = [];
+      this._textLimiter = new Map();
       this.turrets = [];
       this.enemies = [];
       this.selectedEnemy = null;
@@ -3926,6 +3931,7 @@
       this.lingering = [];
       this.floatText = [];
       this.decals = [];
+      this._textLimiter = new Map();
 
       this.speed = 1;
       this.zoom = 1;
@@ -4095,7 +4101,7 @@
       const targetCam = { x: enemy.x - W * 0.5, y: enemy.y - H * 0.5 };
       this.bossCinematic = {
         timer: 0,
-        duration: 10,
+        duration: 6,
         phase: "blast",
         x: enemy.x,
         y: enemy.y,
@@ -4193,56 +4199,58 @@
       if (c.phase === "blast") {
         c.timer = Math.min(c.duration, c.timer + dt);
         const t = c.timer;
+        const s = c.duration / 10; // scale old 10s timing down proportionally
+        const tAt = (v) => v * s;
 
         // Keep explosion SFX active during blast; final sound plays at the end.
         if (t < c.duration - 0.35) this.audio.playLimited("explodingboss", 650);
 
         c.fxPulse -= dt;
         if (c.fxPulse <= 0) {
-          c.fxPulse = t < 4.5 ? 0.06 : 0.1;
-          this.particles.spawn(c.x + rand(-10, 10), c.y + rand(-10, 10), t < 5 ? 14 : 10, "boom", "rgba(255,207,91,0.92)");
-          this.particles.spawn(c.x, c.y, t < 6.5 ? 10 : 6, "shard", "rgba(255,120,200,0.9)");
+          c.fxPulse = t < tAt(4.5) ? 0.06 : 0.1;
+          this.particles.spawn(c.x + rand(-10, 10), c.y + rand(-10, 10), t < tAt(5) ? 14 : 10, "boom", "rgba(255,207,91,0.92)");
+          this.particles.spawn(c.x, c.y, t < tAt(6.5) ? 10 : 6, "shard", "rgba(255,120,200,0.9)");
         }
         c.fxRing -= dt;
         if (c.fxRing <= 0) {
-          c.fxRing = t < 5 ? 0.55 : 0.85;
+          c.fxRing = t < tAt(5) ? 0.55 : 0.85;
           this.explosions.push({
             x: c.x, y: c.y,
             r: 18,
             t: 0.58,
             dur: 0.58,
-            max: t < 6.5 ? 180 : 220,
+            max: t < tAt(6.5) ? 180 : 220,
             col: "rgba(255,207,91,0.9)",
             boom: false
           });
         }
         c.fxBurst -= dt;
         if (c.fxBurst <= 0) {
-          c.fxBurst = t < 4 ? 1.0 : 1.6;
+          c.fxBurst = t < tAt(4) ? 1.0 : 1.6;
           this.explosions.push({
             x: c.x, y: c.y,
             r: 24,
             t: 0.5,
             dur: 0.5,
-            max: t < 6 ? 140 : 170,
+            max: t < tAt(6) ? 140 : 170,
             col: "rgba(255,91,125,0.9)",
             boom: true
           });
         }
 
-        const shakeMul = t < 5.5 ? 1 : 0.6;
+        const shakeMul = t < tAt(5.5) ? 1 : 0.6;
         this.shakeT = Math.min(0.3, this.shakeT + 0.05 * shakeMul);
         this.shakeMag = Math.min(9, this.shakeMag + 0.55 * shakeMul);
 
         // Zoom/fade in final segment of the shorter cinematic.
-        const zoomPhase = clamp((t - 5) / 4.2, 0, 1);
+        const zoomPhase = clamp((t - tAt(5)) / Math.max(0.01, tAt(4.2)), 0, 1);
         const zoomEase = easeInOut(zoomPhase);
         c.zoom = lerp(c.baseZoom, clamp(c.baseZoom * 1.4, 1.05, 2.15), zoomEase);
         c.cam.x = lerp(c.baseCam.x, c.targetCam.x, zoomEase);
         c.cam.y = lerp(c.baseCam.y, c.targetCam.y, zoomEase);
-        c.fade = clamp((t - 4.5) / 4.8, 0, 1) * 0.95;
+        c.fade = clamp((t - tAt(4.5)) / Math.max(0.01, tAt(4.8)), 0, 1) * 0.95;
 
-        if (!c.prepared && t >= 8.1) {
+        if (!c.prepared && t >= tAt(8.1)) {
           c.nextLevelData = this._prepareNextLevelData();
           c.prepared = true;
         }
@@ -4455,7 +4463,8 @@
         }
       });
 
-      sellBtn.addEventListener("click", () => this.sellSelected());
+      sellBtn?.addEventListener("click", () => this.sellSelected());
+      turretHudSellBtn?.addEventListener("click", () => this.sellSelected());
 
       canvas.addEventListener("mousemove", (ev) => {
         const rect = canvas.getBoundingClientRect();
@@ -4660,6 +4669,26 @@
       const zx = (x - W * 0.5) / this.zoom + W * 0.5 + this.cam.x;
       const zy = (y - H * 0.5) / this.zoom + H * 0.5 + this.cam.y;
       return { x: zx, y: zy };
+    }
+
+    worldToScreen(x, y) {
+      return {
+        x: (x - W * 0.5 - this.cam.x) * this.zoom + W * 0.5,
+        y: (y - H * 0.5 - this.cam.y) * this.zoom + H * 0.5
+      };
+    }
+
+    _updateTurretHudPosition() {
+      if (!turretHud || turretHud.classList.contains("hidden")) return;
+      const t = this.selectedTurret;
+      if (!t) return;
+      const s = this.worldToScreen(t.x, t.y);
+      const rect = turretHud.getBoundingClientRect();
+      const margin = 10;
+      const px = clamp(s.x - rect.width * 0.5, margin, W - rect.width - margin);
+      const py = clamp(s.y - rect.height - 34, margin, H - rect.height - margin);
+      turretHud.style.left = `${px}px`;
+      turretHud.style.top = `${py}px`;
     }
 
     _canSkipIntermission() {
@@ -4942,8 +4971,8 @@
       if (goldEl) {
         goldEl.style.color = this.gold < 45 ? "var(--bad)" : "var(--good)";
       }
-      if (selectionBody) {
-        selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
+      if (turretHudBody) {
+        turretHudBody.querySelectorAll("button[data-mod]").forEach(btn => {
           let cost = Number(btn.dataset.cost || "0");
           if (!cost) {
             const costText = btn.closest(".modChoice")?.querySelector(".modCost")?.textContent || "";
@@ -5062,6 +5091,25 @@
           anomalyPill?.classList.remove("active");
         }
       }
+
+      if (turretStateBar) {
+        const t = this.selectedTurret;
+        if (!t) {
+          turretStateBar.classList.add("hidden");
+        } else {
+          const dps = t.fire > 0 ? (t.dmg / t.fire) : t.dmg * 12;
+          turretStateBar.innerHTML = `
+            <span class="k">Turret</span><span class="v">${t.name}</span>
+            <span class="k">Tier</span><span class="v">${t.level}</span>
+            <span class="k">DMG</span><span class="v">${t.dmg.toFixed(1)}</span>
+            <span class="k">Fire</span><span class="v">${t.fire.toFixed(2)}s</span>
+            <span class="k">Range</span><span class="v">${t.range.toFixed(0)}</span>
+            <span class="k">DPS</span><span class="v">${dps.toFixed(1)}</span>
+          `;
+          turretStateBar.classList.remove("hidden");
+        }
+      }
+      this._updateTurretHudPosition();
     }
 
     getSkipBuff() {
@@ -5076,6 +5124,49 @@
     }
 
     spawnText(x, y, text, color = "rgba(234,240,255,0.9)", ttl = 0.9) {
+      if (!text) return;
+      if (!this._textLimiter) this._textLimiter = new Map();
+      const now = performance.now() * 0.001;
+      const isDamage = /^-\d+/.test(String(text));
+      const gx = Math.floor(x / 42);
+      const gy = Math.floor(y / 34);
+
+      // Hard cap to avoid unreadable walls of text.
+      if (this.floatText.length > (isDamage ? 85 : 100)) {
+        if (isDamage) return;
+        this.floatText.splice(0, Math.max(1, this.floatText.length - 90));
+      }
+
+      if (isDamage) {
+        const cellKey = `d:${gx}:${gy}`;
+        const last = this._textLimiter.get(cellKey) || 0;
+        const incoming = Number(String(text).slice(1)) || 0;
+        // If same area was just hit, merge into nearby existing damage text.
+        if (now - last < 0.14) {
+          for (let i = this.floatText.length - 1; i >= 0; i--) {
+            const ft = this.floatText[i];
+            if (!ft._damage) continue;
+            if (ft.t <= 0) continue;
+            if (dist2(ft.x, ft.y, x, y) > 24 * 24) continue;
+            ft._sum = (ft._sum || (Number(String(ft.text).slice(1)) || 0)) + incoming;
+            ft.text = `-${Math.max(1, Math.floor(ft._sum))}`;
+            ft.t = Math.max(ft.t, 0.42);
+            ft.ttl = Math.max(ft.ttl, 0.42);
+            return;
+          }
+          return;
+        }
+        this._textLimiter.set(cellKey, now);
+      } else {
+        const statusText = /^(SLOWED|MARKED|STUN|BURN|REVEALED|SHIELD BREAK|MINIBOSS)$/i.test(String(text));
+        if (statusText) {
+          const key = `s:${text}:${gx}:${gy}`;
+          const last = this._textLimiter.get(key) || 0;
+          if (now - last < 0.9) return;
+          this._textLimiter.set(key, now);
+        }
+      }
+
       this.floatText.push({
         x,
         y,
@@ -5083,8 +5174,18 @@
         color,
         t: ttl,
         ttl,
-        vy: 18
+        vy: 18,
+        _damage: isDamage,
+        _sum: isDamage ? (Number(String(text).slice(1)) || 0) : 0
       });
+
+      // prune stale limiter entries (lazy)
+      if ((this._textLimiterTick = (this._textLimiterTick || 0) + 1) % 80 === 0) {
+        for (const [k, ts] of this._textLimiter.entries()) {
+          if (now - ts > 2.2) this._textLimiter.delete(k);
+        }
+      }
+
     }
 
     useAbility(key) {
@@ -5245,6 +5346,7 @@
           t.x = w.x; t.y = w.y;
         }
       }
+      this._updateTurretHudPosition();
     }
 
     _waveScalar(wave) {
@@ -5633,6 +5735,8 @@
       this.arcs = [];
       this.cones = [];
       this.lingering = [];
+      this.floatText = [];
+      this._textLimiter = new Map();
 
       this.gold = this._getStartGold();
       this.lives = START_LIVES;
@@ -5661,8 +5765,12 @@
 
       this.buildKey = null;
       this.selectedTurret = null;
+      this.selectedEnemy = null;
       this.hoverCell = null;
       this._id = 1;
+      turretHud?.classList.add("hidden");
+      turretStateBar?.classList.add("hidden");
+      if (turretHudBody) turretHudBody.innerHTML = "";
       this._resetWaveStats();
       this.runStats = this._newRunStats();
       this.mapStats = this.mapStats || [];
@@ -5961,15 +6069,12 @@
       this.selectedEnemy = null;
       this.selectedTurret = turret;
       sellBtn.disabled = !turret;
+      if (turretHudSellBtn) turretHudSellBtn.disabled = !turret;
       if (!turret) {
         selSub.textContent = "Select a turret";
-        selectionBody.innerHTML = `
-          <div class="emptyState">
-            <div class="emptyGlyph"></div>
-            <div class="emptyTitle">No turret selected</div>
-            <div class="emptyText">Click a turret you placed to view stats and upgrades.</div>
-          </div>
-        `;
+        if (selectionBody) selectionBody.innerHTML = "";
+        turretHud?.classList.add("hidden");
+        turretStateBar?.classList.add("hidden");
         return;
       }
       selSub.textContent = turret.role;
@@ -6010,10 +6115,10 @@
                 const preview = Turret.previewAfterUpgrade(turret, tierIdx, idx);
                 const affordable = this.gold >= m.cost;
                 const delta = [
-                  `Dmg ${turret.dmg.toFixed(1)}→${preview.dmg.toFixed(1)}`,
-                  `Fire ${turret.fire.toFixed(2)}→${preview.fire.toFixed(2)}`,
-                  `Range ${turret.range.toFixed(0)}→${preview.range.toFixed(0)}`
-                ].join("  ");
+                  `DMG ${turret.dmg.toFixed(1)} -> ${preview.dmg.toFixed(1)}`,
+                  `FIR ${turret.fire.toFixed(2)} -> ${preview.fire.toFixed(2)}`,
+                  `RNG ${turret.range.toFixed(0)} -> ${preview.range.toFixed(0)}`
+                ].join(", ");
                 return `
                   <div class="modChoice ${affordable ? "" : "poor"}">
                     <div class="modTop">
@@ -6040,7 +6145,7 @@
         `;
       }
 
-      selectionBody.innerHTML = `
+      const hudHtml = `
         <div class="selHeaderRow">
           <div class="selName">${turret.name}</div>
           <div class="selLevel">Tier ${tierNames[turret.level]}</div>
@@ -6054,14 +6159,18 @@
         </div>
         ${upgradesHtml}
       `;
+      if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+      if (selectionBody) selectionBody.innerHTML = "";
+      turretHud?.classList.remove("hidden");
+      this._updateTurretHudPosition();
 
-      selectionBody.querySelectorAll("button[data-mod]").forEach(btn => {
+      turretHudBody?.querySelectorAll("button[data-mod]").forEach(btn => {
         btn.addEventListener("click", () => {
           const idx = Number(btn.dataset.mod || "0");
           this.applyUpgrade(turret, idx);
         });
       });
-      const targetSelect = selectionBody.querySelector("#targetModeSelect");
+      const targetSelect = turretHudBody?.querySelector("#targetModeSelect");
       if (targetSelect) {
         targetSelect.addEventListener("change", () => {
           turret.targetMode = targetSelect.value;
@@ -6074,6 +6183,9 @@
       this.selectedTurret = null;
       this.selectedEnemy = enemy || null;
       sellBtn.disabled = true;
+      if (turretHudSellBtn) turretHudSellBtn.disabled = true;
+      turretHud?.classList.add("hidden");
+      turretStateBar?.classList.add("hidden");
 
       if (!enemy) {
         selSub.textContent = "Select a turret";
@@ -6705,5 +6817,6 @@
   }
   requestAnimationFrame(loop);
 })();
+
 
 

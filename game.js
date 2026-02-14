@@ -1738,6 +1738,30 @@
     return Math.max(0, hpBefore - enemy.hp);
   }
 
+  function turretHitFxProfile(sourceKey, dmgType, fallbackTint) {
+    const byType = {
+      PULSE: { kind: "hit", tint: "rgba(234,240,255,0.95)", burst: 4, ringCol: "rgba(98,242,255,0.8)", ringScale: 1.0 },
+      ARC: { kind: "shard", tint: "rgba(154,108,255,0.95)", burst: 5, ringCol: "rgba(154,108,255,0.9)", ringScale: 1.1 },
+      FROST: { kind: "muzzle", tint: "rgba(160,210,255,0.92)", burst: 4, ringCol: "rgba(160,210,255,0.9)", ringScale: 0.95 },
+      VENOM: { kind: "chem", tint: "rgba(109,255,154,0.92)", burst: 5, ringCol: "rgba(109,255,154,0.85)", ringScale: 1.0 },
+      LENS: { kind: "hit", tint: "rgba(255,207,91,0.9)", burst: 3, ringCol: "rgba(255,207,91,0.8)", ringScale: 0.9 },
+      MORTAR: { kind: "boom", tint: "rgba(255,207,91,0.95)", burst: 7, ringCol: "rgba(255,120,90,0.9)", ringScale: 1.5 },
+      NEEDLE: { kind: "shard", tint: "rgba(190,155,255,0.96)", burst: 4, ringCol: "rgba(190,155,255,0.9)", ringScale: 0.9 },
+      DRONE: { kind: "muzzle", tint: "rgba(98,242,255,0.95)", burst: 4, ringCol: "rgba(98,242,255,0.85)", ringScale: 0.95 },
+      AURA: { kind: "muzzle", tint: "rgba(98,242,255,0.8)", burst: 3, ringCol: "rgba(98,242,255,0.7)", ringScale: 1.2 },
+      TRAP: { kind: "boom", tint: "rgba(255,207,91,0.9)", burst: 5, ringCol: "rgba(255,207,91,0.88)", ringScale: 1.2 }
+    };
+    if (sourceKey && byType[sourceKey]) return byType[sourceKey];
+    const byDmg = dmgType === DAMAGE.ENGY
+      ? { kind: "shard", tint: "rgba(154,108,255,0.9)", burst: 3, ringCol: "rgba(154,108,255,0.7)", ringScale: 1.0 }
+      : dmgType === DAMAGE.CHEM
+        ? { kind: "chem", tint: "rgba(109,255,154,0.88)", burst: 3, ringCol: "rgba(109,255,154,0.7)", ringScale: 1.0 }
+        : dmgType === DAMAGE.TRUE
+          ? { kind: "boom", tint: "rgba(255,207,91,0.9)", burst: 3, ringCol: "rgba(255,207,91,0.7)", ringScale: 1.0 }
+          : { kind: "hit", tint: fallbackTint || "rgba(234,240,255,0.8)", burst: 3, ringCol: "rgba(234,240,255,0.6)", ringScale: 1.0 };
+    return byDmg;
+  }
+
   class Enemy {
     constructor(typeKey, waveScalar, startD, eliteTag = null) {
       const base = ENEMY_TYPES[typeKey];
@@ -1907,8 +1931,10 @@
       if (game && dealt > 0) {
         game.recordDamage(sourceKey, dealt);
       }
-      // impact particles
-      game.particles.spawn(this.x, this.y, 2 + Math.floor(amount / 10), "hit", this.tint);
+      // impact particles vary by turret source for unique hit signatures
+      const fx = turretHitFxProfile(sourceKey, dmgType, this.tint);
+      const hitCount = Math.min(12, Math.max(2, fx.burst + Math.floor(amount / 18)));
+      game.particles.spawn(this.x, this.y, hitCount, fx.kind, fx.tint);
       const dmgText = Math.max(1, Math.floor(dealt || amount));
       const dmgCol = dmgType === DAMAGE.ENGY ? "rgba(154,108,255,0.95)" :
         dmgType === DAMAGE.CHEM ? "rgba(109,255,154,0.95)" :
@@ -1918,13 +1944,19 @@
       game.explosions.push({
         x: this.x,
         y: this.y,
-        r: 6,
+        r: 6 * (fx.ringScale || 1),
         t: 0.16,
         dur: 0.16,
-        max: 22,
-        col: this.tint || "rgba(234,240,255,0.6)",
+        max: 22 * (fx.ringScale || 1),
+        col: fx.ringCol || this.tint || "rgba(234,240,255,0.6)",
         boom: false
       });
+      if (sourceKey === "VENOM") {
+        game.decals.push({ x: this.x, y: this.y, r: 8, t: 1.1, col: "rgba(109,255,154,0.2)" });
+      }
+      if (sourceKey === "LENS") {
+        game.decals.push({ x: this.x, y: this.y, r: 6, t: 0.8, col: "rgba(255,207,91,0.18)" });
+      }
       if (amount > this.maxHp * 0.2) {
         game.explosions.push({
           x: this.x,
@@ -2429,8 +2461,29 @@
       } else if (this.style === "bullet") {
         this._trailT -= dt;
         if (this._trailT <= 0) {
+          const ownerKey = this.owner?.typeKey || "";
+          if (ownerKey === "PULSE") {
+            this._trailT = 0.02;
+            game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "muzzle", "rgba(98,242,255,0.65)");
+          } else if (ownerKey === "VENOM") {
+            this._trailT = 0.03;
+            game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "chem", "rgba(109,255,154,0.72)");
+          } else {
+            this._trailT = 0.025;
+            game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "hit", "rgba(234,240,255,0.55)");
+          }
+        }
+      } else if (this.style === "needle") {
+        this._trailT -= dt;
+        if (this._trailT <= 0) {
+          this._trailT = 0.03;
+          game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "shard", "rgba(190,155,255,0.75)");
+        }
+      } else if (this.style === "spark") {
+        this._trailT -= dt;
+        if (this._trailT <= 0) {
           this._trailT = 0.02;
-          game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "muzzle", "rgba(98,242,255,0.65)");
+          game.particles.spawnDirectional(this.x, this.y, 1, -this.vx, -this.vy, "muzzle", "rgba(98,242,255,0.75)");
         }
       }
 
@@ -2483,7 +2536,28 @@
           game.audio?.playLimited("hit", 60);
           const dirX = -this.vx;
           const dirY = -this.vy;
-          game.particles.spawnDirectional(this.x, this.y, 4, dirX, dirY, "hit", "rgba(234,240,255,0.65)");
+          const impactByStyle = {
+            bullet: { kind: "hit", tint: "rgba(234,240,255,0.72)", count: 4, ringCol: "rgba(98,242,255,0.7)", ringScale: 0.95 },
+            venom: { kind: "chem", tint: "rgba(109,255,154,0.82)", count: 6, ringCol: "rgba(109,255,154,0.82)", ringScale: 1.05 },
+            needle: { kind: "shard", tint: "rgba(190,155,255,0.92)", count: 5, ringCol: "rgba(190,155,255,0.88)", ringScale: 0.9 },
+            spark: { kind: "muzzle", tint: "rgba(98,242,255,0.9)", count: 5, ringCol: "rgba(98,242,255,0.88)", ringScale: 1.0 },
+            mortar: { kind: "boom", tint: "rgba(255,207,91,0.92)", count: 8, ringCol: "rgba(255,120,90,0.9)", ringScale: 1.35 }
+          };
+          const pf = impactByStyle[this.style] || impactByStyle.bullet;
+          const impactKind = pf.kind;
+          const impactTint = pf.tint;
+          const impactCount = pf.count;
+          game.particles.spawnDirectional(this.x, this.y, impactCount, dirX, dirY, impactKind, impactTint);
+          game.explosions.push({
+            x: this.x,
+            y: this.y,
+            r: 6 * pf.ringScale,
+            t: 0.14,
+            dur: 0.14,
+            max: 22 * pf.ringScale,
+            col: pf.ringCol,
+            boom: false
+          });
           this.ttl = 0;
           break;
         }
@@ -2497,6 +2571,7 @@
       if (this.style === "mortar") { col = "rgba(255,207,91,0.85)"; glow = "rgba(255,207,91,0.35)"; }
       if (this.style === "needle") { col = "rgba(154,108,255,0.85)"; glow = "rgba(154,108,255,0.35)"; }
       if (this.style === "spark")  { col = "rgba(98,242,255,0.85)"; glow = "rgba(98,242,255,0.35)"; }
+      const ownerKey = this.owner?.typeKey || "";
 
       const dx = this.x - this.prevX;
       const dy = this.y - this.prevY;
@@ -2518,8 +2593,47 @@
       gfx.fillStyle = g;
       gfx.beginPath(); gfx.arc(this.x, this.y, this.r * 6, 0, Math.PI * 2); gfx.fill();
 
-      gfx.fillStyle = col;
-      gfx.beginPath(); gfx.arc(this.x, this.y, this.r, 0, Math.PI * 2); gfx.fill();
+      if (ownerKey === "VENOM") {
+        gfx.fillStyle = col;
+        gfx.beginPath();
+        gfx.ellipse(this.x, this.y, this.r * 1.25, this.r * 0.9, performance.now() * 0.01 + this._animSeed, 0, Math.PI * 2);
+        gfx.fill();
+        gfx.strokeStyle = "rgba(109,255,154,0.95)";
+        gfx.lineWidth = 1.2;
+        gfx.stroke();
+      } else if (ownerKey === "NEEDLE") {
+        const ang = Math.atan2(this.vy, this.vx);
+        gfx.save();
+        gfx.translate(this.x, this.y);
+        gfx.rotate(ang);
+        gfx.fillStyle = "rgba(234,240,255,0.92)";
+        gfx.beginPath();
+        gfx.moveTo(this.r * 2.6, 0);
+        gfx.lineTo(-this.r * 1.8, -this.r * 0.65);
+        gfx.lineTo(-this.r * 1.8, this.r * 0.65);
+        gfx.closePath();
+        gfx.fill();
+        gfx.strokeStyle = "rgba(190,155,255,0.9)";
+        gfx.lineWidth = 1.2;
+        gfx.stroke();
+        gfx.restore();
+      } else if (ownerKey === "DRONE") {
+        const t = performance.now() * 0.02 + this._animSeed;
+        gfx.strokeStyle = "rgba(98,242,255,0.95)";
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.moveTo(this.x - this.r * 2.1, this.y - this.r * 0.6);
+        gfx.lineTo(this.x - this.r * 0.8, this.y + this.r * 0.4);
+        gfx.lineTo(this.x + this.r * 0.3, this.y - this.r * 0.35);
+        gfx.lineTo(this.x + this.r * 1.5, this.y + this.r * 0.35);
+        gfx.stroke();
+        gfx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 2.5);
+        gfx.fillStyle = col;
+        gfx.beginPath(); gfx.arc(this.x, this.y, this.r * 0.9, 0, Math.PI * 2); gfx.fill();
+      } else {
+        gfx.fillStyle = col;
+        gfx.beginPath(); gfx.arc(this.x, this.y, this.r, 0, Math.PI * 2); gfx.fill();
+      }
 
       if (this.style === "bullet") {
         const t = performance.now() * 0.012 + this._animSeed;
@@ -3204,6 +3318,7 @@
               const dmg = this.dmg * buff.dmgMul * skip.dmgMul * pulseDmgMul;
               const pierce = 1 + (lowGravity ? 1 : 0);
               const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, pierce, 1.4, "spark");
+              p.owner = this;
               game.projectiles.push(p);
               game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
               game.audio.playLimited("drone", 160);

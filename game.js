@@ -5092,23 +5092,7 @@
         }
       }
 
-      if (turretStateBar) {
-        const t = this.selectedTurret;
-        if (!t) {
-          turretStateBar.classList.add("hidden");
-        } else {
-          const dps = t.fire > 0 ? (t.dmg / t.fire) : t.dmg * 12;
-          turretStateBar.innerHTML = `
-            <span class="k">Turret</span><span class="v">${t.name}</span>
-            <span class="k">Tier</span><span class="v">${t.level}</span>
-            <span class="k">DMG</span><span class="v">${t.dmg.toFixed(1)}</span>
-            <span class="k">Fire</span><span class="v">${t.fire.toFixed(2)}s</span>
-            <span class="k">Range</span><span class="v">${t.range.toFixed(0)}</span>
-            <span class="k">DPS</span><span class="v">${dps.toFixed(1)}</span>
-          `;
-          turretStateBar.classList.remove("hidden");
-        }
-      }
+      if (turretStateBar) turretStateBar.classList.add("hidden");
       this._updateTurretHudPosition();
     }
 
@@ -6594,7 +6578,10 @@
       // floating combat text
       if (this.floatText.length) {
         gfx.save();
-        gfx.font = "700 12px " + getComputedStyle(document.body).fontFamily;
+        if (!this._combatTextFont) {
+          this._combatTextFont = "700 12px " + getComputedStyle(document.body).fontFamily;
+        }
+        gfx.font = this._combatTextFont;
         gfx.textAlign = "center";
         for (const ft of this.floatText) {
           const a = clamp(ft.t / ft.ttl, 0, 1);

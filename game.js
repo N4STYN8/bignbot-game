@@ -6041,7 +6041,8 @@
         }
         if (this.runStats) this.runStats.towersBuilt += 1;
         if (this.playerStats) this.playerStats.towersBuilt += 1;
-        this.selectTurret(turret);
+        // Do not auto-open upgrade HUD on placement; require explicit turret click.
+        this.selectEnemy(null);
         this.particles.spawn(w.x, w.y, 8, "muzzle");
         this.audio.play("build");
         this._save();

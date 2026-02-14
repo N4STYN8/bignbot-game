@@ -23,6 +23,10 @@
   };
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const easeInOut = (t) => {
+    const x = clamp(t, 0, 1);
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  };
 
   function fmt(n) {
     if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
@@ -152,6 +156,10 @@
     DRONE: 10,
     AURA: 10,
     TRAP: 10
+  };
+  const GAME_STATE = {
+    GAMEPLAY: "GAMEPLAY",
+    BOSS_CINEMATIC: "BOSS_CINEMATIC"
   };
 
   const MAP_GRID_SIZE = 44;
@@ -3842,6 +3850,8 @@
       };
       this.globalOverchargeT = 0;
       this._transitioning = false;
+      this.gameState = GAME_STATE.GAMEPLAY;
+      this.bossCinematic = null;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -3929,6 +3939,165 @@
         this._hideLevelOverlay();
         this._transitioning = false;
       }, 1800);
+    }
+
+    _prepareNextLevelData() {
+      const nextLevel = this.levelIndex + 1;
+      const nextSeed = this._makeSeed();
+      const nextEnvId = (Math.random() * ENV_PRESETS.length) | 0;
+      const nextMap = generateMap(nextSeed, nextEnvId);
+      return { nextLevel, nextMap };
+    }
+
+    _startBossCinematic(enemy) {
+      if (!enemy) return;
+      if (this.gameState === GAME_STATE.BOSS_CINEMATIC) return;
+      this.gameState = GAME_STATE.BOSS_CINEMATIC;
+      this.waveActive = false;
+      this.intermission = 0;
+      this.spawnQueue = [];
+      this.spawnIndex = 0;
+      this.spawnT = 0;
+      this.selectedEnemy = null;
+      this.selectedTurret = null;
+      this.clearBuildMode();
+      this.enemies = [];
+      this.projectiles = [];
+      this.beams = [];
+      this.arcs = [];
+      this.cones = [];
+      const targetCam = { x: enemy.x - W * 0.5, y: enemy.y - H * 0.5 };
+      this.bossCinematic = {
+        timer: 0,
+        duration: 30,
+        x: enemy.x,
+        y: enemy.y,
+        fxPulse: 0,
+        fxRing: 0,
+        fxBurst: 0,
+        zoom: this.zoom,
+        cam: { x: this.cam.x, y: this.cam.y },
+        baseZoom: this.zoom,
+        baseCam: { x: this.cam.x, y: this.cam.y },
+        targetCam,
+        fade: 0,
+        prepared: false,
+        nextLevelData: null
+      };
+      this.toastLockT = 0;
+      toast("BOSS CORE COLLAPSE");
+    }
+
+    _finishBossCinematic() {
+      const c = this.bossCinematic;
+      if (!c) return;
+      if (this.runStats) {
+        this.mapStats = this.mapStats || [];
+        this.mapStats.push(this._snapshotRunStats());
+        this.playerStats = this.playerStats || this._newPlayerStats();
+        this.playerStats.mapsCleared += 1;
+      }
+      const prep = c.nextLevelData || this._prepareNextLevelData();
+      this.levelIndex = prep.nextLevel;
+      this.loadGeneratedMap(prep.nextMap);
+      this._resetRun();
+      this.zoom = 1;
+      this.cam.x = 0;
+      this.cam.y = 0;
+      this.explosions = [];
+      this.decals = [];
+      this.particles.list = [];
+      this.shakeT = 0;
+      this.shakeMag = 0;
+      this.damageFlash = 0;
+      this.gameState = GAME_STATE.GAMEPLAY;
+      this.bossCinematic = null;
+      this.updateHUD();
+      this._save();
+    }
+
+    _updateVisualEffects(dtScaled) {
+      const decay = (arr) => {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          arr[i].t -= dtScaled;
+          if (arr[i].t <= 0) arr.splice(i, 1);
+        }
+      };
+      decay(this.beams);
+      decay(this.arcs);
+      decay(this.cones);
+      decay(this.explosions);
+      decay(this.decals);
+      this.particles.update(dtScaled);
+      for (let i = this.floatText.length - 1; i >= 0; i--) {
+        const ft = this.floatText[i];
+        ft.t -= dtScaled;
+        ft.y -= ft.vy * dtScaled;
+        if (ft.t <= 0) this.floatText.splice(i, 1);
+      }
+    }
+
+    _updateBossCinematic(dt) {
+      const c = this.bossCinematic;
+      if (!c) return;
+      c.timer = Math.min(c.duration, c.timer + dt);
+      const t = c.timer;
+
+      // Long-form evolving explosion pulses.
+      c.fxPulse -= dt;
+      if (c.fxPulse <= 0) {
+        c.fxPulse = t < 8 ? 0.07 : (t < 18 ? 0.11 : 0.16);
+        this.particles.spawn(c.x + rand(-8, 8), c.y + rand(-8, 8), t < 10 ? 12 : 8, "boom", "rgba(255,207,91,0.92)");
+        this.particles.spawn(c.x, c.y, t < 12 ? 8 : 5, "shard", "rgba(255,120,200,0.88)");
+      }
+      c.fxRing -= dt;
+      if (c.fxRing <= 0) {
+        c.fxRing = t < 12 ? 0.85 : 1.15;
+        this.explosions.push({
+          x: c.x, y: c.y,
+          r: 18,
+          t: 0.65,
+          dur: 0.65,
+          max: t < 15 ? 200 : 260,
+          col: "rgba(255,207,91,0.9)",
+          boom: false
+        });
+      }
+      c.fxBurst -= dt;
+      if (c.fxBurst <= 0) {
+        c.fxBurst = t < 10 ? 1.4 : 2.1;
+        this.explosions.push({
+          x: c.x, y: c.y,
+          r: 24,
+          t: 0.52,
+          dur: 0.52,
+          max: t < 14 ? 150 : 180,
+          col: "rgba(255,91,125,0.9)",
+          boom: true
+        });
+      }
+
+      const shakeMul = t < 12 ? 1 : (t < 20 ? 0.7 : 0.45);
+      this.shakeT = Math.min(0.28, this.shakeT + 0.04 * shakeMul);
+      this.shakeMag = Math.min(9, this.shakeMag + 0.45 * shakeMul);
+
+      // At 15s, zoom toward center + start fade; finish fade around 25s.
+      const zoomPhase = clamp((t - 15) / 10, 0, 1);
+      const zoomEase = easeInOut(zoomPhase);
+      c.zoom = lerp(c.baseZoom, clamp(c.baseZoom * 1.42, 1.05, 2.2), zoomEase);
+      c.cam.x = lerp(c.baseCam.x, c.targetCam.x, zoomEase);
+      c.cam.y = lerp(c.baseCam.y, c.targetCam.y, zoomEase);
+      c.fade = clamp((t - 15) / 10, 0, 1) * 0.92;
+
+      // Pre-generate next map once fade is mostly complete.
+      if (!c.prepared && t >= 22) {
+        c.nextLevelData = this._prepareNextLevelData();
+        c.prepared = true;
+      }
+
+      this._updateVisualEffects(dt);
+      this.updateHUD();
+      if (t >= c.duration) this._finishBossCinematic();
     }
 
     _bindUI() {
@@ -4036,6 +4205,7 @@
 
       if (speedBtn) {
         speedBtn.addEventListener("click", () => {
+          if (this.isUiBlocked()) return;
           const levels = [1, 2, 3, 4];
           const idx = levels.indexOf(this.speed);
           const next = levels[(idx + 1) % levels.length];
@@ -4150,6 +4320,7 @@
 
       canvas.addEventListener("click", (ev) => {
         if (this.dragging || this.dragMoved) return;
+        if (this.isUiBlocked()) return;
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         this.audio.unlock();
@@ -4164,6 +4335,7 @@
       });
       canvas.addEventListener("contextmenu", (ev) => {
         ev.preventDefault();
+        if (this.isUiBlocked()) return;
         if (overlay && !overlay.classList.contains("hidden")) return;
         if (settingsModal && !settingsModal.classList.contains("hidden")) return;
         if (this.dragging || this.dragMoved) return;
@@ -4298,7 +4470,7 @@
     isUiBlocked() {
       const overlayOpen = overlay && !overlay.classList.contains("hidden");
       const settingsOpen = settingsModal && !settingsModal.classList.contains("hidden");
-      return overlayOpen || settingsOpen || this.statsOpen || this._transitioning;
+      return overlayOpen || settingsOpen || this.statsOpen || this._transitioning || this.gameState !== GAME_STATE.GAMEPLAY;
     }
 
     isPaused() {
@@ -4527,6 +4699,7 @@
 
     togglePause() {
       if (this.gameOver || this.gameWon) return;
+      if (this.gameState !== GAME_STATE.GAMEPLAY) return;
       if (this.statsOpen && this.statsMode === "pause") {
         this._closeWaveStats("pause");
         return;
@@ -4656,7 +4829,8 @@
       const nextPill = nextInEl?.closest(".pill");
       if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
 
-      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen || this._transitioning;
+      const controlsLocked = this.gameState !== GAME_STATE.GAMEPLAY;
+      startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen || this._transitioning || controlsLocked;
       startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
       if (this.abilities && abilityScanCd) {
@@ -4693,9 +4867,9 @@
         abilityScanCd.textContent = scan.t > 0 ? `${scan.t.toFixed(1)}s` : "Ready";
         abilityPulseCd.textContent = pulse.t > 0 ? `${pulse.t.toFixed(1)}s` : "Ready";
         abilityOverCd.textContent = over.t > 0 ? `${over.t.toFixed(1)}s` : "Ready";
-        abilityScanBtn.disabled = scan.t > 0;
-        abilityPulseBtn.disabled = pulse.t > 0;
-        abilityOverBtn.disabled = over.t > 0;
+        abilityScanBtn.disabled = scan.t > 0 || controlsLocked;
+        abilityPulseBtn.disabled = pulse.t > 0 || controlsLocked;
+        abilityOverBtn.disabled = over.t > 0 || controlsLocked;
       }
 
       if (anomalyLabel) {
@@ -4735,6 +4909,7 @@
     }
 
     useAbility(key) {
+      if (this.isUiBlocked()) return;
       const ability = this.getAbilityState(key);
       if (!ability) return;
       if (ability.t > 0) {
@@ -4925,6 +5100,7 @@
     _buildWave(wave, scalar) {
       const i = wave;
       if (wave === this.waveMax) {
+        // Wave 16 is a single boss-only wave.
         return [
           { t: 0.8, type: this._getBossKey(), scalar, miniboss: true }
         ];
@@ -5004,6 +5180,7 @@
     }
 
     startWave() {
+      if (this.gameState !== GAME_STATE.GAMEPLAY) return;
       if (this.gameOver || this.gameWon) return;
       if (this.wave >= this.waveMax) return;
 
@@ -5300,6 +5477,8 @@
       this.pendingIntermission = INTERMISSION_SECS;
       this.statsOpen = false;
       this.statsMode = null;
+      this.gameState = GAME_STATE.GAMEPLAY;
+      this.bossCinematic = null;
 
       this.buildKey = null;
       this.selectedTurret = null;
@@ -5311,6 +5490,110 @@
       this.playerStats = this.playerStats || this._newPlayerStats();
       this._refreshBuildList();
       this.updateHUD();
+    }
+
+    _spawnEnemyDeathFx(enemy) {
+      const x = enemy.x;
+      const y = enemy.y;
+      const tint = enemy.tint || "rgba(255,207,91,0.85)";
+      const type = enemy.typeKey || "";
+
+      const addBoom = (r, dur, max, col, boom = true) => {
+        this.explosions.push({
+          x, y,
+          r,
+          t: dur,
+          dur,
+          max,
+          col: col || tint,
+          boom
+        });
+      };
+
+      const addShake = (t, mag) => {
+        this.shakeT = Math.min(0.32, this.shakeT + t);
+        this.shakeMag = Math.min(10, this.shakeMag + mag);
+      };
+
+      switch (type) {
+        case "RUNNER":
+        case "MINI":
+          this.particles.spawn(x, y, 8, "shard", tint);
+          addBoom(10, 0.24, 38, tint, false);
+          addShake(0.03, 0.45);
+          break;
+        case "BRUTE":
+          this.particles.spawn(x, y, 20, "boom", tint);
+          this.particles.spawn(x, y, 10, "hit", "rgba(255,207,91,0.9)");
+          addBoom(18, 0.42, 88, tint, true);
+          addBoom(10, 0.26, 56, "rgba(255,240,190,0.75)", false);
+          addShake(0.11, 2.1);
+          break;
+        case "ARMORED":
+          this.particles.spawn(x, y, 14, "shard", "rgba(200,220,255,0.9)");
+          addBoom(14, 0.34, 66, "rgba(160,190,255,0.92)", true);
+          addBoom(9, 0.22, 42, "rgba(234,240,255,0.7)", false);
+          addShake(0.08, 1.4);
+          break;
+        case "SHIELDED":
+        case "SHIELD_DRONE":
+        case "BOSS_PROJECTOR":
+          this.particles.spawn(x, y, 12, "shard", "rgba(154,108,255,0.95)");
+          addBoom(11, 0.25, 52, "rgba(154,108,255,0.95)", false); // shield pop
+          addBoom(16, 0.36, 76, tint, true);
+          addShake(0.09, 1.6);
+          break;
+        case "SPLITTER":
+          this.particles.spawn(x, y, 16, "chem", "rgba(255,207,91,0.9)");
+          addBoom(13, 0.3, 58, "rgba(255,207,91,0.9)", true);
+          addShake(0.08, 1.2);
+          break;
+        case "REGEN":
+          this.particles.spawn(x, y, 18, "chem", "rgba(109,255,154,0.92)");
+          addBoom(12, 0.3, 60, "rgba(109,255,154,0.88)", true);
+          this.decals.push({ x, y, r: 18, t: 1.6, col: "rgba(109,255,154,0.22)" });
+          addShake(0.07, 1.1);
+          break;
+        case "STEALTH":
+          this.particles.spawn(x, y, 10, "hit", "rgba(234,240,255,0.9)");
+          addBoom(10, 0.22, 46, "rgba(234,240,255,0.7)", false);
+          addShake(0.04, 0.7);
+          break;
+        case "FLYING":
+          this.particles.spawn(x, y, 12, "muzzle", "rgba(98,242,255,0.9)");
+          addBoom(12, 0.27, 50, tint, false);
+          addShake(0.05, 0.9);
+          break;
+        case "PHASE":
+          this.particles.spawn(x, y, 14, "shard", "rgba(154,108,255,0.95)");
+          addBoom(11, 0.22, 48, "rgba(154,108,255,0.95)", false);
+          addBoom(16, 0.34, 72, tint, true);
+          addShake(0.09, 1.4);
+          break;
+        case "FINAL_BOSS_VORTEX":
+        case "FINAL_BOSS_ABYSS":
+        case "FINAL_BOSS_IRON":
+          this.particles.spawn(x, y, 34, "boom", tint);
+          this.particles.spawn(x, y, 24, "shard", "rgba(255,207,91,0.95)");
+          addBoom(24, 0.55, 150, tint, true);
+          addBoom(16, 0.4, 115, "rgba(255,120,200,0.88)", false);
+          addBoom(10, 0.24, 72, "rgba(234,240,255,0.78)", false);
+          this.decals.push({ x, y, r: 30, t: 3.2, col: "rgba(25,10,30,0.45)" });
+          addShake(0.2, 3.2);
+          break;
+        default:
+          if (enemy.isBoss) {
+            this.particles.spawn(x, y, 26, "boom", tint);
+            addBoom(20, 0.48, 112, tint, true);
+            addBoom(12, 0.3, 72, "rgba(234,240,255,0.76)", false);
+            addShake(0.16, 2.7);
+          } else {
+            this.particles.spawn(x, y, enemy.flying ? 10 : 14, "boom", tint);
+            addBoom(enemy.flying ? 12 : 16, 0.38, 64, tint, true);
+            addShake(0.08, enemy.flying ? 1.0 : 1.6);
+          }
+          break;
+      }
     }
 
     onEnemyKill(enemy) {
@@ -5359,19 +5642,8 @@
       }
       this.audio.playLimited("kill", 140);
 
-      // explosion animation
-      this.explosions.push({
-        x: enemy.x,
-        y: enemy.y,
-        r: enemy.flying ? 12 : 16,
-        t: 0.38,
-        dur: 0.38,
-        max: 64,
-        col: enemy.tint || "rgba(255,207,91,0.85)",
-        boom: true
-      });
-      this.shakeT = Math.min(0.25, this.shakeT + 0.08);
-      this.shakeMag = Math.min(8, this.shakeMag + 1.6);
+      // type-specific death animation
+      this._spawnEnemyDeathFx(enemy);
 
       // siphon from traps
       if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
@@ -5391,6 +5663,11 @@
             e.applyDot(Math.max(4, enemy.reward * 0.6), 2.4);
           }
         }
+      }
+
+      // Wave 16 boss death enters the cinematic sequence.
+      if (enemy.isBoss && this.wave >= this.waveMax && this.gameState === GAME_STATE.GAMEPLAY) {
+        this._startBossCinematic(enemy);
       }
     }
 
@@ -5438,6 +5715,7 @@
     }
 
     onClick(x, y) {
+      if (this.isUiBlocked()) return;
       // select turret if clicked
       let clickedTurret = null;
       for (const t of this.turrets) {
@@ -5714,6 +5992,10 @@
         this.updateHUD();
         return;
       }
+      if (this.gameState === GAME_STATE.BOSS_CINEMATIC) {
+        this._updateBossCinematic(dt);
+        return;
+      }
       if (this.isPaused()) {
         this.updateHUD();
         return;
@@ -5827,6 +6109,11 @@
       if (this.selectedEnemy && (this.selectedEnemy.hp <= 0 || this.selectedEnemy._dead)) {
         this.selectEnemy(null);
       }
+      if (this.gameState === GAME_STATE.BOSS_CINEMATIC) {
+        this._updateVisualEffects(dtScaled);
+        this.updateHUD();
+        return;
+      }
 
       // update turrets
       for (const t of this.turrets) t.update(this, dtScaled);
@@ -5876,25 +6163,7 @@
       }
 
       // effects timers
-      const decay = (arr) => {
-        for (let i = arr.length - 1; i >= 0; i--) {
-          arr[i].t -= dtScaled;
-          if (arr[i].t <= 0) arr.splice(i, 1);
-        }
-      };
-      decay(this.beams);
-      decay(this.arcs);
-      decay(this.cones);
-      decay(this.explosions);
-      decay(this.decals);
-
-      this.particles.update(dtScaled);
-      for (let i = this.floatText.length - 1; i >= 0; i--) {
-        const ft = this.floatText[i];
-        ft.t -= dtScaled;
-        ft.y -= ft.vy * dtScaled;
-        if (ft.t <= 0) this.floatText.splice(i, 1);
-      }
+      this._updateVisualEffects(dtScaled);
       this._saveT += dt;
       if (this._saveT >= 1) {
         this._saveT = 0;
@@ -5906,14 +6175,17 @@
     draw(gfx) {
       gfx.clearRect(0, 0, W, H);
       gfx.save();
+      const c = this.bossCinematic;
+      const renderZoom = (this.gameState === GAME_STATE.BOSS_CINEMATIC && c) ? c.zoom : this.zoom;
+      const renderCam = (this.gameState === GAME_STATE.BOSS_CINEMATIC && c) ? c.cam : this.cam;
       if (this.shakeT > 0) {
         const sx = (Math.random() * 2 - 1) * this.shakeMag;
         const sy = (Math.random() * 2 - 1) * this.shakeMag;
         gfx.translate(sx, sy);
       }
       gfx.translate(W * 0.5, H * 0.5);
-      gfx.scale(this.zoom, this.zoom);
-      gfx.translate(-W * 0.5 - this.cam.x, -H * 0.5 - this.cam.y);
+      gfx.scale(renderZoom, renderZoom);
+      gfx.translate(-W * 0.5 - renderCam.x, -H * 0.5 - renderCam.y);
       this.map.drawBase(gfx);
 
       if (this.corePulseT > 0) {
@@ -6169,6 +6441,14 @@
         gfx.restore();
       }
       gfx.restore();
+
+      if (this.gameState === GAME_STATE.BOSS_CINEMATIC && c) {
+        gfx.save();
+        gfx.globalAlpha = c.fade;
+        gfx.fillStyle = "rgba(3,6,14,0.98)";
+        gfx.fillRect(0, 0, W, H);
+        gfx.restore();
+      }
     }
   }
 

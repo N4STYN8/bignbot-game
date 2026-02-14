@@ -634,6 +634,7 @@
         mortar: ["assets/sfx/sfx_mortar.wav"],
         trap: ["assets/sfx/sfx_trap.wav"],
         drone: ["assets/sfx/sfx_drone.wav"],
+        abilities_btn: ["assets/sfx/sfx_abilities_btn.wav"],
         explodingboss: ["assets/sfx/sfx_explodingboss.wav"],
         finalexplosionboss: ["assets/sfx/sfx_finalexplosionboss.wav"],
         hover: ["assets/sfx/sfx_Hoveroverbutton.wav"],
@@ -4148,9 +4149,18 @@
       });
       startBtn.addEventListener("pointerleave", () => hideTooltip());
 
-      abilityScanBtn?.addEventListener("click", () => this.useAbility("scan"));
-      abilityPulseBtn?.addEventListener("click", () => this.useAbility("pulse"));
-      abilityOverBtn?.addEventListener("click", () => this.useAbility("overcharge"));
+      abilityScanBtn?.addEventListener("click", () => {
+        this.audio?.playLimited("abilities_btn", 70);
+        this.useAbility("scan");
+      });
+      abilityPulseBtn?.addEventListener("click", () => {
+        this.audio?.playLimited("abilities_btn", 70);
+        this.useAbility("pulse");
+      });
+      abilityOverBtn?.addEventListener("click", () => {
+        this.audio?.playLimited("abilities_btn", 70);
+        this.useAbility("overcharge");
+      });
       const abilityBtns = [abilityScanBtn, abilityPulseBtn, abilityOverBtn].filter(Boolean);
       abilityBtns.forEach((btn) => {
         btn.addEventListener("pointerenter", (ev) => {
@@ -4259,6 +4269,7 @@
         const btn = ev.target.closest("button");
         if (btn) {
           if (btn.disabled) return;
+          if (btn === abilityScanBtn || btn === abilityPulseBtn || btn === abilityOverBtn) return;
           this.audio?.playLimited("click", 80);
           return;
         }

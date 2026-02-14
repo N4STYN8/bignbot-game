@@ -634,6 +634,8 @@
         mortar: ["assets/sfx/sfx_mortar.wav"],
         trap: ["assets/sfx/sfx_trap.wav"],
         drone: ["assets/sfx/sfx_drone.wav"],
+        explodingboss: ["assets/sfx/sfx_explodingboss.wav"],
+        finalexplosionboss: ["assets/sfx/sfx_finalexplosionboss.wav"],
         hover: ["assets/sfx/sfx_Hoveroverbutton.wav"],
         click: ["assets/sfx/sfx_clickme.wav"]
       };
@@ -3982,9 +3984,11 @@
         targetCam,
         fade: 0,
         prepared: false,
-        nextLevelData: null
+        nextLevelData: null,
+        finalSfxPlayed: false
       };
       this.toastLockT = 0;
+      this.audio.play("explodingboss");
       toast("BOSS CORE COLLAPSE");
     }
 
@@ -4042,6 +4046,13 @@
       if (!c) return;
       c.timer = Math.min(c.duration, c.timer + dt);
       const t = c.timer;
+
+      // Keep explosion SFX active during the cinematic blast window.
+      if (t < 29.1) this.audio.playLimited("explodingboss", 850);
+      if (!c.finalSfxPlayed && t >= 29.1) {
+        c.finalSfxPlayed = true;
+        this.audio.play("finalexplosionboss");
+      }
 
       // Long-form evolving explosion pulses.
       c.fxPulse -= dt;

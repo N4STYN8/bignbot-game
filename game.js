@@ -1821,6 +1821,8 @@
       this._noSplit = false;
       this._noSplitT = 0;
       this.scalar = waveScalar;
+      this._combatTextCd = 0;
+      this._dotTextCd = 0;
 
       this.elite = eliteTag ? { tag: eliteTag } : null;
       if (this.elite) {
@@ -1857,6 +1859,8 @@
     update(game, dt) {
       if (this._dead) return;
       if (this.onUpdate) this.onUpdate(game, this, dt);
+      if (this._combatTextCd > 0) this._combatTextCd = Math.max(0, this._combatTextCd - dt);
+      if (this._dotTextCd > 0) this._dotTextCd = Math.max(0, this._dotTextCd - dt);
       // regen
       if (this.regen > 0 && this.hp > 0) {
         this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
@@ -1869,9 +1873,10 @@
         const dealt = applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
         // light shimmer
         game.particles.spawn(this.x, this.y, 1, "chem");
-        if (dealt > 0) {
+        if (dealt > 0 && this._dotTextCd <= 0) {
           const dmgText = Math.max(1, Math.floor(dealt));
           game.spawnText(this.x, this.y - 8, `-${dmgText}`, "rgba(109,255,154,0.95)", 0.8);
+          this._dotTextCd = this.isBoss ? 0.34 : 0.26;
         }
         if (this.hp <= 0 && !this._dead) {
           this._dead = true;
@@ -1935,12 +1940,15 @@
       const fx = turretHitFxProfile(sourceKey, dmgType, this.tint);
       const hitCount = Math.min(12, Math.max(2, fx.burst + Math.floor(amount / 18)));
       game.particles.spawn(this.x, this.y, hitCount, fx.kind, fx.tint);
-      const dmgText = Math.max(1, Math.floor(dealt || amount));
-      const dmgCol = dmgType === DAMAGE.ENGY ? "rgba(154,108,255,0.95)" :
-        dmgType === DAMAGE.CHEM ? "rgba(109,255,154,0.95)" :
-        dmgType === DAMAGE.TRUE ? "rgba(255,207,91,0.95)" :
-        "rgba(234,240,255,0.95)";
-      game.spawnText(this.x, this.y - 10, `-${dmgText}`, dmgCol, 0.9);
+      if (this._combatTextCd <= 0 || amount >= this.maxHp * 0.2 || this.hp <= 0) {
+        const dmgText = Math.max(1, Math.floor(dealt || amount));
+        const dmgCol = dmgType === DAMAGE.ENGY ? "rgba(154,108,255,0.95)" :
+          dmgType === DAMAGE.CHEM ? "rgba(109,255,154,0.95)" :
+          dmgType === DAMAGE.TRUE ? "rgba(255,207,91,0.95)" :
+          "rgba(234,240,255,0.95)";
+        game.spawnText(this.x, this.y - 10, `-${dmgText}`, dmgCol, 0.9);
+        this._combatTextCd = this.isBoss ? 0.22 : 0.14;
+      }
       game.explosions.push({
         x: this.x,
         y: this.y,

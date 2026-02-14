@@ -5943,6 +5943,7 @@
     }
 
     onEnemyLeak(enemy) {
+      enemy.hp = 0;
       if (this.waveStats) this.waveStats.leaks += 1;
       if (this.runStats) this.runStats.leaks += 1;
       if (this.playerStats) this.playerStats.leaks += 1;
@@ -6324,7 +6325,7 @@
             this.spawnText(spawned.x, spawned.y - 20, "MINIBOSS", "rgba(98,242,255,0.95)", 1.0);
           }
         }
-        if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0)) {
+        if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0 || e._dead)) {
           this.waveActive = false;
           this.waveAnomaly = null;
           this._warpRippleT = 0;
@@ -6380,7 +6381,7 @@
 
       // update enemies
       for (const e of this.enemies) e.update(this, dtScaled);
-      this.enemies = this.enemies.filter(e => e.hp > 0 || !e._dead);
+      this.enemies = this.enemies.filter(e => e.hp > 0 && !e._dead);
       if (this.selectedEnemy && (this.selectedEnemy.hp <= 0 || this.selectedEnemy._dead)) {
         this.selectEnemy(null);
       }

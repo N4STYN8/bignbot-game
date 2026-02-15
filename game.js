@@ -5464,9 +5464,8 @@
           let found = 0;
           let shields = 0;
           for (const e of this.enemies) {
-            if (e.hp <= 0) continue;
-            if (e.shield > 0) {
-              e.shield = 0;
+            if (!e || e._dead) continue;
+            if (this._clearEnemyShield(e)) {
               shields++;
               this.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.9)");
               this.explosions.push({
@@ -5540,6 +5539,15 @@
         }
       }
       this.updateHUD();
+    }
+
+    // CODEX CHANGE: EMP should clear shields on every active enemy object currently in play.
+    _clearEnemyShield(enemy) {
+      if (!enemy || enemy._dead) return false;
+      const shieldRaw = Number(enemy.shield);
+      const hadShield = Number.isFinite(shieldRaw) && shieldRaw > 0;
+      enemy.shield = 0;
+      return hadShield;
     }
 
     _calcSkipReward(remaining) {

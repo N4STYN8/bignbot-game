@@ -10,6 +10,7 @@ import { TURRET_TYPES, Turret } from "./turrets.js";
  * Game
  **********************/
 class Game {
+  // CODEX CHANGE: Split constructor state setup into focused init helpers to remove duplicate assignments.
   constructor() {
     this.levelIndex = 1;
     this.mapSeed = this._makeSeed();
@@ -18,27 +19,40 @@ class Game {
     this.map = new Map(this.mapData);
     this.particles = new Particles();
     this.audio = new AudioSystem();
+    this._initCollections();
+    this._initRuntimeState();
+    if (pauseBtn) pauseBtn.textContent = "PAUSE";
+
+    this.audio.loadPref();
+    this.applyEnvironment(this.mapData?.env || ENV_PRESETS[this.envId]);
+    this._load();
+    this._bindUI();
+    this._buildList();
+    this.updateHUD();
+  }
+
+  // CODEX CHANGE: Consolidate array/map collection defaults used across gameplay and VFX.
+  _initCollections() {
     this.explosions = [];
-    this.shakeT = 0;
-    this.shakeMag = 0;
-    this.damageFlash = 0;
-    this.corePulseT = 0;
     this.floatText = [];
     this.decals = [];
     this._textLimiter = new Map();
     this.turrets = [];
     this.enemies = [];
-    this.selectedEnemy = null;
     this.projectiles = [];
     this.traps = [];
     this.beams = [];
     this.arcs = [];
     this.cones = [];
     this.lingering = [];
-    this.floatText = [];
-    this.decals = [];
-    this._textLimiter = new Map();
+  }
 
+  // CODEX CHANGE: Keep constructor-readable, single-source defaults for run/session/input state.
+  _initRuntimeState() {
+    this.shakeT = 0;
+    this.shakeMag = 0;
+    this.damageFlash = 0;
+    this.corePulseT = 0;
     this.speed = 1;
     this.zoom = 1;
     this.cam = { x: 0, y: 0 };
@@ -63,34 +77,24 @@ class Game {
     this.gameWon = false;
     this.paused = false;
     this._gameOverPrompted = false;
-    if (pauseBtn) pauseBtn.textContent = "PAUSE";
-
     this.spawnQueue = [];
     this.spawnIndex = 0;
     this.spawnT = 0;
     this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
     this._saveT = 0;
-    this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
     this.waveAnomaly = null;
     this._warpRippleT = 0;
     this.pendingIntermission = INTERMISSION_SECS;
     this.statsOpen = false;
     this.statsMode = null;
-    this.corePulseT = 0;
     this.waveStats = this._newWaveStats(0);
     this.runStats = this._newRunStats();
     this.mapStats = [];
     this.playerStats = this._newPlayerStats();
-    this.abilities = {
-      scan: { cd: ABILITY_COOLDOWN, t: 0 },
-      pulse: { cd: ABILITY_COOLDOWN, t: 0 },
-      overcharge: { cd: OVERCHARGE_COOLDOWN, t: 0 }
-    };
     this.globalOverchargeT = 0;
     this._transitioning = false;
     this.gameState = GAME_STATE.GAMEPLAY;
     this.bossCinematic = null;
-
     this.buildKey = null;
     this.selectedTurret = null;
     this.selectedEnemy = null;
@@ -101,13 +105,6 @@ class Game {
     this.panelHold = { left: 0, right: 0 };
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
-
-    this.audio.loadPref();
-    this.applyEnvironment(this.mapData?.env || ENV_PRESETS[this.envId]);
-    this._load();
-    this._bindUI();
-    this._buildList();
-    this.updateHUD();
   }
 
   _makeSeed() {

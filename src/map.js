@@ -16,8 +16,20 @@ export class Map {
     this.segs = [];
     this.totalLen = 1;
     this.env = ENV_PRESETS[0];
+    this._padlockImg = null;
+    this._padlockLoaded = false;
+    this._initPadlockSprite();
     if (mapData) this.loadGeneratedMap(mapData);
     else this._rebuild();
+  }
+
+  _initPadlockSprite() {
+    if (typeof Image === "undefined") return;
+    const img = new Image();
+    img.onload = () => { this._padlockLoaded = true; };
+    img.onerror = () => { this._padlockLoaded = false; };
+    img.src = "assets/images/padlock.png";
+    this._padlockImg = img;
   }
 
   loadGeneratedMap(mapData) {
@@ -84,7 +96,7 @@ export class Map {
     if (this.poolsN && this.poolsN.length) {
       let buildableCount = 0;
       for (let i = 0; i < this.cells.length; i++) if (this.cells[i] === 1) buildableCount++;
-      const minBuildable = Math.max(28, Math.floor(this.cells.length * 0.08));
+      const minBuildable = Math.max(20, Math.floor(this.cells.length * 0.06));
 
       for (const pool of this.poolsN) {
         const cx = bounds.x + pool[0] * bounds.w;
@@ -111,8 +123,10 @@ export class Map {
       }
     }
 
+    const maxPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.max) || 7);
     if (this.powerTilesN && this.powerTilesN.length) {
       for (const p of this.powerTilesN) {
+        if (this.powerCells.length >= maxPowerTiles) break;
         const px = bounds.x + p[0] * bounds.w;
         const py = bounds.y + p[1] * bounds.h;
         const gx = clamp(Math.floor(px / this.gridSize), 0, this.cols - 1);
@@ -122,6 +136,33 @@ export class Map {
           this.cells[idx] = 3;
           this.powerCells.push(idx);
         }
+      }
+    }
+
+    // Guarantee a baseline number of power tiles after cell quantization.
+    const minPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.min) || 4);
+    if (this.powerCells.length < minPowerTiles) {
+      const targetD = (POWER_NEAR_MIN + POWER_NEAR_MAX) * 0.5;
+      const minD = Math.max(TRACK_RADIUS + 6, POWER_NEAR_MIN * 0.8);
+      const taken = new Set(this.powerCells);
+      const candidates = [];
+      for (let gy = 0; gy < this.rows; gy++) {
+        for (let gx = 0; gx < this.cols; gx++) {
+          const idx = gy * this.cols + gx;
+          if (this.cells[idx] !== 1 || taken.has(idx)) continue;
+          const px = (gx + 0.5) * this.gridSize;
+          const py = (gy + 0.5) * this.gridSize;
+          const d = Math.sqrt(distanceToSegmentsSquared(px, py, this.segs));
+          if (d < minD || d > POWER_NEAR_MAX) continue;
+          candidates.push({ idx, score: Math.abs(d - targetD) });
+        }
+      }
+      candidates.sort((a, b) => a.score - b.score);
+      for (let i = 0; i < candidates.length && this.powerCells.length < minPowerTiles; i++) {
+        const idx = candidates[i].idx;
+        this.cells[idx] = 3;
+        this.powerCells.push(idx);
+        taken.add(idx);
       }
     }
   }
@@ -160,6 +201,41 @@ export class Map {
     return { x, y, ang };
   }
 
+  _getTileStateForCell(gx, gy, idx) {
+    // Support common tile-state containers without coupling to gameplay systems.
+    const fromIdx =
+      this.tileStates?.[idx] ??
+      this.cellStates?.[idx] ??
+      this.tiles?.[idx] ??
+      null;
+    if (fromIdx && typeof fromIdx === "object") return fromIdx;
+
+    const row = this.tiles?.[gy];
+    if (Array.isArray(row)) {
+      const fromGrid = row[gx];
+      if (fromGrid && typeof fromGrid === "object") return fromGrid;
+    }
+
+    if (this.tilesByCell && typeof this.tilesByCell === "object") {
+      const keyed = this.tilesByCell[idx] ?? this.tilesByCell[`${gx},${gy}`];
+      if (keyed && typeof keyed === "object") return keyed;
+    }
+
+    return null;
+  }
+
+  _isBuildableCorrupted(gx, gy, idx, tileType) {
+    if (tileType !== 1 && tileType !== 3) return false;
+    const tile = this._getTileStateForCell(gx, gy, idx);
+    return !!tile && tile.corrupted === true;
+  }
+
+  _isPowerTileLocked(gx, gy, idx, tileType) {
+    if (tileType !== 3) return false;
+    const tile = this._getTileStateForCell(gx, gy, idx);
+    return !tile || tile.powerPurchased !== true;
+  }
+
   drawBase(gfx) {
     const area = W * H;
     const perf = area > 7000000 ? 0.5 : area > 3800000 ? 0.7 : 1;
@@ -191,9 +267,12 @@ export class Map {
     gfx.save();
     for (let gy = 0; gy < this.rows; gy++) {
       for (let gx = 0; gx < this.cols; gx++) {
-        const v = this.cells[gy * this.cols + gx];
+        const idx = gy * this.cols + gx;
+        const v = this.cells[idx];
         if (v !== 1 && v !== 3) continue;
-        if (perf < 0.7 && ((gx + gy) % 2) === 1) continue;
+        const corrupted = this._isBuildableCorrupted(gx, gy, idx, v);
+        const powerLocked = this._isPowerTileLocked(gx, gy, idx, v);
+        if (perf < 0.7 && ((gx + gy) % 2) === 1 && !corrupted) continue;
         const x = gx * this.gridSize;
         const y = gy * this.gridSize;
 
@@ -213,6 +292,47 @@ export class Map {
           : `rgba(154,108,255,${0.08 + pulse * 0.06})`;
         gfx.lineWidth = 1;
         gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+
+        if (corrupted) {
+          const corruptPulse = 0.8 + 0.2 * Math.sin(t * 3.1 + gx * 0.55 + gy * 0.45);
+          gfx.fillStyle = `rgba(255,80,80,${0.33 + corruptPulse * 0.15})`;
+          gfx.fillRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+          gfx.strokeStyle = `rgba(255,110,110,${0.35 + corruptPulse * 0.35})`;
+          gfx.lineWidth = 1.4;
+          gfx.strokeRect(x + 1.5, y + 1.5, this.gridSize - 3, this.gridSize - 3);
+
+          if (perf >= 0.7) {
+            gfx.save();
+            gfx.beginPath();
+            gfx.rect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+            gfx.clip();
+            const drift = (t * 28 + gx * 5 + gy * 7) % (this.gridSize * 2);
+            gfx.strokeStyle = `rgba(255,160,160,${0.16 + corruptPulse * 0.12})`;
+            gfx.lineWidth = 1;
+            for (let s = -this.gridSize; s < this.gridSize * 2; s += 7) {
+              gfx.beginPath();
+              gfx.moveTo(x + s + drift, y + this.gridSize + 2);
+              gfx.lineTo(x + s + drift + this.gridSize, y - 2);
+              gfx.stroke();
+            }
+            gfx.restore();
+          }
+
+          const cx = x + this.gridSize * 0.5;
+          const cy = y + this.gridSize * 0.5;
+          const arm = this.gridSize * (0.18 + 0.04 * Math.sin(t * 2.6 + gx + gy));
+          gfx.save();
+          gfx.globalAlpha = 0.32 + 0.2 * corruptPulse;
+          gfx.strokeStyle = "rgba(255,70,70,0.95)";
+          gfx.lineWidth = 1.8;
+          gfx.beginPath();
+          gfx.moveTo(cx - arm, cy - arm);
+          gfx.lineTo(cx + arm, cy + arm);
+          gfx.moveTo(cx + arm, cy - arm);
+          gfx.lineTo(cx - arm, cy + arm);
+          gfx.stroke();
+          gfx.restore();
+        }
 
         if (v === 3) {
           const cx = x + this.gridSize * 0.5;
@@ -251,6 +371,14 @@ export class Map {
           gfx.arc(x + this.gridSize * 0.5, y + this.gridSize * 0.5, this.gridSize * 0.35, 0, Math.PI * 2);
           gfx.stroke();
           gfx.restore();
+
+          if (powerLocked && this._padlockImg && this._padlockLoaded) {
+            // Keep lock indicator very subtle as requested.
+            gfx.save();
+            gfx.globalAlpha = 0.22;
+            gfx.drawImage(this._padlockImg, x, y, this.gridSize, this.gridSize);
+            gfx.restore();
+          }
         }
 
         // hologram scanlines (diagonal shimmer)
@@ -427,4 +555,5 @@ export class Map {
     }
   }
 }
+
 

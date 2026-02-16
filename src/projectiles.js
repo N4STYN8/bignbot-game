@@ -37,6 +37,7 @@ export class Projectile {
     this._exploded = true;
     const cx = this.x, cy = this.y;
     const r = this._blast || 56;
+    let splashHits = 0;
 
     // AoE damage
     for (const e of game.enemies) {
@@ -48,6 +49,7 @@ export class Projectile {
         if (e.flying) dealt *= this.vsFlying;
         e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
         if (this._blastSlow) e.applySlow(this._blastSlow.pct, this._blastSlow.dur);
+        splashHits++;
       }
     }
 
@@ -84,6 +86,9 @@ export class Projectile {
     }
 
     if (this.style === "mortar") {
+      if (splashHits > 0) {
+        game.spawnText(cx, cy - 18, "SPLASH", "rgba(255,207,91,0.95)", 0.95);
+      }
       game.decals.push({
         x: cx,
         y: cy,

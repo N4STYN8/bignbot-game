@@ -455,7 +455,7 @@ export class Turret {
     this.pulseBoostT = 0;
     this.targetMode = "FIRST";
     this.boosted = false;
-    this._powerMul = { dmg: 1, range: 1 };
+    this._powerMul = { dmg: 1, range: 1, fireRate: 1 };
 
     this.costSpent = base.cost;
   }
@@ -463,9 +463,11 @@ export class Turret {
   applyPowerBoost() {
     if (this.boosted) return;
     this.boosted = true;
-    this._powerMul = { dmg: 1.25, range: 1.15 };
+    this._powerMul = { dmg: 1.45, range: 1.25, fireRate: 1.25 };
     this.dmg *= this._powerMul.dmg;
     this.range *= this._powerMul.range;
+    // Fire stat is interval in seconds, so faster fire rate means lower interval.
+    this.fire /= this._powerMul.fireRate;
     this.visual.glow = Math.max(this.visual.glow || 0, 1);
   }
 
@@ -1042,9 +1044,10 @@ export class Turret {
           const mx = this.x + Math.cos(ang) * 14;
           const my = this.y + Math.sin(ang) * 14;
 
-          const p = new Projectile(mx, my, vx, vy, 4.0, dmgBase, DAMAGE.PHYS, 999, 1.6, "mortar");
+          const p = new Projectile(mx, my, vx, vy, 4.0, dmgBase, this.dmgType, 999, 1.6, "mortar");
           p._isMortar = true;
-          p._blast = this.blast;
+          // Keep mortar splash active even if a bad runtime value sneaks in.
+          p._blast = Math.max(12, Number(this.blast) || 56);
           p._linger = !!this.lingering;
           p._lingerDur = this._lingerDur || 2.2;
           p._cluster = !!this.cluster;

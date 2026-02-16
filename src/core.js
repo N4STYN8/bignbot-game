@@ -21,6 +21,7 @@ class Game {
     this.audio = new AudioSystem();
     this._initCollections();
     this._initRuntimeState();
+    this._initCorruptedTiles();
     if (pauseBtn) pauseBtn.textContent = "PAUSE";
 
     this.audio.loadPref();
@@ -36,7 +37,7 @@ class Game {
     this.explosions = [];
     this.floatText = [];
     this.decals = [];
-    this._textLimiter = new Map();
+    this._textLimiter = new globalThis.Map();
     this.turrets = [];
     this.enemies = [];
     this.projectiles = [];
@@ -98,6 +99,7 @@ class Game {
     this.buildKey = null;
     this.selectedTurret = null;
     this.selectedEnemy = null;
+    this.selectedTileCell = null;
     this.hoverCell = null;
     this.mouse = { x: 0, y: 0 };
     this._id = 1;
@@ -105,6 +107,149 @@ class Game {
     this.panelHold = { left: 0, right: 0 };
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
+  }
+
+  _tileKey(gx, gy) {
+    return `${gx},${gy}`;
+  }
+
+  _defaultCleanseCost(gx, gy) {
+    const level = Math.max(1, this.levelIndex | 0);
+    const seed = ((this.mapSeed || 0) ^ (gx * 73856093) ^ (gy * 19349663) ^ (level * 83492791)) >>> 0;
+    return 70 + (seed % 60) + (level - 1) * 8;
+  }
+
+  _defaultPowerUnlockCost(gx, gy) {
+    const level = Math.max(1, this.levelIndex | 0);
+    const seed = ((this.mapSeed || 0) ^ (gx * 83492791) ^ (gy * 2971215073) ^ (level * 19349663)) >>> 0;
+    return 120 + (seed % 90) + (level - 1) * 10;
+  }
+
+  _getTileState(gx, gy, create = false) {
+    if (!this.map) return null;
+    if (!this.map.tilesByCell || typeof this.map.tilesByCell !== "object") this.map.tilesByCell = {};
+    const key = this._tileKey(gx, gy);
+    let state = this.map.tilesByCell[key] || null;
+    if (!state && create) {
+      const idx = gy * this.map.cols + gx;
+      const v = this.map.cells?.[idx] ?? 0;
+      state = {
+        gx,
+        gy,
+        corrupted: false,
+        cleanseCost: this._defaultCleanseCost(gx, gy),
+        powerPurchased: v === 3 ? false : true,
+        powerUnlockCost: this._defaultPowerUnlockCost(gx, gy)
+      };
+      this.map.tilesByCell[key] = state;
+    }
+    return state;
+  }
+
+  _isCellCorrupted(gx, gy) {
+    return this._getTileState(gx, gy, false)?.corrupted === true;
+  }
+
+  _isPowerTileUnlocked(gx, gy) {
+    const idx = gy * this.map.cols + gx;
+    const v = this.map.cells?.[idx] ?? 0;
+    if (v !== 3) return true;
+    const state = this._getTileState(gx, gy, true);
+    return !!state && state.powerPurchased === true;
+  }
+
+  _isTrackAdjacentBuildCell(gx, gy, v) {
+    // Corruption is only allowed on normal build tiles, never power tiles.
+    if (v !== 1) return false;
+    if (!this.map?.segs?.length) return false;
+    const x = (gx + 0.5) * this.map.gridSize;
+    const y = (gy + 0.5) * this.map.gridSize;
+    const d = Math.sqrt(distanceToSegmentsSquared(x, y, this.map.segs));
+    const trackEdge = TRACK_RADIUS + TRACK_BLOCK_PAD;
+    const maxThreeTilesOut = trackEdge + this.map.gridSize * 3;
+    return d > trackEdge && d <= maxThreeTilesOut;
+  }
+
+  _initCorruptedTiles(savedTiles = null) {
+    if (!this.map) return;
+    const savedByKey = new globalThis.Map();
+    if (Array.isArray(savedTiles)) {
+      for (const t of savedTiles) {
+        const gx = Number(t?.gx);
+        const gy = Number(t?.gy);
+        if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
+        savedByKey.set(this._tileKey(gx, gy), t);
+      }
+    }
+    this.map.tilesByCell = {};
+
+    // Always seed states for power tiles so purchase gating works.
+    for (const idx of this.map.powerCells || []) {
+      const gx = idx % this.map.cols;
+      const gy = Math.floor(idx / this.map.cols);
+      const key = this._tileKey(gx, gy);
+      const saved = savedByKey.get(key);
+      this.map.tilesByCell[key] = {
+        gx,
+        gy,
+        corrupted: false,
+        cleanseCost: this._defaultCleanseCost(gx, gy),
+        powerPurchased: saved?.powerPurchased === true,
+        powerUnlockCost: Math.max(1, Number(saved?.powerUnlockCost) || this._defaultPowerUnlockCost(gx, gy))
+      };
+    }
+
+    if (Array.isArray(savedTiles) && savedTiles.length) {
+      for (const t of savedTiles) {
+        const gx = Number(t?.gx);
+        const gy = Number(t?.gy);
+        if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
+        const cell = this.map.cellAt((gx + 0.5) * this.map.gridSize, (gy + 0.5) * this.map.gridSize);
+        if (cell.v !== 1 && cell.v !== 3) continue;
+        const key = this._tileKey(gx, gy);
+        const prev = this.map.tilesByCell[key] || {};
+        const isTrackCandidate = this._isTrackAdjacentBuildCell(gx, gy, cell.v);
+        this.map.tilesByCell[key] = {
+          gx,
+          gy,
+          corrupted: isTrackCandidate && t.corrupted === true,
+          cleanseCost: Math.max(1, Number(t.cleanseCost) || this._defaultCleanseCost(gx, gy)),
+          powerPurchased: cell.v === 3 ? (t.powerPurchased === true || prev.powerPurchased === true) : true,
+          powerUnlockCost: Math.max(1, Number(t.powerUnlockCost) || Number(prev.powerUnlockCost) || this._defaultPowerUnlockCost(gx, gy))
+        };
+      }
+      return;
+    }
+
+    const candidates = [];
+    for (let gy = 0; gy < this.map.rows; gy++) {
+      for (let gx = 0; gx < this.map.cols; gx++) {
+        const v = this.map.cells[gy * this.map.cols + gx];
+        if (this._isTrackAdjacentBuildCell(gx, gy, v)) candidates.push({ gx, gy });
+      }
+    }
+    if (!candidates.length) return;
+
+    const level = Math.max(1, this.levelIndex | 0);
+    const target = clamp(Math.round(candidates.length * 0.44), 36, 130);
+    const rng = makeRNG(((this.mapSeed || 0) ^ (level * 2654435761)) >>> 0);
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = candidates[i];
+      candidates[i] = candidates[j];
+      candidates[j] = tmp;
+    }
+
+    for (let i = 0; i < Math.min(target, candidates.length); i++) {
+      const c = candidates[i];
+      const key = this._tileKey(c.gx, c.gy);
+      this.map.tilesByCell[key] = {
+        gx: c.gx,
+        gy: c.gy,
+        corrupted: true,
+        cleanseCost: this._defaultCleanseCost(c.gx, c.gy)
+      };
+    }
   }
 
   _makeSeed() {
@@ -129,6 +274,7 @@ class Game {
     this.envId = mapData.envId;
     this.map.loadGeneratedMap(mapData);
     this.applyEnvironment(mapData.env || ENV_PRESETS[mapData.envId || 0]);
+    this._initCorruptedTiles();
   }
 
   _showLevelOverlay(text) {
@@ -611,8 +757,18 @@ class Game {
         const activeTxt = active.length ? ` | Active: ${active.join(", ")}` : "";
         const tip = `${hoveredTurret.name} Lv ${hoveredTurret.level} | DMG ${hoveredTurret.dmg.toFixed(1)} | Fire ${hoveredTurret.fire.toFixed(2)}s | Range ${hoveredTurret.range.toFixed(0)} | DPS ${dps.toFixed(1)}${activeTxt}`;
         showTooltip(tip, ev.clientX + 12, ev.clientY + 12);
+      } else if (this.hoverCell && this._isCellCorrupted(this.hoverCell.gx, this.hoverCell.gy)) {
+        const state = this._getTileState(this.hoverCell.gx, this.hoverCell.gy, false);
+        const cost = Math.max(1, Number(state?.cleanseCost) || this._defaultCleanseCost(this.hoverCell.gx, this.hoverCell.gy));
+        showTooltip(`Corrupted Tile: Cleanse for ${cost}g`, ev.clientX + 12, ev.clientY + 12);
       } else if (this.hoverCell && this.hoverCell.v === 3) {
-        showTooltip("Power Tile: +25% damage, +15% range", ev.clientX + 12, ev.clientY + 12);
+        const state = this._getTileState(this.hoverCell.gx, this.hoverCell.gy, true);
+        if (state?.powerPurchased === true) {
+          showTooltip("Power Tile: +45% damage, +25% range, +25% fire rate", ev.clientX + 12, ev.clientY + 12);
+        } else {
+          const cost = Math.max(1, Number(state?.powerUnlockCost) || this._defaultPowerUnlockCost(this.hoverCell.gx, this.hoverCell.gy));
+          showTooltip(`Locked Power Tile: Buy for ${cost}g`, ev.clientX + 12, ev.clientY + 12);
+        }
       } else {
         hideTooltip();
       }
@@ -802,13 +958,22 @@ class Game {
 
   _updateTurretHudPosition() {
     if (!turretHud || turretHud.classList.contains("hidden")) return;
-    const t = this.selectedTurret;
-    if (!t) return;
-    const s = this.worldToScreen(t.x, t.y);
+    let world = null;
+    if (this.selectedTurret) {
+      world = { x: this.selectedTurret.x, y: this.selectedTurret.y };
+    } else if (this.selectedTileCell) {
+      world = this.map.worldFromCell(this.selectedTileCell.gx, this.selectedTileCell.gy);
+    }
+    if (!world) return;
+
+    const s = this.worldToScreen(world.x, world.y);
     const rect = turretHud.getBoundingClientRect();
+    const wrapRect = turretHud.offsetParent?.getBoundingClientRect();
+    const vw = wrapRect ? wrapRect.width : W;
+    const vh = wrapRect ? wrapRect.height : H;
     const margin = 10;
-    const px = clamp(s.x - rect.width * 0.5, margin, W - rect.width - margin);
-    const py = clamp(s.y - rect.height - 34, margin, H - rect.height - margin);
+    const px = clamp(s.x - rect.width * 0.5, margin, vw - rect.width - margin);
+    const py = clamp(s.y - rect.height - 34, margin, vh - rect.height - margin);
     turretHud.style.left = `${px}px`;
     turretHud.style.top = `${py}px`;
   }
@@ -1232,7 +1397,7 @@ class Game {
   spawnText(x, y, text, color = "rgba(234,240,255,0.9)", ttl = 0.9) {
     try {
       if (!text) return;
-      if (!(this._textLimiter instanceof Map)) this._textLimiter = new Map();
+      if (!(this._textLimiter instanceof globalThis.Map)) this._textLimiter = new globalThis.Map();
       if (!Array.isArray(this.floatText)) this.floatText = [];
       const now = performance.now() * 0.001;
       const isDamage = /^-\d+/.test(String(text));
@@ -1290,7 +1455,7 @@ class Game {
       });
 
       // prune stale limiter entries (lazy)
-      if ((this._textLimiterTick = (this._textLimiterTick || 0) + 1) % 80 === 0 && (this._textLimiter instanceof Map)) {
+      if ((this._textLimiterTick = (this._textLimiterTick || 0) + 1) % 80 === 0 && (this._textLimiter instanceof globalThis.Map)) {
         for (const [k, ts] of this._textLimiter.entries()) {
           if (now - ts > 2.2) this._textLimiter.delete(k);
         }
@@ -1695,6 +1860,14 @@ class Game {
         spawnT: this.spawnT,
         waveScalar: this.waveScalar,
         globalOverchargeT: this.globalOverchargeT,
+        corruptedTiles: Object.values(this.map.tilesByCell || {}).map(t => ({
+          gx: t.gx,
+          gy: t.gy,
+          corrupted: t.corrupted === true,
+          cleanseCost: Math.max(1, Number(t.cleanseCost) || this._defaultCleanseCost(t.gx, t.gy)),
+          powerPurchased: t.powerPurchased === true,
+          powerUnlockCost: Math.max(1, Number(t.powerUnlockCost) || this._defaultPowerUnlockCost(t.gx, t.gy))
+        })),
         turrets: this.turrets.map(t => ({
           typeKey: t.typeKey,
           x: t.x, y: t.y,
@@ -1782,6 +1955,7 @@ class Game {
         mapData = this.mapData || generateMap(this._makeSeed(), (Math.random() * ENV_PRESETS.length) | 0);
       }
       this.loadGeneratedMap(mapData);
+      this._initCorruptedTiles(Array.isArray(data.corruptedTiles) ? data.corruptedTiles : null);
       {
         const g = Number(data.gold);
         this.gold = Number.isFinite(g) ? g : this.gold;
@@ -1893,7 +2067,7 @@ class Game {
     this.cones = [];
     this.lingering = [];
     this.floatText = [];
-    this._textLimiter = new Map();
+    this._textLimiter = new globalThis.Map();
 
     this.gold = this._getStartGold();
     this.lives = START_LIVES;
@@ -1925,9 +2099,11 @@ class Game {
     this.selectedEnemy = null;
     this.hoverCell = null;
     this._id = 1;
+    this.selectedTileCell = null;
     turretHud?.classList.add("hidden");
     turretStateBar?.classList.add("hidden");
     if (turretHudBody) turretHudBody.innerHTML = "";
+    this._initCorruptedTiles();
     this._resetWaveStats();
     this.runStats = this._newRunStats();
     this.mapStats = this.mapStats || [];
@@ -2175,6 +2351,165 @@ class Game {
     return this.turrets.some(t => t.gx === gx && t.gy === gy);
   }
 
+  _openCorruptedTileHud(cell) {
+    if (!cell) return;
+    const state = this._getTileState(cell.gx, cell.gy, true);
+    if (!state || !state.corrupted) return;
+    const cost = Math.max(1, Number(state.cleanseCost) || this._defaultCleanseCost(cell.gx, cell.gy));
+    this.selectedTurret = null;
+    this.selectedEnemy = null;
+    this.selectedTileCell = { gx: cell.gx, gy: cell.gy, v: cell.v };
+    sellBtn.disabled = true;
+    if (turretHudSellBtn) {
+      turretHudSellBtn.disabled = true;
+      turretHudSellBtn.style.display = "none";
+    }
+    selSub.textContent = "Corrupted Tile";
+
+    const hudHtml = `
+      <div class="selHeaderRow">
+        <div class="selName">Corrupted Tile</div>
+        <div class="selLevel">Cell ${cell.gx},${cell.gy}</div>
+      </div>
+      <div class="statGrid">
+        <div class="statCard"><div class="k">Status</div><div class="v">Corrupted</div></div>
+        <div class="statCard"><div class="k">Cleanse Cost</div><div class="v">${cost}g</div></div>
+        <div class="statCard"><div class="k">Build</div><div class="v">Blocked</div></div>
+        <div class="statCard"><div class="k">Action</div><div class="v">Purchase Cleanse</div></div>
+      </div>
+      <div class="upgrades">
+        <div class="upTitle">Cleanse</div>
+        <div class="modRow">
+          <div class="modChoice ${this.gold >= cost ? "" : "poor"}">
+            <div class="modTop">
+              <div class="modName">Purge Corruption</div>
+              <div class="modCost">${cost}g</div>
+            </div>
+            <div class="modDesc">Removes corruption from this tile immediately.</div>
+            <div class="modBtnRow">
+              <button id="cleanseTileBtn" class="btn ${this.gold >= cost ? "primary" : ""}" ${this.gold >= cost ? "" : "disabled"}>CLEANSE TILE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    turretHud?.classList.remove("hidden");
+    this._updateTurretHudPosition();
+    const cleanseBtn = turretHudBody?.querySelector("#cleanseTileBtn");
+    if (cleanseBtn) {
+      cleanseBtn.addEventListener("click", () => {
+        this._cleanseTile(cell.gx, cell.gy);
+      });
+    }
+  }
+
+  _cleanseTile(gx, gy) {
+    if (this.isPaused()) {
+      toast("Cannot cleanse while paused.");
+      return;
+    }
+    const state = this._getTileState(gx, gy, false);
+    if (!state || state.corrupted !== true) return;
+    const cost = Math.max(1, Number(state.cleanseCost) || this._defaultCleanseCost(gx, gy));
+    if (this.gold < cost) {
+      toast("Not enough gold.");
+      this._openCorruptedTileHud({ gx, gy, v: this.map.cells[gy * this.map.cols + gx] || 0 });
+      return;
+    }
+    this.gold -= cost;
+    state.corrupted = false;
+    this.map.tilesByCell[this._tileKey(gx, gy)] = state;
+    this.audio.play("upgrade");
+    const w = this.map.worldFromCell(gx, gy);
+    this.particles.spawn(w.x, w.y, 8, "muzzle");
+    toast(`Tile cleansed for ${cost}g`);
+    this.selectedTileCell = null;
+    this.selectTurret(null);
+    this._save();
+  }
+
+  _openPowerTileHud(cell) {
+    if (!cell || cell.v !== 3) return;
+    const state = this._getTileState(cell.gx, cell.gy, true);
+    if (!state || state.powerPurchased === true) return;
+    const cost = Math.max(1, Number(state.powerUnlockCost) || this._defaultPowerUnlockCost(cell.gx, cell.gy));
+    const corrupted = state.corrupted === true;
+    this.selectedTurret = null;
+    this.selectedEnemy = null;
+    this.selectedTileCell = { gx: cell.gx, gy: cell.gy, v: cell.v };
+    sellBtn.disabled = true;
+    if (turretHudSellBtn) {
+      turretHudSellBtn.disabled = true;
+      turretHudSellBtn.style.display = "none";
+    }
+    selSub.textContent = "Power Tile";
+
+    const hudHtml = `
+      <div class="selHeaderRow">
+        <div class="selName">Locked Power Tile</div>
+        <div class="selLevel">Cell ${cell.gx},${cell.gy}</div>
+      </div>
+      <div class="statGrid">
+        <div class="statCard"><div class="k">Status</div><div class="v">Locked</div></div>
+        <div class="statCard"><div class="k">Unlock Cost</div><div class="v">${cost}g</div></div>
+        <div class="statCard"><div class="k">Bonus</div><div class="v">+45% DMG / +25% RNG / +25% FIR</div></div>
+        <div class="statCard"><div class="k">Corruption</div><div class="v">${corrupted ? "Present" : "None"}</div></div>
+      </div>
+      <div class="upgrades">
+        <div class="upTitle">Purchase</div>
+        <div class="modRow">
+          <div class="modChoice ${this.gold >= cost ? "" : "poor"}">
+            <div class="modTop">
+              <div class="modName">Unlock Power Tile</div>
+              <div class="modCost">${cost}g</div>
+            </div>
+            <div class="modDesc">Purchase this tile before placing a turret on it.</div>
+            <div class="modBtnRow">
+              <button id="buyPowerTileBtn" class="btn ${this.gold >= cost ? "primary" : ""}" ${this.gold >= cost ? "" : "disabled"}>BUY TILE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    turretHud?.classList.remove("hidden");
+    this._updateTurretHudPosition();
+    const buyBtn = turretHudBody?.querySelector("#buyPowerTileBtn");
+    if (buyBtn) {
+      buyBtn.addEventListener("click", () => {
+        this._purchasePowerTile(cell.gx, cell.gy);
+      });
+    }
+  }
+
+  _purchasePowerTile(gx, gy) {
+    if (this.isPaused()) {
+      toast("Cannot purchase while paused.");
+      return;
+    }
+    const idx = gy * this.map.cols + gx;
+    if ((this.map.cells?.[idx] ?? 0) !== 3) return;
+    const state = this._getTileState(gx, gy, true);
+    if (!state || state.powerPurchased === true) return;
+    const cost = Math.max(1, Number(state.powerUnlockCost) || this._defaultPowerUnlockCost(gx, gy));
+    if (this.gold < cost) {
+      toast("Not enough gold.");
+      this._openPowerTileHud({ gx, gy, v: 3 });
+      return;
+    }
+    this.gold -= cost;
+    state.powerPurchased = true;
+    this.map.tilesByCell[this._tileKey(gx, gy)] = state;
+    const w = this.map.worldFromCell(gx, gy);
+    this.particles.spawn(w.x, w.y, 10, "muzzle");
+    this.audio.play("upgrade");
+    toast(`Power tile unlocked for ${cost}g`);
+    this.selectedTileCell = null;
+    this.selectTurret(null);
+    this._save();
+  }
+
   onClick(x, y) {
     if (this.isUiBlocked()) return;
     // select turret if clicked
@@ -2199,6 +2534,16 @@ class Game {
       }
       const cell = this.map.cellAt(x, y);
       if (cell.v !== 1 && cell.v !== 3) { toast("Not buildable."); return; }
+      if (cell.v === 3 && !this._isPowerTileUnlocked(cell.gx, cell.gy)) {
+        toast("Power tile is locked. Purchase it first.");
+        this._openPowerTileHud(cell);
+        return;
+      }
+      if (this._isCellCorrupted(cell.gx, cell.gy)) {
+        toast("Tile corrupted. Cleanse it first.");
+        this._openCorruptedTileHud(cell);
+        return;
+      }
       if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
       const t = TURRET_TYPES[this.buildKey];
       if (this.gold < t.cost) {
@@ -2225,6 +2570,16 @@ class Game {
       return;
     }
 
+    const cell = this.map.cellAt(x, y);
+    if (cell.v === 3 && !this._isPowerTileUnlocked(cell.gx, cell.gy)) {
+      this._openPowerTileHud(cell);
+      return;
+    }
+    if ((cell.v === 1 || cell.v === 3) && this._isCellCorrupted(cell.gx, cell.gy)) {
+      this._openCorruptedTileHud(cell);
+      return;
+    }
+
     // select enemy if clicked
     let clickedEnemy = null;
     for (const e of this.enemies) {
@@ -2241,10 +2596,14 @@ class Game {
   }
 
   selectTurret(turret) {
+    this.selectedTileCell = null;
     this.selectedEnemy = null;
     this.selectedTurret = turret;
     sellBtn.disabled = !turret;
-    if (turretHudSellBtn) turretHudSellBtn.disabled = !turret;
+    if (turretHudSellBtn) {
+      turretHudSellBtn.disabled = !turret;
+      turretHudSellBtn.style.display = "";
+    }
     if (!turret) {
       selSub.textContent = "Select a turret";
       if (selectionBody) selectionBody.innerHTML = "";
@@ -2355,6 +2714,7 @@ class Game {
   }
 
   selectEnemy(enemy) {
+    this.selectedTileCell = null;
     this.selectedTurret = null;
     this.selectedEnemy = enemy || null;
     sellBtn.disabled = true;
@@ -2733,10 +3093,17 @@ class Game {
       const x = this.hoverCell.gx * this.map.gridSize;
       const y = this.hoverCell.gy * this.map.gridSize;
       const pulse = 0.35 + 0.25 * Math.sin(performance.now() * 0.006 + x * 0.01 + y * 0.01);
+      const corrupted = this._isCellCorrupted(this.hoverCell.gx, this.hoverCell.gy);
       gfx.save();
-      const baseCol = this.hoverCell.v === 3 ? "rgba(255,207,91,0.55)" : "rgba(98,242,255,0.45)";
+      const baseCol = corrupted
+        ? "rgba(255,80,80,0.85)"
+        : (this.hoverCell.v === 3 ? "rgba(255,207,91,0.55)" : "rgba(98,242,255,0.45)");
       gfx.strokeStyle = baseCol;
-      gfx.fillStyle = this.hoverCell.v === 3 ? `rgba(255,207,91,${0.08 + pulse * 0.08})` : `rgba(98,242,255,${0.05 + pulse * 0.06})`;
+      if (corrupted) {
+        gfx.fillStyle = `rgba(255,80,80,${0.12 + pulse * 0.14})`;
+      } else {
+        gfx.fillStyle = this.hoverCell.v === 3 ? `rgba(255,207,91,${0.08 + pulse * 0.08})` : `rgba(98,242,255,${0.05 + pulse * 0.06})`;
+      }
       gfx.lineWidth = 2;
       gfx.fillRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
       gfx.strokeRect(x + 2, y + 2, this.map.gridSize - 4, this.map.gridSize - 4);
@@ -2747,7 +3114,10 @@ class Game {
       const cell = this.hoverCell;
       const inBounds = cell.gx >= 0 && cell.gy >= 0 && cell.gx < this.map.cols && cell.gy < this.map.rows;
       if (inBounds) {
-        const buildValid = (cell.v === 1 || cell.v === 3) && !this.isCellOccupied(cell.gx, cell.gy);
+        const buildValid = (cell.v === 1 || cell.v === 3)
+          && !this.isCellOccupied(cell.gx, cell.gy)
+          && !this._isCellCorrupted(cell.gx, cell.gy)
+          && (cell.v !== 3 || this._isPowerTileUnlocked(cell.gx, cell.gy));
         const w = this.map.worldFromCell(cell.gx, cell.gy);
         const base = TURRET_TYPES[this.buildKey];
         const range = base ? base.range : 120;

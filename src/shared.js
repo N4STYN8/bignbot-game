@@ -170,7 +170,7 @@ export const MAP_GRID_SIZE = 44;
 export const MAP_EDGE_MARGIN = 1;
 export const TRACK_RADIUS = 16;
 export const TRACK_BLOCK_PAD = 8;
-export const POWER_TILE_COUNT = { min: 3, max: 6 };
+export const POWER_TILE_COUNT = { min: 4, max: 7 };
 export const POWER_NEAR_MIN = 28;
 export const POWER_NEAR_MAX = 70;
 export const POWER_TILE_MIN_DIST = 70;
@@ -568,8 +568,8 @@ export function generateMap(seed, envId) {
     (p.y - bounds.y) / bounds.h
   ]);
   const poolsN = [];
-  const poolCount = randInt(rng, 2, 5);
-  const poolAttempts = poolCount * 18;
+  const poolCount = randInt(rng, 4, 8);
+  const poolAttempts = poolCount * 28;
   for (let i = 0; i < poolAttempts && poolsN.length < poolCount; i++) {
     const s = segData.segs[(rng() * segData.segs.length) | 0];
     const t = rng();
@@ -580,13 +580,13 @@ export function generateMap(seed, envId) {
     const len = Math.hypot(dx, dy) || 1;
     const nx = -dy / len;
     const ny = dx / len;
-    const off = lerp(TRACK_RADIUS + 24, TRACK_RADIUS + 90, rng()) * (rng() < 0.5 ? -1 : 1);
+    const off = lerp(TRACK_RADIUS + 20, TRACK_RADIUS + 110, rng()) * (rng() < 0.5 ? -1 : 1);
     const cx = px + nx * off;
     const cy = py + ny * off;
     if (cx < bounds.x + 60 || cy < bounds.y + 60 || cx > bounds.x + bounds.w - 60 || cy > bounds.y + bounds.h - 60) continue;
     const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segData.segs));
-    if (d < TRACK_RADIUS + 18 || d > TRACK_RADIUS + 110) continue;
-    const r = lerp(55, 120, rng());
+    if (d < TRACK_RADIUS + 14 || d > TRACK_RADIUS + 130) continue;
+    const r = lerp(65, 145, rng());
     let ok = true;
     for (const p of poolsN) {
       const dxp = (p[0] * bounds.w + bounds.x) - cx;
@@ -660,4 +660,5 @@ export function closeConfirm() {
   confirmModal.classList.add("hidden");
   confirmModal.setAttribute("aria-hidden", "true");
 }
+
 

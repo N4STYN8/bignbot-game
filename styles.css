@@ -1329,38 +1329,11 @@ body{
   z-index:10;
 }
 .settingsBtn:hover{filter:brightness(1.1)}
-/* CODEX CHANGE: Render the settings icon as a clearer cog with teeth, body ring, and center hub. */
 .gearIcon{
   display:inline-block;
-  width:18px;
-  height:18px;
-  position:relative;
-  border-radius:50%;
-}
-.gearIcon::before{
-  content:"";
-  position:absolute;
-  inset:-5px;
-  border-radius:50%;
-  background: repeating-conic-gradient(
-    from -4deg,
-    rgba(98,242,255,.95) 0deg 14deg,
-    transparent 14deg 44deg
-  );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 7px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 7px));
-}
-.gearIcon::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:50%;
-  background:
-    radial-gradient(circle at center, rgba(7,10,18,.95) 0 2.4px, rgba(98,242,255,.95) 2.5px 3.8px, transparent 3.9px),
-    radial-gradient(circle at center, transparent 0 5.2px, rgba(154,108,255,.95) 5.3px 7.9px, transparent 8px);
-  box-shadow:
-    0 0 0 1px rgba(98,242,255,.22),
-    inset 0 0 8px rgba(154,108,255,.32);
+  width:24px;
+  height:24px;
+  background: center / contain no-repeat url("assets/images/cogwheel.png");
 }
 .settingsCard{
   max-height: 80vh;

@@ -126,6 +126,7 @@ class Game {
     const mainSection = document.getElementById("landingMainSection");
     const playBtn = document.getElementById("landingPlayBtn");
     const loadBtn = document.getElementById("landingLoadBtn");
+    const settingsMenuBtn = document.getElementById("landingSettingsBtn");
     const commentBtn = document.getElementById("landingCommentBtn");
     const commentInput = document.getElementById("landingCommentInput");
     const commentSave = document.getElementById("landingCommentSendBtn");
@@ -172,9 +173,11 @@ class Game {
     openMenuSection();
 
     playBtn?.addEventListener("click", () => {
-      this.audio.unlock();
-      this._hideLandingMenu();
-      this.updateHUD();
+      showConfirm("Start New Game", "Start a new game? Your current run progress will be replaced.", () => {
+        this.audio.unlock();
+        this._hideLandingMenu();
+        this.updateHUD();
+      });
     });
     loadBtn?.addEventListener("click", () => {
       if (!hasSave()) {
@@ -191,6 +194,10 @@ class Game {
       this.audio.unlock();
       this._hideLandingMenu();
       this.updateHUD();
+    });
+    settingsMenuBtn?.addEventListener("click", () => {
+      settingsModal?.classList.remove("hidden");
+      settingsModal?.setAttribute("aria-hidden", "false");
     });
     commentBtn?.addEventListener("click", () => {
       openCommentSection();

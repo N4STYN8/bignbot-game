@@ -124,6 +124,8 @@ export class Map {
     }
 
     const maxPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.max) || 7);
+    const nearMinD = Math.max(TRACK_RADIUS + 4, POWER_NEAR_MIN * 0.7);
+    const nearMaxPreferred = Math.min(POWER_NEAR_MAX, TRACK_RADIUS + POWER_NEAR_MIN + 8);
     if (this.powerTilesN && this.powerTilesN.length) {
       for (const p of this.powerTilesN) {
         if (this.powerCells.length >= maxPowerTiles) break;
@@ -132,7 +134,11 @@ export class Map {
         const gx = clamp(Math.floor(px / this.gridSize), 0, this.cols - 1);
         const gy = clamp(Math.floor(py / this.gridSize), 0, this.rows - 1);
         const idx = gy * this.cols + gx;
+        const cx = (gx + 0.5) * this.gridSize;
+        const cy = (gy + 0.5) * this.gridSize;
+        const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, this.segs));
         if (this.cells[idx] === 1) {
+          if (d < nearMinD || d > POWER_NEAR_MAX) continue;
           this.cells[idx] = 3;
           this.powerCells.push(idx);
         }
@@ -142,27 +148,41 @@ export class Map {
     // Guarantee a baseline number of power tiles after cell quantization.
     const minPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.min) || 4);
     if (this.powerCells.length < minPowerTiles) {
-      const targetD = (POWER_NEAR_MIN + POWER_NEAR_MAX) * 0.5;
-      const minD = Math.max(TRACK_RADIUS + 6, POWER_NEAR_MIN * 0.8);
+      const targetD = Math.min(POWER_NEAR_MAX, POWER_NEAR_MIN + 12);
       const taken = new Set(this.powerCells);
-      const candidates = [];
-      for (let gy = 0; gy < this.rows; gy++) {
-        for (let gx = 0; gx < this.cols; gx++) {
-          const idx = gy * this.cols + gx;
-          if (this.cells[idx] !== 1 || taken.has(idx)) continue;
-          const px = (gx + 0.5) * this.gridSize;
-          const py = (gy + 0.5) * this.gridSize;
-          const d = Math.sqrt(distanceToSegmentsSquared(px, py, this.segs));
-          if (d < minD || d > POWER_NEAR_MAX) continue;
-          candidates.push({ idx, score: Math.abs(d - targetD) });
+      const collectCandidates = (maxD) => {
+        const candidates = [];
+        for (let gy = 0; gy < this.rows; gy++) {
+          for (let gx = 0; gx < this.cols; gx++) {
+            const idx = gy * this.cols + gx;
+            if (this.cells[idx] !== 1 || taken.has(idx)) continue;
+            const px = (gx + 0.5) * this.gridSize;
+            const py = (gy + 0.5) * this.gridSize;
+            const d = Math.sqrt(distanceToSegmentsSquared(px, py, this.segs));
+            if (d < nearMinD || d > maxD) continue;
+            candidates.push({ idx, score: Math.abs(d - targetD) });
+          }
         }
-      }
-      candidates.sort((a, b) => a.score - b.score);
-      for (let i = 0; i < candidates.length && this.powerCells.length < minPowerTiles; i++) {
-        const idx = candidates[i].idx;
+        candidates.sort((a, b) => a.score - b.score);
+        return candidates;
+      };
+
+      const preferred = collectCandidates(nearMaxPreferred);
+      for (let i = 0; i < preferred.length && this.powerCells.length < minPowerTiles; i++) {
+        const idx = preferred[i].idx;
         this.cells[idx] = 3;
         this.powerCells.push(idx);
         taken.add(idx);
+      }
+
+      if (this.powerCells.length < minPowerTiles) {
+        const relaxed = collectCandidates(POWER_NEAR_MAX);
+        for (let i = 0; i < relaxed.length && this.powerCells.length < minPowerTiles; i++) {
+          const idx = relaxed[i].idx;
+          this.cells[idx] = 3;
+          this.powerCells.push(idx);
+          taken.add(idx);
+        }
       }
     }
   }

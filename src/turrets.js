@@ -1,6 +1,9 @@
 import { DAMAGE } from "./enemies.js";
 import { Projectile } from "./projectiles.js";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
+import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
+
+preloadTurretSprites();
 
 /**********************
  * Turrets
@@ -1122,8 +1125,42 @@ export class Turret {
       gfx.restore();
     }
 
-    // glow
-    if (this.visual.glow) {
+    const turretSprite = USE_TURRET_SPRITES ? getTurretSprite(this.typeKey, this.level) : null;
+    const hasTurretSprite = !!turretSprite;
+
+    if (hasTurretSprite) {
+      const recoil = this.recoil * 3.0;
+      const rx = Math.cos(this.aimAng) * -recoil;
+      const ry = Math.sin(this.aimAng) * -recoil;
+      const sx = this.x + rx;
+      const sy = this.y + ry;
+      const scale = TURRET_SPRITE_SCALE_OVERRIDES[this.typeKey] || 1;
+      const spriteSize = DEFAULT_TURRET_SPRITE_SIZE * scale;
+      const pulse = 0.6 + 0.4 * Math.sin(t * 2.3 + this.x * 0.01 + this.y * 0.01);
+      const glowTint = TURRET_GLOW_TINTS[this.typeKey] || "rgba(98,242,255,1)";
+
+      gfx.save();
+      gfx.globalCompositeOperation = "lighter";
+      gfx.globalAlpha = 0.12 + 0.10 * pulse;
+      const halo = gfx.createRadialGradient(sx, sy, spriteSize * 0.18, sx, sy, spriteSize * 0.68);
+      halo.addColorStop(0, glowTint);
+      halo.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.fillStyle = halo;
+      gfx.beginPath();
+      gfx.arc(sx, sy, spriteSize * 0.68, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.restore();
+
+      gfx.save();
+      gfx.translate(sx, sy);
+      const angleOffset = SPRITE_ANGLE_OFFSET + (TURRET_SPRITE_ANGLE_OVERRIDES[this.typeKey] || 0);
+      gfx.rotate(this.aimAng + angleOffset);
+      gfx.drawImage(turretSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      gfx.restore();
+    }
+
+    // upgrade glow keeps legacy read while vectors are disabled for sprite turrets.
+    if (!hasTurretSprite && this.visual.glow) {
       gfx.save();
       const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 38);
       g.addColorStop(0, col);
@@ -1144,118 +1181,122 @@ export class Turret {
     gfx.fillStyle = "rgba(7,10,18,0.75)";
     gfx.strokeStyle = col;
     gfx.lineWidth = 2;
-    gfx.beginPath();
-    switch (this.typeKey) {
-      case "PULSE": {
-        gfx.arc(0, 0, 12, 0, Math.PI * 2);
-        gfx.fill();
-        gfx.stroke();
-        gfx.beginPath();
-        gfx.arc(0, 0, 6, 0, Math.PI * 2);
-        gfx.stroke();
-        break;
-      }
-      case "ARC": {
-        gfx.moveTo(0, -12);
-        gfx.lineTo(10, 0);
-        gfx.lineTo(0, 12);
-        gfx.lineTo(-10, 0);
-        gfx.closePath();
-        gfx.fill();
-        gfx.stroke();
-        break;
-      }
-      case "FROST": {
-        for (let i = 0; i < 6; i++) {
-          const ang = (Math.PI * 2 * i) / 6;
-          const r = 12;
-          if (i === 0) gfx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r);
-          else gfx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+    if (!hasTurretSprite) {
+      gfx.beginPath();
+      switch (this.typeKey) {
+        case "PULSE": {
+          gfx.arc(0, 0, 12, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.arc(0, 0, 6, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
         }
-        gfx.closePath();
-        gfx.fill();
-        gfx.stroke();
-        break;
-      }
-      case "LENS": {
-        gfx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2);
-        gfx.fill();
-        gfx.stroke();
-        gfx.beginPath();
-        gfx.ellipse(0, 0, 7, 4, 0, 0, Math.PI * 2);
-        gfx.stroke();
-        break;
-      }
-      case "MORTAR": {
-        gfx.rect(-10, -10, 20, 20);
-        gfx.fill();
-        gfx.stroke();
-        break;
-      }
-      case "VENOM": {
-        gfx.moveTo(0, -12);
-        gfx.bezierCurveTo(9, -10, 12, -2, 0, 12);
-        gfx.bezierCurveTo(-12, -2, -9, -10, 0, -12);
-        gfx.fill();
-        gfx.stroke();
-        break;
-      }
-      case "NEEDLE": {
-        gfx.moveTo(12, 0);
-        gfx.lineTo(-10, 6);
-        gfx.lineTo(-10, -6);
-        gfx.closePath();
-        gfx.fill();
-        gfx.stroke();
-        break;
-      }
-      case "AURA": {
-        gfx.arc(0, 0, 10, 0, Math.PI * 2);
-        gfx.fill();
-        gfx.stroke();
-        gfx.beginPath();
-        gfx.moveTo(0, -14);
-        gfx.lineTo(3, -6);
-        gfx.lineTo(-3, -6);
-        gfx.closePath();
-        gfx.stroke();
-        break;
-      }
-      case "DRONE": {
-        gfx.arc(0, 0, 10, 0, Math.PI * 2);
-        gfx.fill();
-        gfx.stroke();
-        gfx.beginPath();
-        gfx.moveTo(-12, 0);
-        gfx.lineTo(12, 0);
-        gfx.moveTo(0, -12);
-        gfx.lineTo(0, 12);
-        gfx.stroke();
-        break;
-      }
-      case "TRAP": {
-        gfx.rect(-12, -8, 24, 16);
-        gfx.fill();
-        gfx.stroke();
-        gfx.beginPath();
-        gfx.moveTo(-8, 0);
-        gfx.lineTo(8, 0);
-        gfx.stroke();
-        break;
-      }
-      default: {
-        gfx.arc(0, 0, 12, 0, Math.PI * 2);
-        gfx.fill();
-        gfx.stroke();
-        break;
+        case "ARC": {
+          gfx.moveTo(0, -12);
+          gfx.lineTo(10, 0);
+          gfx.lineTo(0, 12);
+          gfx.lineTo(-10, 0);
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "FROST": {
+          for (let i = 0; i < 6; i++) {
+            const ang = (Math.PI * 2 * i) / 6;
+            const r = 12;
+            if (i === 0) gfx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r);
+            else gfx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+          }
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "LENS": {
+          gfx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.ellipse(0, 0, 7, 4, 0, 0, Math.PI * 2);
+          gfx.stroke();
+          break;
+        }
+        case "MORTAR": {
+          gfx.rect(-10, -10, 20, 20);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "VENOM": {
+          gfx.moveTo(0, -12);
+          gfx.bezierCurveTo(9, -10, 12, -2, 0, 12);
+          gfx.bezierCurveTo(-12, -2, -9, -10, 0, -12);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "NEEDLE": {
+          gfx.moveTo(12, 0);
+          gfx.lineTo(-10, 6);
+          gfx.lineTo(-10, -6);
+          gfx.closePath();
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
+        case "AURA": {
+          gfx.arc(0, 0, 10, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(0, -14);
+          gfx.lineTo(3, -6);
+          gfx.lineTo(-3, -6);
+          gfx.closePath();
+          gfx.stroke();
+          break;
+        }
+        case "DRONE": {
+          gfx.arc(0, 0, 10, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(-12, 0);
+          gfx.lineTo(12, 0);
+          gfx.moveTo(0, -12);
+          gfx.lineTo(0, 12);
+          gfx.stroke();
+          break;
+        }
+        case "TRAP": {
+          gfx.rect(-12, -8, 24, 16);
+          gfx.fill();
+          gfx.stroke();
+          gfx.beginPath();
+          gfx.moveTo(-8, 0);
+          gfx.lineTo(8, 0);
+          gfx.stroke();
+          break;
+        }
+        default: {
+          gfx.arc(0, 0, 12, 0, Math.PI * 2);
+          gfx.fill();
+          gfx.stroke();
+          break;
+        }
       }
     }
+
+    const accentAlpha = hasTurretSprite ? 0.42 : 1;
 
     // barrels (upgrade visual)
     for (let i = 0; i < this.visual.barrels + 1; i++) {
       const off = (i - this.visual.barrels / 2) * 4;
       gfx.fillStyle = col;
-      gfx.globalAlpha = 0.7;
+      gfx.globalAlpha = 0.7 * accentAlpha;
       gfx.fillRect(10, -2 + off, 8, 4);
     }
     gfx.globalAlpha = 1;
@@ -1288,6 +1329,7 @@ export class Turret {
       gfx.strokeStyle = col;
       gfx.lineWidth = 1.5;
       gfx.beginPath();
+      gfx.globalAlpha = 0.5 * accentAlpha;
       gfx.arc(0, 0, 14 + r * 5 + Math.sin(t * 2 + r) * 0.6, 0, Math.PI * 2);
       gfx.stroke();
     }

@@ -5,6 +5,32 @@ import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES,
 
 preloadTurretSprites();
 
+const UPGRADE_STAR_COLORS = [
+  "rgba(109,255,154,0.95)", // Tier I
+  "rgba(98,242,255,0.95)",  // Tier II
+  "rgba(255,207,91,0.95)",  // Tier III
+  "rgba(255,152,92,0.95)",  // Tier IV
+  "rgba(154,108,255,0.95)"  // Tier V
+];
+
+function drawUpgradeStar(gfx, x, y, outerR, innerR, color) {
+  gfx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI / 2 + i * (Math.PI / 5);
+    const r = (i % 2 === 0) ? outerR : innerR;
+    const px = x + Math.cos(ang) * r;
+    const py = y + Math.sin(ang) * r;
+    if (i === 0) gfx.moveTo(px, py);
+    else gfx.lineTo(px, py);
+  }
+  gfx.closePath();
+  gfx.fillStyle = color;
+  gfx.fill();
+  gfx.strokeStyle = "rgba(7,10,18,0.9)";
+  gfx.lineWidth = 1.1;
+  gfx.stroke();
+}
+
 /**********************
  * Turrets
  **********************/
@@ -1347,6 +1373,21 @@ export class Turret {
         gfx.beginPath();
         gfx.arc(this.x + ox, this.y + oy, 3.0, 0, Math.PI * 2);
         gfx.fill();
+      }
+      gfx.restore();
+    }
+
+    const starCount = Math.min(this.level, this.modsChosen?.length || 0);
+    if (starCount > 0) {
+      const baseY = this.y + (hasTurretSprite ? 30 : 26);
+      const gap = 11;
+      gfx.save();
+      for (let i = 0; i < starCount; i++) {
+        const sx = this.x + (i - (starCount - 1) / 2) * gap;
+        const starColor = UPGRADE_STAR_COLORS[i] || UPGRADE_STAR_COLORS[UPGRADE_STAR_COLORS.length - 1];
+        gfx.shadowColor = starColor;
+        gfx.shadowBlur = 8;
+        drawUpgradeStar(gfx, sx, baseY, 4.8, 2.2, starColor);
       }
       gfx.restore();
     }

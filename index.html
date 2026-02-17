@@ -204,7 +204,25 @@
       </div>
     </div>
   </div>
-
+  <div id="landingMenu" class="landingMenu" aria-hidden="false">
+    <div class="landingCard" role="dialog" aria-modal="true" aria-labelledby="landingTitle">
+      <img class="landingLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
+      <div id="landingTitle" class="landingTitle">Orbit Echo</div>
+      <div class="landingSub">Choose an option to begin</div>
+      <div class="landingActions">
+        <button id="landingPlayBtn" class="btn primary">Play</button>
+        <button id="landingLoadBtn" class="btn ghost">Load Saved Game</button>
+        <button id="landingCommentBtn" class="btn ghost">Leave a Comment</button>
+      </div>
+      <div id="landingCommentForm" class="landingCommentForm hidden" aria-hidden="true">
+        <textarea id="landingCommentInput" class="landingCommentInput" maxlength="280" placeholder="Write a comment..."></textarea>
+        <div class="landingCommentActions">
+          <button id="landingCommentSaveBtn" class="btn primary">Save Comment</button>
+          <button id="landingCommentCancelBtn" class="btn ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <button id="settingsBtn" class="settingsBtn" aria-label="Settings">
     <span class="gearIcon" aria-hidden="true"></span>
   </button>
@@ -356,3 +374,4 @@
   <script type="module" src="src/core.js"></script>
 </body>
 </html>
+

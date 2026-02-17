@@ -26,9 +26,9 @@ class Game {
 
     this.audio.loadPref();
     this.applyEnvironment(this.mapData?.env || ENV_PRESETS[this.envId]);
-    this._load();
     this._bindUI();
     this._buildList();
+    if (!this._initLandingMenu()) this._load();
     this.updateHUD();
   }
 
@@ -95,6 +95,7 @@ class Game {
     this.globalOverchargeT = 0;
     this._transitioning = false;
     this.gameState = GAME_STATE.GAMEPLAY;
+    this.menuOpen = false;
     this.bossCinematic = null;
     this.buildKey = null;
     this.selectedTurret = null;
@@ -107,6 +108,119 @@ class Game {
     this.panelHold = { left: 0, right: 0 };
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
+  }
+
+  _hideLandingMenu() {
+    const menu = document.getElementById("landingMenu");
+    if (!menu) return;
+    menu.classList.add("hidden");
+    menu.setAttribute("aria-hidden", "true");
+    this.menuOpen = false;
+  }
+
+  _initLandingMenu() {
+    const menu = document.getElementById("landingMenu");
+    if (!menu) return false;
+    const playBtn = document.getElementById("landingPlayBtn");
+    const loadBtn = document.getElementById("landingLoadBtn");
+    const commentBtn = document.getElementById("landingCommentBtn");
+    const commentForm = document.getElementById("landingCommentForm");
+    const commentInput = document.getElementById("landingCommentInput");
+    const commentSave = document.getElementById("landingCommentSaveBtn");
+    const commentCancel = document.getElementById("landingCommentCancelBtn");
+    const COMMENT_KEY = "orbit_echo_comments_v1";
+    // Set this to your Formspree (or backend) endpoint when ready.
+    const COMMENT_ENDPOINT = "";
+    const COMMENT_RECIPIENT = "bignbot@gmail.com";
+
+    this.menuOpen = true;
+    menu.classList.remove("hidden");
+    menu.setAttribute("aria-hidden", "false");
+
+    const hasSave = () => {
+      try { return !!localStorage.getItem(SAVE_KEY); } catch (err) { return false; }
+    };
+    const refreshLoadState = () => {
+      if (loadBtn) loadBtn.disabled = !hasSave();
+    };
+    refreshLoadState();
+
+    const closeCommentForm = () => {
+      if (!commentForm) return;
+      commentForm.classList.add("hidden");
+      commentForm.setAttribute("aria-hidden", "true");
+    };
+    const openCommentForm = () => {
+      if (!commentForm) return;
+      commentForm.classList.remove("hidden");
+      commentForm.setAttribute("aria-hidden", "false");
+      commentInput?.focus();
+    };
+
+    playBtn?.addEventListener("click", () => {
+      this.audio.unlock();
+      this._hideLandingMenu();
+      this.updateHUD();
+    });
+    loadBtn?.addEventListener("click", () => {
+      if (!hasSave()) {
+        toast("No saved game found.");
+        refreshLoadState();
+        return;
+      }
+      this._load();
+      this.audio.unlock();
+      this._hideLandingMenu();
+      this.updateHUD();
+    });
+    commentBtn?.addEventListener("click", () => {
+      if (!commentForm || !commentForm.classList.contains("hidden")) {
+        closeCommentForm();
+        return;
+      }
+      openCommentForm();
+    });
+    commentSave?.addEventListener("click", async () => {
+      const text = (commentInput?.value || "").trim();
+      if (!text) {
+        toast("Write a comment first.");
+        return;
+      }
+      if (commentSave) commentSave.disabled = true;
+      try {
+        let sent = false;
+        if (COMMENT_ENDPOINT) {
+          const res = await fetch(COMMENT_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipient: COMMENT_RECIPIENT,
+              message: text,
+              source: "bignbot.com landing menu",
+              timestamp: new Date().toISOString()
+            })
+          });
+          sent = res.ok;
+        }
+        if (!sent) {
+          const subject = encodeURIComponent("Orbit Echo Comment");
+          const body = encodeURIComponent(
+            `${text}\n\nSource: bignbot.com landing menu\nTimestamp: ${new Date().toISOString()}`
+          );
+          window.location.href = `mailto:${COMMENT_RECIPIENT}?subject=${subject}&body=${body}`;
+          sent = true;
+        }
+        commentInput.value = "";
+        closeCommentForm();
+        toast(sent ? "Email draft opened. Send it to submit your comment." : "Comment saved locally.");
+      } catch (err) {
+        toast("Could not save comment.");
+      } finally {
+        if (commentSave) commentSave.disabled = false;
+      }
+    });
+    commentCancel?.addEventListener("click", () => closeCommentForm());
+    return true;
   }
 
   _tileKey(gx, gy) {
@@ -936,7 +1050,7 @@ class Game {
   isUiBlocked() {
     const overlayOpen = overlay && !overlay.classList.contains("hidden");
     const settingsOpen = settingsModal && !settingsModal.classList.contains("hidden");
-    return overlayOpen || settingsOpen || this.statsOpen || this._transitioning || this.gameState !== GAME_STATE.GAMEPLAY;
+    return this.menuOpen || overlayOpen || settingsOpen || this.statsOpen || this._transitioning || this.gameState !== GAME_STATE.GAMEPLAY;
   }
 
   isPaused() {
@@ -1325,7 +1439,7 @@ class Game {
     if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
 
     const controlsLocked = this.gameState !== GAME_STATE.GAMEPLAY;
-    startBtn.disabled = this.gameOver || this.gameWon || this.statsOpen || this._transitioning || controlsLocked;
+    startBtn.disabled = this.menuOpen || this.gameOver || this.gameWon || this.statsOpen || this._transitioning || controlsLocked;
     startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
     if (this.abilities && abilityScanCd) {

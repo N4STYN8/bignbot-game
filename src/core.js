@@ -176,7 +176,11 @@ class Game {
       showConfirm("Start New Game", "Start a new game? Your current run progress will be replaced.", () => {
         this.audio.unlock();
         this._hideLandingMenu();
-        this.updateHUD();
+        requestAnimationFrame(() => {
+          resize();
+          this.onResize();
+          this.updateHUD();
+        });
       });
     });
     loadBtn?.addEventListener("click", () => {
@@ -193,7 +197,11 @@ class Game {
       }
       this.audio.unlock();
       this._hideLandingMenu();
-      this.updateHUD();
+      requestAnimationFrame(() => {
+        resize();
+        this.onResize();
+        this.updateHUD();
+      });
     });
     settingsMenuBtn?.addEventListener("click", () => {
       settingsModal?.classList.remove("hidden");

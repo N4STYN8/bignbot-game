@@ -119,6 +119,18 @@ class Game {
     this.menuOpen = false;
   }
 
+  _syncLayoutAfterMenuClose() {
+    // Rebuild map bounds after HUD values/panel state settle.
+    const sync = () => {
+      resize();
+      this.updateHUD();
+      this.onResize();
+      this.updateHUD();
+    };
+    sync();
+    setTimeout(sync, 80);
+  }
+
   _initLandingMenu() {
     const menu = document.getElementById("landingMenu");
     if (!menu) return false;
@@ -177,9 +189,7 @@ class Game {
         this.audio.unlock();
         this._hideLandingMenu();
         requestAnimationFrame(() => {
-          resize();
-          this.onResize();
-          this.updateHUD();
+          this._syncLayoutAfterMenuClose();
         });
       });
     });
@@ -198,9 +208,7 @@ class Game {
       this.audio.unlock();
       this._hideLandingMenu();
       requestAnimationFrame(() => {
-        resize();
-        this.onResize();
-        this.updateHUD();
+        this._syncLayoutAfterMenuClose();
       });
     });
     settingsMenuBtn?.addEventListener("click", () => {

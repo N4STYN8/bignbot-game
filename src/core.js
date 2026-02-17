@@ -131,6 +131,26 @@ class Game {
     setTimeout(sync, 80);
   }
 
+  _applySavedPanelLayout(layout) {
+    const applyPanel = (panel, key) => {
+      if (!panel) return;
+      const pinBtn = document.querySelector(`.pinBtn[data-panel="${key}"]`);
+      const pinnedKey = `${key}Pinned`;
+      const collapsedKey = `${key}Collapsed`;
+      const pinned = !!layout?.[pinnedKey];
+      const collapsed = typeof layout?.[collapsedKey] === "boolean"
+        ? !!layout[collapsedKey]
+        : !pinned;
+
+      panel.classList.toggle("pinned", pinned);
+      panel.classList.toggle("collapsed", !pinned && collapsed);
+      if (pinBtn) pinBtn.setAttribute("aria-pressed", pinned ? "true" : "false");
+    };
+
+    applyPanel(leftPanel, "left");
+    applyPanel(rightPanel, "right");
+  }
+
   _initLandingMenu() {
     const menu = document.getElementById("landingMenu");
     if (!menu) return false;
@@ -2064,7 +2084,13 @@ class Game {
         })),
         lingering: this.lingering.map(l => ({
           x: l.x, y: l.y, r: l.r, t: l.t, dps: l.dps, col: l.col
-        }))
+        })),
+        uiLayout: {
+          leftPinned: !!leftPanel?.classList.contains("pinned"),
+          leftCollapsed: !!leftPanel?.classList.contains("collapsed"),
+          rightPinned: !!rightPanel?.classList.contains("pinned"),
+          rightCollapsed: !!rightPanel?.classList.contains("collapsed")
+        }
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch (err) {
@@ -2095,6 +2121,8 @@ class Game {
       if (typeof data.levelIndex === "number" && Number.isFinite(data.levelIndex)) {
         this.levelIndex = Math.max(1, data.levelIndex | 0);
       }
+      // Apply panel layout before rebuilding map so play bounds match saved run.
+      this._applySavedPanelLayout(data.uiLayout || null);
       let mapData = null;
       if (data.mapData && Array.isArray(data.mapData.pathN)) {
         const envId = typeof data.mapData.envId === "number" ? data.mapData.envId : (data.envId || 0);

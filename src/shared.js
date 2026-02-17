@@ -527,6 +527,8 @@ export function generateMap(seed, envId) {
   const rng = makeRNG(seed);
   const env = ENV_PRESETS[envId % ENV_PRESETS.length];
   const bounds = getPlayBounds();
+  const safeW = Math.max(1, W);
+  const safeH = Math.max(1, H);
   const gridW = Math.max(12, Math.floor(bounds.w / MAP_GRID_SIZE));
   const gridH = Math.max(8, Math.floor(bounds.h / MAP_GRID_SIZE));
   const axis = env.axis || (rng() < 0.5 ? "LR" : "TB");
@@ -600,6 +602,12 @@ export function generateMap(seed, envId) {
     seed,
     envId: env.id,
     env,
+    boundsN: {
+      x: bounds.x / safeW,
+      y: bounds.y / safeH,
+      w: bounds.w / safeW,
+      h: bounds.h / safeH
+    },
     pathN,
     powerTilesN,
     poolsN,

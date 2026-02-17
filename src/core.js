@@ -2015,6 +2015,7 @@ class Game {
         mapData: this.mapData ? {
           seed: this.mapData.seed,
           envId: this.mapData.envId,
+          boundsN: this.mapData.boundsN || null,
           pathN: this.mapData.pathN,
           powerTilesN: this.mapData.powerTilesN,
           poolsN: this.mapData.poolsN
@@ -2130,6 +2131,7 @@ class Game {
           seed: typeof data.mapData.seed === "number" ? data.mapData.seed : (data.mapSeed || this._makeSeed()),
           envId,
           env: ENV_PRESETS[envId] || ENV_PRESETS[0],
+          boundsN: data.mapData.boundsN && typeof data.mapData.boundsN === "object" ? data.mapData.boundsN : null,
           pathN: data.mapData.pathN,
           powerTilesN: Array.isArray(data.mapData.powerTilesN) ? data.mapData.powerTilesN : [],
           poolsN: Array.isArray(data.mapData.poolsN) ? data.mapData.poolsN : []

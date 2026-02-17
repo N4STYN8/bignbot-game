@@ -15,6 +15,7 @@ export class Map {
     this.pathPts = [];
     this.segs = [];
     this.totalLen = 1;
+    this.boundsN = null;
     this.env = ENV_PRESETS[0];
     this._padlockImg = null;
     this._padlockLoaded = false;
@@ -37,6 +38,7 @@ export class Map {
     this.pathN = mapData.pathN || [];
     this.powerTilesN = mapData.powerTilesN || [];
     this.poolsN = mapData.poolsN || [];
+    this.boundsN = mapData.boundsN || null;
     this.env = mapData.env || ENV_PRESETS[mapData.envId || 0] || ENV_PRESETS[0];
     this._rebuild();
   }
@@ -52,6 +54,23 @@ export class Map {
   _rebuild() {
     this._ensurePath();
     let bounds = getPlayBounds();
+    if (this.boundsN && Number.isFinite(W) && Number.isFinite(H) && W > 0 && H > 0) {
+      const bx = Number(this.boundsN.x);
+      const by = Number(this.boundsN.y);
+      const bw = Number(this.boundsN.w);
+      const bh = Number(this.boundsN.h);
+      if ([bx, by, bw, bh].every(Number.isFinite)) {
+        const fixed = {
+          x: clamp(bx, 0, 1) * W,
+          y: clamp(by, 0, 1) * H,
+          w: clamp(bw, 0.2, 1) * W,
+          h: clamp(bh, 0.2, 1) * H
+        };
+        if (fixed.w >= this.gridSize * 4 && fixed.h >= this.gridSize * 3) {
+          bounds = fixed;
+        }
+      }
+    }
     this.cols = Math.max(6, Math.floor(W / this.gridSize));
     this.rows = Math.max(6, Math.floor(H / this.gridSize));
     this.cells = new Array(this.cols * this.rows).fill(1);

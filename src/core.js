@@ -28,7 +28,8 @@ class Game {
     this.applyEnvironment(this.mapData?.env || ENV_PRESETS[this.envId]);
     this._bindUI();
     this._buildList();
-    if (!this._initLandingMenu()) this._load();
+    // Always start on landing menu when visiting the site.
+    this._initLandingMenu();
     this.updateHUD();
   }
 
@@ -121,13 +122,14 @@ class Game {
   _initLandingMenu() {
     const menu = document.getElementById("landingMenu");
     if (!menu) return false;
+    const mainSection = document.getElementById("landingMainSection");
+    const commentSection = document.getElementById("landingCommentSection");
     const playBtn = document.getElementById("landingPlayBtn");
     const loadBtn = document.getElementById("landingLoadBtn");
     const commentBtn = document.getElementById("landingCommentBtn");
-    const commentForm = document.getElementById("landingCommentForm");
     const commentInput = document.getElementById("landingCommentInput");
-    const commentSave = document.getElementById("landingCommentSaveBtn");
-    const commentCancel = document.getElementById("landingCommentCancelBtn");
+    const commentSave = document.getElementById("landingCommentSendBtn");
+    const commentBack = document.getElementById("landingCommentBackBtn");
     const COMMENT_KEY = "orbit_echo_comments_v1";
     // Set this to your Formspree (or backend) endpoint when ready.
     const COMMENT_ENDPOINT = "";
@@ -145,17 +147,28 @@ class Game {
     };
     refreshLoadState();
 
-    const closeCommentForm = () => {
-      if (!commentForm) return;
-      commentForm.classList.add("hidden");
-      commentForm.setAttribute("aria-hidden", "true");
+    const openMenuSection = () => {
+      if (mainSection) {
+        mainSection.classList.remove("hidden");
+        mainSection.setAttribute("aria-hidden", "false");
+      }
+      if (commentSection) {
+        commentSection.classList.add("hidden");
+        commentSection.setAttribute("aria-hidden", "true");
+      }
     };
-    const openCommentForm = () => {
-      if (!commentForm) return;
-      commentForm.classList.remove("hidden");
-      commentForm.setAttribute("aria-hidden", "false");
+    const openCommentSection = () => {
+      if (mainSection) {
+        mainSection.classList.add("hidden");
+        mainSection.setAttribute("aria-hidden", "true");
+      }
+      if (commentSection) {
+        commentSection.classList.remove("hidden");
+        commentSection.setAttribute("aria-hidden", "false");
+      }
       commentInput?.focus();
     };
+    openMenuSection();
 
     playBtn?.addEventListener("click", () => {
       this.audio.unlock();
@@ -168,17 +181,18 @@ class Game {
         refreshLoadState();
         return;
       }
-      this._load();
+      const loaded = this._load();
+      if (!loaded) {
+        toast("Could not load saved game.");
+        refreshLoadState();
+        return;
+      }
       this.audio.unlock();
       this._hideLandingMenu();
       this.updateHUD();
     });
     commentBtn?.addEventListener("click", () => {
-      if (!commentForm || !commentForm.classList.contains("hidden")) {
-        closeCommentForm();
-        return;
-      }
-      openCommentForm();
+      openCommentSection();
     });
     commentSave?.addEventListener("click", async () => {
       const text = (commentInput?.value || "").trim();
@@ -211,7 +225,7 @@ class Game {
           sent = true;
         }
         commentInput.value = "";
-        closeCommentForm();
+        openMenuSection();
         toast(sent ? "Email draft opened. Send it to submit your comment." : "Comment saved locally.");
       } catch (err) {
         toast("Could not save comment.");
@@ -219,7 +233,7 @@ class Game {
         if (commentSave) commentSave.disabled = false;
       }
     });
-    commentCancel?.addEventListener("click", () => closeCommentForm());
+    commentBack?.addEventListener("click", () => openMenuSection());
     return true;
   }
 
@@ -2031,9 +2045,9 @@ class Game {
   _load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      if (!raw) return;
+      if (!raw) return false;
       const data = JSON.parse(raw);
-      if (!data) return;
+      if (!data) return false;
 
       if (Array.isArray(data.mapStats)) {
         this.mapStats = data.mapStats.slice();
@@ -2167,8 +2181,10 @@ class Game {
       }
     } catch (err) {
       // ignore load errors
+      return false;
     }
     this._resetWaveStats();
+    return true;
   }
 
   _resetRun() {

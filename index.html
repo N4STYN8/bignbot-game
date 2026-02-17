@@ -207,18 +207,24 @@
   <div id="landingMenu" class="landingMenu" aria-hidden="false">
     <div class="landingCard" role="dialog" aria-modal="true" aria-labelledby="landingTitle">
       <img class="landingLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
-      <div id="landingTitle" class="landingTitle">Orbit Echo</div>
-      <div class="landingSub">Choose an option to begin</div>
-      <div class="landingActions">
-        <button id="landingPlayBtn" class="btn primary">Play</button>
-        <button id="landingLoadBtn" class="btn ghost">Load Saved Game</button>
-        <button id="landingCommentBtn" class="btn ghost">Leave a Comment</button>
+
+      <div id="landingMainSection" aria-hidden="false">
+        <div id="landingTitle" class="landingTitle">Orbit Echo</div>
+        <div class="landingSub">Choose an option to begin</div>
+        <div class="landingActions">
+          <button id="landingPlayBtn" class="btn primary">Play</button>
+          <button id="landingLoadBtn" class="btn ghost">Load Saved Game</button>
+          <button id="landingCommentBtn" class="btn ghost">Leave a Comment</button>
+        </div>
       </div>
-      <div id="landingCommentForm" class="landingCommentForm hidden" aria-hidden="true">
+
+      <div id="landingCommentSection" class="landingCommentSection hidden" aria-hidden="true">
+        <div class="landingTitle">Leave a Comment</div>
+        <div class="landingSub">Your mail app will open with your message.</div>
         <textarea id="landingCommentInput" class="landingCommentInput" maxlength="280" placeholder="Write a comment..."></textarea>
         <div class="landingCommentActions">
-          <button id="landingCommentSaveBtn" class="btn primary">Save Comment</button>
-          <button id="landingCommentCancelBtn" class="btn ghost">Cancel</button>
+          <button id="landingCommentSendBtn" class="btn primary">Send Comment</button>
+          <button id="landingCommentBackBtn" class="btn ghost">Back to Menu</button>
         </div>
       </div>
     </div>
@@ -374,4 +380,5 @@
   <script type="module" src="src/core.js"></script>
 </body>
 </html>
+
 

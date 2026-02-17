@@ -126,6 +126,12 @@ body{
   min-height:42px;
   justify-content:center;
 }
+.landingCommentSection{
+  margin-top:4px;
+}
+.landingCommentSection.hidden{
+  display:none;
+}
 .landingCommentForm{
   margin-top:14px;
   padding-top:12px;

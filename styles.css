@@ -126,20 +126,13 @@ body{
   min-height:42px;
   justify-content:center;
 }
-.landingCommentSection{
-  margin-top:4px;
-}
-.landingCommentSection.hidden{
-  display:none;
-}
-.landingCommentForm{
-  margin-top:14px;
-  padding-top:12px;
-  border-top:1px solid rgba(28,42,90,.72);
+.landingCommentCard{
+  width:min(560px, 94vw);
 }
 .landingCommentInput{
+  margin-top:14px;
   width:100%;
-  min-height:92px;
+  min-height:180px;
   resize:vertical;
   border-radius:12px;
   border:1px solid rgba(98,242,255,.3);

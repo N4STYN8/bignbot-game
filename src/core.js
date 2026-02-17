@@ -122,15 +122,14 @@ class Game {
   _initLandingMenu() {
     const menu = document.getElementById("landingMenu");
     if (!menu) return false;
+    const commentPage = document.getElementById("landingCommentPage");
     const mainSection = document.getElementById("landingMainSection");
-    const commentSection = document.getElementById("landingCommentSection");
     const playBtn = document.getElementById("landingPlayBtn");
     const loadBtn = document.getElementById("landingLoadBtn");
     const commentBtn = document.getElementById("landingCommentBtn");
     const commentInput = document.getElementById("landingCommentInput");
     const commentSave = document.getElementById("landingCommentSendBtn");
     const commentBack = document.getElementById("landingCommentBackBtn");
-    const COMMENT_KEY = "orbit_echo_comments_v1";
     // Set this to your Formspree (or backend) endpoint when ready.
     const COMMENT_ENDPOINT = "";
     const COMMENT_RECIPIENT = "bignbot@gmail.com";
@@ -148,23 +147,25 @@ class Game {
     refreshLoadState();
 
     const openMenuSection = () => {
+      if (commentPage) {
+        commentPage.classList.add("hidden");
+        commentPage.setAttribute("aria-hidden", "true");
+      }
       if (mainSection) {
         mainSection.classList.remove("hidden");
         mainSection.setAttribute("aria-hidden", "false");
       }
-      if (commentSection) {
-        commentSection.classList.add("hidden");
-        commentSection.setAttribute("aria-hidden", "true");
-      }
     };
     const openCommentSection = () => {
+      menu.classList.add("hidden");
+      menu.setAttribute("aria-hidden", "true");
+      if (commentPage) {
+        commentPage.classList.remove("hidden");
+        commentPage.setAttribute("aria-hidden", "false");
+      }
       if (mainSection) {
         mainSection.classList.add("hidden");
         mainSection.setAttribute("aria-hidden", "true");
-      }
-      if (commentSection) {
-        commentSection.classList.remove("hidden");
-        commentSection.setAttribute("aria-hidden", "false");
       }
       commentInput?.focus();
     };
@@ -226,6 +227,8 @@ class Game {
         }
         commentInput.value = "";
         openMenuSection();
+        menu.classList.remove("hidden");
+        menu.setAttribute("aria-hidden", "false");
         toast(sent ? "Email draft opened. Send it to submit your comment." : "Comment saved locally.");
       } catch (err) {
         toast("Could not save comment.");
@@ -233,7 +236,11 @@ class Game {
         if (commentSave) commentSave.disabled = false;
       }
     });
-    commentBack?.addEventListener("click", () => openMenuSection());
+    commentBack?.addEventListener("click", () => {
+      openMenuSection();
+      menu.classList.remove("hidden");
+      menu.setAttribute("aria-hidden", "false");
+    });
     return true;
   }
 
@@ -3025,6 +3032,7 @@ class Game {
         this.waveActive = false;
         this.waveAnomaly = null;
         this._warpRippleT = 0;
+        this._save();
         if (this.wave >= this.waveMax) {
           if (!this.gameOver && !this._transitioning) {
             this.advanceLevel();
@@ -3171,8 +3179,8 @@ class Game {
     // effects timers
     this._updateVisualEffects(dt);
     this._saveT += dt;
-    if (this._saveT >= 1) {
-      this._saveT = 0;
+    if (this._saveT >= 60) {
+      this._saveT -= 60;
       this._save();
     }
     this.updateHUD();

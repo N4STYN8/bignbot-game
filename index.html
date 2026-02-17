@@ -214,21 +214,24 @@
         <div class="landingActions">
           <button id="landingPlayBtn" class="btn primary">Play</button>
           <button id="landingLoadBtn" class="btn ghost">Load Saved Game</button>
-          <button id="landingCommentBtn" class="btn ghost">Leave a Comment</button>
-        </div>
-      </div>
-
-      <div id="landingCommentSection" class="landingCommentSection hidden" aria-hidden="true">
-        <div class="landingTitle">Leave a Comment</div>
-        <div class="landingSub">Your mail app will open with your message.</div>
-        <textarea id="landingCommentInput" class="landingCommentInput" maxlength="280" placeholder="Write a comment..."></textarea>
-        <div class="landingCommentActions">
-          <button id="landingCommentSendBtn" class="btn primary">Send Comment</button>
-          <button id="landingCommentBackBtn" class="btn ghost">Back to Menu</button>
+          <button id="landingCommentBtn" class="btn ghost">Comment Page</button>
         </div>
       </div>
     </div>
   </div>
+  <div id="landingCommentPage" class="landingMenu hidden" aria-hidden="true">
+    <div class="landingCard landingCommentCard" role="dialog" aria-modal="true" aria-labelledby="landingCommentTitle">
+      <div id="landingCommentTitle" class="landingTitle">Leave a Comment</div>
+      <div class="landingSub">Your mail app will open with your message.</div>
+      <textarea id="landingCommentInput" class="landingCommentInput" maxlength="280" placeholder="Write a comment..."></textarea>
+      <div class="landingCommentActions">
+        <button id="landingCommentSendBtn" class="btn primary">Send Comment</button>
+        <button id="landingCommentBackBtn" class="btn ghost">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
+
   <button id="settingsBtn" class="settingsBtn" aria-label="Settings">
     <span class="gearIcon" aria-hidden="true"></span>
   </button>
@@ -380,5 +383,8 @@
   <script type="module" src="src/core.js"></script>
 </body>
 </html>
+
+
+
 
 

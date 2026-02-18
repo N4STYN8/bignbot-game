@@ -6,6 +6,45 @@ import { Particles } from "./vfx.js";
 import { Projectile } from "./projectiles.js";
 import { TURRET_TYPES, Turret } from "./turrets.js";
 
+// CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
+const comboCascadeEl = document.getElementById("comboCascade");
+const comboCascadeCountEl = document.getElementById("comboCascadeCount");
+const screenFxEl = document.querySelector(".screenFx");
+const ECHO_CASCADE_WINDOW_TIERS = [
+  { min: 16, sec: 0.8 },
+  { min: 11, sec: 1.0 },
+  { min: 6, sec: 1.25 },
+  { min: 1, sec: 1.5 }
+];
+const ECHO_CASCADE_GOLD_TIERS = [
+  { min: 15, mult: 1.25 },
+  { min: 10, mult: 1.15 },
+  { min: 6, mult: 1.1 },
+  { min: 3, mult: 1.05 },
+  { min: 0, mult: 1.0 }
+];
+const ECHO_CASCADE_FADE_SECS = 0.45;
+const ECHO_CASCADE_PULSE_SHAKE_T = 0.02;
+const ECHO_CASCADE_PULSE_SHAKE_MAG = 0.35;
+
+// CODEX CHANGE: Helper keeps combo window tiers centralized for quick balancing.
+function comboWindowForCount(count) {
+  const c = Math.max(0, count | 0);
+  for (const tier of ECHO_CASCADE_WINDOW_TIERS) {
+    if (c >= tier.min) return tier.sec;
+  }
+  return 1.5;
+}
+
+// CODEX CHANGE: Helper keeps combo reward tiers centralized for quick balancing.
+function comboMultForCount(count) {
+  const c = Math.max(0, count | 0);
+  for (const tier of ECHO_CASCADE_GOLD_TIERS) {
+    if (c >= tier.min) return tier.mult;
+  }
+  return 1.0;
+}
+
 /**********************
  * Game
  **********************/
@@ -75,6 +114,13 @@ class Game {
       pulse: { cd: ABILITY_COOLDOWN, t: 0 },
       overcharge: { cd: OVERCHARGE_COOLDOWN, t: 0 }
     };
+    // CODEX CHANGE: Echo Cascade runtime state (excluded from save/load on purpose).
+    this.comboCount = 0;
+    this.comboTimer = 0;
+    this.comboWindow = comboWindowForCount(1);
+    this.comboMult = 1;
+    this.comboBest = 0;
+    this._comboUiFade = 0;
     this.gameOver = false;
     this.gameWon = false;
     this.paused = false;
@@ -408,18 +454,60 @@ class Game {
     }
     if (!candidates.length) return;
 
+    // CODEX CHANGE: Use seeded random spread (not clusters) within 3-track-tile candidates.
     const level = Math.max(1, this.levelIndex | 0);
-    const target = clamp(Math.round(candidates.length * 0.44), 36, 130);
+    // CODEX CHANGE: Increase corruption density while preserving enough open build cells to keep maps beatable.
+    const targetBase = clamp(Math.round(candidates.length * 0.44), 28, 110);
+    const minClear = clamp(Math.round(candidates.length * 0.36), 14, 80);
+    const target = Math.min(targetBase, Math.max(0, candidates.length - minClear));
     const rng = makeRNG(((this.mapSeed || 0) ^ (level * 2654435761)) >>> 0);
+
+    // Fisher-Yates shuffle for deterministic random placement per seed/level.
     for (let i = candidates.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       const tmp = candidates[i];
       candidates[i] = candidates[j];
       candidates[j] = tmp;
     }
+    const selected = [];
+    const selectedKeys = new globalThis.Set();
+    const keyOf = (c) => this._tileKey(c.gx, c.gy);
 
-    for (let i = 0; i < Math.min(target, candidates.length); i++) {
-      const c = candidates[i];
+    // CODEX CHANGE: Softer spacing creates less-uniform, more natural scatter.
+    const nearbyCount = (c) => {
+      let n = 0;
+      for (const s of selected) {
+        if (Math.abs(c.gx - s.gx) <= 1 && Math.abs(c.gy - s.gy) <= 1) n++;
+      }
+      return n;
+    };
+
+    // Pass 1: weighted random acceptance so corruption has pockets and gaps.
+    for (const c of candidates) {
+      if (selected.length >= target) break;
+      const near = nearbyCount(c);
+      const acceptP = near <= 0 ? 0.82 : (near === 1 ? 0.48 : 0.22);
+      if (rng() > acceptP) continue;
+      const key = keyOf(c);
+      if (selectedKeys.has(key)) continue;
+      selected.push(c);
+      selectedKeys.add(key);
+    }
+
+    // Pass 2: fill toward target with a lighter spacing bias.
+    if (selected.length < target) {
+      for (const c of candidates) {
+        if (selected.length >= target) break;
+        const key = keyOf(c);
+        if (selectedKeys.has(key)) continue;
+        const near = nearbyCount(c);
+        if (near >= 3 && rng() > 0.35) continue;
+        selected.push(c);
+        selectedKeys.add(key);
+      }
+    }
+
+    for (const c of selected) {
       const key = this._tileKey(c.gx, c.gy);
       this.map.tilesByCell[key] = {
         gx: c.gx,
@@ -1502,6 +1590,22 @@ class Game {
     const nextPill = nextInEl?.closest(".pill");
     if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
 
+    // CODEX CHANGE: Echo Cascade HUD update (reuses single DOM nodes, no DOM churn).
+    if (comboCascadeEl && comboCascadeCountEl) {
+      const comboActive = this.comboCount > 0;
+      const comboShow = comboActive;
+      const comboOpacity = comboActive ? 1 : 0;
+      comboCascadeEl.classList.toggle("active", comboShow);
+      comboCascadeEl.classList.toggle("tier10", this.comboCount >= 10);
+      comboCascadeEl.classList.toggle("tier15", this.comboCount >= 15);
+      comboCascadeEl.style.opacity = comboShow ? String(clamp(comboOpacity, 0, 1)) : "0";
+      comboCascadeCountEl.textContent = comboActive ? `x${this.comboCount | 0}` : "";
+    }
+    if (screenFxEl) {
+      screenFxEl.classList.toggle("comboTier10", this.comboCount >= 10);
+      screenFxEl.classList.toggle("comboTier15", this.comboCount >= 15);
+    }
+
     const controlsLocked = this.gameState !== GAME_STATE.GAMEPLAY;
     startBtn.disabled = this.menuOpen || this.gameOver || this.gameWon || this.statsOpen || this._transitioning || controlsLocked;
     startBtn.textContent = this.hasStarted ? "SKIP" : "START";
@@ -2244,6 +2348,8 @@ class Game {
       return false;
     }
     this._resetWaveStats();
+    // CODEX CHANGE: Combo state is intentionally not persisted in saves.
+    this._resetComboState();
     return true;
   }
 
@@ -2295,6 +2401,8 @@ class Game {
     if (turretHudBody) turretHudBody.innerHTML = "";
     this._initCorruptedTiles();
     this._resetWaveStats();
+    // CODEX CHANGE: Reset Echo Cascade on new runs/retries.
+    this._resetComboState();
     this.runStats = this._newRunStats();
     this.mapStats = this.mapStats || [];
     this.playerStats = this.playerStats || this._newPlayerStats();
@@ -2406,13 +2514,52 @@ class Game {
     }
   }
 
+  // CODEX CHANGE: Centralized Echo Cascade reset so run resets/loads stay safe.
+  _resetComboState() {
+    this.comboCount = 0;
+    this.comboTimer = 0;
+    this.comboWindow = comboWindowForCount(1);
+    this.comboMult = 1;
+    this._comboUiFade = 0;
+    if (screenFxEl) {
+      screenFxEl.classList.remove("comboTier10", "comboTier15");
+    }
+  }
+
+  // CODEX CHANGE: Echo Cascade chain progression, timers, and subtle kill pulses.
+  _applyEchoCascadeOnKill(enemy, baseReward) {
+    const rewardBase = Math.max(1, Number(baseReward) | 0);
+    if (this.comboTimer > 0 && this.comboCount > 0) {
+      this.comboCount += 1;
+    } else {
+      this.comboCount = 1;
+    }
+    this.comboWindow = comboWindowForCount(this.comboCount);
+    this.comboTimer = this.comboWindow;
+    this.comboMult = comboMultForCount(this.comboCount);
+    this.comboBest = Math.max(this.comboBest || 0, this.comboCount);
+    this._comboUiFade = 1;
+    const rewardTotal = Math.max(1, Math.round(rewardBase * this.comboMult));
+    const rewardBonus = Math.max(0, rewardTotal - rewardBase);
+    if (enemy) {
+      enemy._baseKillReward = rewardBase;
+      enemy._comboBonusGold = rewardBonus;
+    }
+    if (this.comboCount >= 15) {
+      this.shakeT = Math.min(0.2, this.shakeT + ECHO_CASCADE_PULSE_SHAKE_T);
+      this.shakeMag = Math.min(5, this.shakeMag + ECHO_CASCADE_PULSE_SHAKE_MAG);
+    }
+    return rewardTotal;
+  }
+
   _grantKillReward(enemy) {
     if (!enemy || enemy._rewardGranted || enemy._leaked) return 0;
     const baseReward = ENEMY_TYPES[enemy.typeKey]?.reward ?? 1;
     const scalarReward = Number.isFinite(enemy.scalar?.reward) ? enemy.scalar.reward : 1;
     const fallbackReward = Math.max(1, Math.floor(baseReward * scalarReward));
     const rewardRaw = Number(enemy.reward);
-    const reward = Number.isFinite(rewardRaw) && rewardRaw > 0 ? Math.max(1, Math.floor(rewardRaw)) : fallbackReward;
+    const rewardBase = Number.isFinite(rewardRaw) && rewardRaw > 0 ? Math.max(1, Math.floor(rewardRaw)) : fallbackReward;
+    const reward = this._applyEchoCascadeOnKill(enemy, rewardBase);
     if (!Number.isFinite(this.gold)) this.gold = this._getStartGold();
     this.gold += reward;
     enemy._rewardGranted = true;
@@ -2448,8 +2595,13 @@ class Game {
       this.shakeMag = Math.min(8, this.shakeMag + 1.2);
     }
 
-    // reward
+    // CODEX CHANGE: Reward includes Echo Cascade multiplier and popup feedback at kill position.
     const reward = this._grantKillReward(enemy);
+    const comboText = `+${reward}g  x${this.comboCount}`;
+    const comboColor = this.comboCount >= 15
+      ? "rgba(255,207,91,0.96)"
+      : (this.comboCount >= 10 ? "rgba(154,108,255,0.95)" : "rgba(98,242,255,0.95)");
+    this.spawnText(enemy.x + rand(-6, 6), enemy.y - 20, comboText, comboColor, 1.05);
     if (this.waveStats) {
       this.waveStats.kills += 1;
       this.waveStats.gold += reward;
@@ -2472,7 +2624,9 @@ class Game {
 
     // siphon from traps
     if (enemy._lastHitTag === "trap" && enemy._lastHitBy && enemy._lastHitBy.siphon) {
-      const refund = Math.max(1, Math.floor(reward * 0.2));
+      // CODEX CHANGE: Keep siphon based on base kill value so combo only affects kill gold.
+      const refundBase = Math.max(1, Number(enemy._baseKillReward) || reward);
+      const refund = Math.max(1, Math.floor(refundBase * 0.2));
       this.gold += refund;
       if (this.waveStats) this.waveStats.gold += refund;
       if (this.runStats) this.runStats.gold += refund;
@@ -3035,6 +3189,19 @@ class Game {
     // Guard against bad saved/runtime values that can freeze simulation at dtScaled=0.
     if (!Number.isFinite(this.speed) || this.speed <= 0) this.speed = 1;
     const dtScaled = dt * this.speed;
+    // CODEX CHANGE: Echo Cascade countdown/collapse (uses dtScaled so speed modes affect chain window).
+    if (this.comboCount > 0) {
+      this.comboTimer = Math.max(0, this.comboTimer - dtScaled);
+      if (this.comboTimer <= 0) {
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.comboMult = 1;
+        this.comboWindow = comboWindowForCount(1);
+        this._comboUiFade = 1;
+      }
+    } else if (this._comboUiFade > 0) {
+      this._comboUiFade = Math.max(0, this._comboUiFade - (dt / ECHO_CASCADE_FADE_SECS));
+    }
     if (this.shakeT > 0) {
       this.shakeT = Math.max(0, this.shakeT - dt);
       if (this.shakeT === 0) this.shakeMag = 0;
@@ -3709,4 +3876,12 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+
+
+
+
+
+
+
 

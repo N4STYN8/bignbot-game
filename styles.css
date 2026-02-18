@@ -65,10 +65,29 @@ body{
   0%{background-position:0 0, 0 0}
   100%{background-position:0 0, 120px 60px}
 }
+/* CODEX CHANGE: Echo Cascade visual intensity hooks tied to combo tiers. */
+.screenFx.comboTier10{
+  opacity:0.72;
+  animation: screenNoise 6s steps(10) infinite, comboScreenPulse 1.8s ease-in-out infinite;
+}
+.screenFx.comboTier15{
+  opacity:0.82;
+  animation: screenNoise 6s steps(10) infinite, comboScreenPulseStrong 1.2s ease-in-out infinite;
+}
+@keyframes comboScreenPulse{
+  0%{filter:brightness(1) saturate(1)}
+  50%{filter:brightness(1.035) saturate(1.06)}
+  100%{filter:brightness(1) saturate(1)}
+}
+@keyframes comboScreenPulseStrong{
+  0%{filter:brightness(1) saturate(1)}
+  50%{filter:brightness(1.06) saturate(1.12)}
+  100%{filter:brightness(1) saturate(1)}
+}
 .mapLogo{
   position:absolute;
   top:14px;
-  left:14px;
+  left:50%;
   width:120px;
   height:auto;
   z-index:1;
@@ -390,6 +409,82 @@ body{
 #anomalyPill.active{
   border-color: rgba(154,108,255,.65);
   box-shadow: 0 0 20px rgba(154,108,255,.35);
+}
+
+/* CODEX CHANGE: Echo Cascade HUD panel and timer bar. */
+.comboCascade{
+  pointer-events:none;
+  position:absolute;
+  top:78px;
+  left:0;
+  right:0;
+  width:min(280px, calc(100vw - 28px));
+  margin:0 auto;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(98,242,255,.32);
+  background: linear-gradient(180deg, rgba(11,16,34,.84), rgba(11,16,34,.55));
+  box-shadow: 0 10px 24px rgba(0,0,0,.3);
+  backdrop-filter: blur(8px);
+  opacity:0;
+  transform: translateY(-6px) scale(.98);
+  transition: opacity .2s ease, transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.comboCascade.active{
+  opacity:1;
+  transform: translateY(0) scale(1);
+}
+.comboCascade.tier10{
+  border-color: rgba(154,108,255,.46);
+  box-shadow: 0 0 18px rgba(154,108,255,.24), 0 10px 24px rgba(0,0,0,.3);
+}
+.comboCascade.tier15{
+  border-color: rgba(255,207,91,.6);
+  box-shadow: 0 0 20px rgba(255,207,91,.28), 0 10px 24px rgba(0,0,0,.3);
+}
+.comboTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.comboTitle{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.comboCount{
+  display: block;
+  font-family: var(--sans);
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .01em;
+  color: #ffcf5b;
+  text-shadow:
+    0 0 10px rgba(255,207,91,.62),
+    0 0 30px rgba(255,207,91,.34),
+    0 2px 10px rgba(0,0,0,.42);
+  animation: comboOpacityPulse 1.15s ease-out infinite;
+}
+.comboBar{
+  margin-top:8px;
+  width:100%;
+  height:6px;
+  border-radius:999px;
+  overflow:hidden;
+  background: rgba(7,10,18,.65);
+  border:1px solid rgba(28,42,90,.7);
+}
+.comboBarFill{
+  width:100%;
+  height:100%;
+  transform-origin:left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, rgba(98,242,255,.9), rgba(154,108,255,.9));
+  box-shadow: 0 0 12px rgba(98,242,255,.4);
 }
 
 .abilitiesBar{
@@ -1276,7 +1371,7 @@ body{
 .modDelta{
   margin-top:8px;
   color: var(--text);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size:11px;
   opacity:.9;
 }
@@ -1409,7 +1504,7 @@ body{
   opacity:0;
 }
 .levelOverlayText{
-  font-family: var(--mono);
+  font-family: var(--sans);
   letter-spacing: 0.12em;
   font-size: 28px;
   color: var(--text);
@@ -1540,8 +1635,212 @@ body{
   .controls{width:100%; justify-content:flex-start}
   .audioSliders{width:100%; justify-content:space-between}
   .audioCtl input[type="range"]{width:120px}
+  .comboCascade{top:112px; left:0; right:0; width:min(250px, calc(100vw - 20px)); margin:0 auto;}
 }
 
 @media (max-width: 960px){
   .topbar{gap:12px;}
+}
+
+
+
+
+/* CODEX CHANGE: Echo Cascade final override: top-center multiplier text only, no box. */
+.comboCascade{
+  top: 14px !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin: 0 auto !important;
+  width: max-content !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  transform: translateY(-8px) scale(.94) !important;
+}
+.comboCascade.active{
+  transform: translateY(0) scale(1) !important;
+}
+.comboCount{
+  display: block;
+  font-family: var(--sans);
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .01em;
+  color: #ffcf5b;
+  text-shadow:
+    0 0 10px rgba(255,207,91,.62),
+    0 0 30px rgba(255,207,91,.34),
+    0 2px 10px rgba(0,0,0,.42);
+  animation: comboOpacityPulse 1.15s ease-out infinite;
+}
+.comboCascade.tier10 .comboCount{
+  color: #ffdb7d;
+}
+.comboCascade.tier15 .comboCount{
+  color: #ffe08f;
+}
+@keyframes comboOpacityPulse{
+  0%{opacity:.1; transform: translateY(12px)}
+  45%{opacity:1; transform: translateY(0)}
+  100%{opacity:.82; transform: translateY(-6px)}
+}
+@media (max-width: 700px){
+  .comboCascade{ top: 14px !important; }
+}
+
+
+/* CODEX CHANGE: final tuning requested - GOLD MULTIPLIER big-to-small fade, centered on HUD line. */
+.comboCascade{
+  top: 18px !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin: 0 auto !important;
+  width: max-content !important;
+  display: inline-flex !important;
+  flex-direction: column-reverse !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  transform: translateY(0) !important;
+}
+.comboLabel{
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,225,150,.92);
+  text-shadow: 0 0 8px rgba(255,207,91,.34), 0 2px 10px rgba(0,0,0,.35);
+  animation: comboMultiplierPulse2 1.2s ease-out infinite !important;
+}
+.comboCount{
+  font-size: 48px !important;
+  line-height: .9 !important;
+  color: #ffcf5b !important;
+  text-shadow:
+    0 0 12px rgba(255,207,91,.7),
+    0 0 36px rgba(255,207,91,.38),
+    0 3px 12px rgba(0,0,0,.44) !important;
+  animation: comboMultiplierPulse2 1.2s ease-out infinite !important;
+}
+.comboCascade.tier10 .comboCount{ color: #ffdd85 !important; }
+.comboCascade.tier15 .comboCount{ color: #ffeaa8 !important; }
+@keyframes comboMultiplierPulse2{
+  0%{opacity:0; transform: translateY(14px) scale(1.55)}
+  45%{opacity:1; transform: translateY(0) scale(1)}
+  100%{opacity:.28; transform: translateY(-9px) scale(.72)}
+}
+@media (max-width: 700px){
+  .comboCascade{ top: 18px !important; gap: 8px !important; }
+  .comboLabel{ font-size: 11px; letter-spacing: .12em; }
+  .comboCount{ font-size: 42px !important; }
+}
+
+
+/* CODEX CHANGE: position + aura rings (gold/blue/purple) around GOLD MULTIPLIER text. */
+.comboCascade{
+  top: 34px !important;
+  position: absolute;
+  isolation: isolate;
+}
+.comboCascade::before,
+.comboCascade::after{
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 210px;
+  height: 82px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(.72);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+}
+.comboCascade::before{
+  border: 2px solid rgba(255,207,91,.72);
+  box-shadow:
+    0 0 20px rgba(255,207,91,.38),
+    inset 0 0 10px rgba(255,207,91,.22);
+  animation: comboRingGold 1.2s ease-out infinite;
+}
+.comboCascade::after{
+  border: 2px solid rgba(98,242,255,.58);
+  box-shadow:
+    0 0 20px rgba(98,242,255,.3),
+    0 0 34px rgba(154,108,255,.28),
+    inset 0 0 10px rgba(154,108,255,.22);
+  animation: comboRingCool 1.2s ease-out infinite;
+}
+@keyframes comboRingGold{
+  0%{opacity:0; transform: translate(-50%, -50%) scale(.58)}
+  32%{opacity:.85; transform: translate(-50%, -50%) scale(1)}
+  100%{opacity:0; transform: translate(-50%, -50%) scale(1.35)}
+}
+@keyframes comboRingCool{
+  0%{opacity:0; transform: translate(-50%, -50%) scale(.7)}
+  46%{opacity:.72; transform: translate(-50%, -50%) scale(1.06)}
+  100%{opacity:0; transform: translate(-50%, -50%) scale(1.45)}
+}
+@keyframes comboMultiplierPulse2{
+  0%{opacity:0; transform: translateY(20px) scale(1.58)}
+  45%{opacity:1; transform: translateY(0) scale(1)}
+  100%{opacity:.34; transform: translateY(-1px) scale(.78)}
+}
+@media (max-width: 700px){
+  .comboCascade{ top: 28px !important; }
+  .comboCascade::before,
+  .comboCascade::after{ width: 170px; height: 68px; }
+}
+/* CODEX CHANGE: smoother combo motion + ring wave/pulse tuning. */
+.comboLabel{
+  animation: comboMultiplierPulseSmooth 1.45s cubic-bezier(.22,.78,.22,1) infinite !important;
+}
+.comboCount{
+  animation: comboMultiplierPulseSmooth 1.45s cubic-bezier(.22,.78,.22,1) infinite !important;
+}
+.comboCascade::before{
+  animation: comboRingGoldSmooth 1.35s cubic-bezier(.2,.72,.2,1) infinite !important;
+}
+.comboCascade::after{
+  animation: comboRingCoolSmooth 1.35s cubic-bezier(.2,.72,.2,1) infinite !important;
+}
+@keyframes comboMultiplierPulseSmooth{
+  0%{opacity:0; transform: translateY(14px) scale(1.32)}
+  34%{opacity:.96; transform: translateY(3px) scale(1.06)}
+  62%{opacity:1; transform: translateY(0) scale(1)}
+  100%{opacity:.18; transform: translateY(-4px) scale(.9)}
+}
+@keyframes comboRingGoldSmooth{
+  0%{opacity:0; transform: translate(-50%, -50%) scale(.70)}
+  18%{opacity:.62; transform: translate(-50%, -50%) scale(.92)}
+  38%{opacity:.78; transform: translate(-50%, -50%) scale(1.06)}
+  58%{opacity:.42; transform: translate(-50%, -50%) scale(1.18)}
+  78%{opacity:.20; transform: translate(-50%, -50%) scale(1.30)}
+  100%{opacity:0; transform: translate(-50%, -50%) scale(1.42)}
+}
+@keyframes comboRingCoolSmooth{
+  0%{opacity:0; transform: translate(-50%, -50%) scale(.80)}
+  22%{opacity:.46; transform: translate(-50%, -50%) scale(.98)}
+  44%{opacity:.68; transform: translate(-50%, -50%) scale(1.10)}
+  66%{opacity:.36; transform: translate(-50%, -50%) scale(1.22)}
+  86%{opacity:.16; transform: translate(-50%, -50%) scale(1.34)}
+  100%{opacity:0; transform: translate(-50%, -50%) scale(1.46)}
+}
+/* CODEX CHANGE: synchronized text reveal (fade 0->100 while shrinking). */
+.comboCascade.active{
+  animation: comboTextFadeSync .42s cubic-bezier(.22,.78,.22,1) both !important;
+}
+.comboLabel,
+.comboCount{
+  animation: none !important;
+}
+@keyframes comboTextFadeSync{
+  0%{opacity:0; transform: translateY(8px) scale(1.38)}
+  100%{opacity:1; transform: translateY(0) scale(1)}
 }

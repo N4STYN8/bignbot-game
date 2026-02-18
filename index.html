@@ -12,7 +12,6 @@
     <div id="gameWrap" class="gameWrap">
       <canvas id="game"></canvas>
       <div class="screenFx" aria-hidden="true"></div>
-      <img class="mapLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
 
       <!-- HUD -->
       <div id="hud">
@@ -34,7 +33,6 @@
             <div class="pill"><span class="k">Env</span> <span id="envVal" class="v">�</span></div>
             <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
             <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">�</span></div>
-            <div class="pill seedPill"><span class="k">Seed</span> <span id="seedVal" class="v">�</span></div>
             <div id="anomalyPill" class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">�</span></div>
           </div>
 
@@ -47,6 +45,11 @@
         </div>
 
         <div id="turretStateBar" class="turretStateBar hidden" aria-live="polite"></div>
+        <!-- CODEX CHANGE: Echo Cascade HUD uses only a single multiplier text node. -->
+        <div id="comboCascade" class="comboCascade" aria-live="polite">
+          <span class="comboLabel">GOLD MULTIPLIER</span>
+          <span id="comboCascadeCount" class="comboCount">x0</span>
+        </div>
 
         <div id="abilitiesBar" class="abilitiesBar">
           <div class="abilitiesTitle">Abilities</div>
@@ -206,7 +209,6 @@
   </div>
   <div id="landingMenu" class="landingMenu" aria-hidden="false">
     <div class="landingCard" role="dialog" aria-modal="true" aria-labelledby="landingTitle">
-      <img class="landingLogo" src="assets/images/gamelogo.png" alt="Orbit Echo">
 
       <div id="landingMainSection" aria-hidden="false">
         <div id="landingTitle" class="landingTitle">Welcome to Orbit Echo</div>
@@ -384,4 +386,11 @@
   <script type="module" src="src/core.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
 

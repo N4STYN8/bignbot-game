@@ -4,6 +4,8 @@
   Unique twist: SKIP grants a short power surge plus bonus gold.
 
   Notes:
+  - Echo Cascade combo system: rapid kill chains increase kill-gold multipliers with a draining timer HUD.
+    Tune values in `src/core.js` under ECHO_CASCADE_* constants and helper tier tables.
   - Speed multiplier affects EVERYTHING time-based via dtScaled = dt * speed.
   - 30 waves, 10 turrets, 8+ enemy types.
   - Turrets have 3 upgrade tiers (I/II/III) and a mod choice each tier.
@@ -7265,6 +7267,4 @@
   }
   requestAnimationFrame(loop);
 })();
-
-
 

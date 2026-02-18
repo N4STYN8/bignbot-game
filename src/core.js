@@ -2658,7 +2658,8 @@ class Game {
     if (this.playerStats) this.playerStats.leaks += 1;
     this.lives--;
     this.particles.spawn(enemy.x, enemy.y, 8, "boom");
-    this.audio.play("leak");
+    // CODEX CHANGE: Throttle leak SFX so simultaneous leaks do not hard-retrigger and sound broken.
+    this.audio.playLimited("leak", 110);
     this.damageFlash = Math.max(this.damageFlash, 0.45);
     const end = this.map.pathPts[this.map.pathPts.length - 1];
     if (end) {
@@ -3876,6 +3877,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
 
 
 

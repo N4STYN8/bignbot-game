@@ -92,21 +92,16 @@ export class Map {
       const out = deduped.length >= 2 ? deduped : pts;
       if (out.length >= 2) {
         const first = out[0];
+        const second = out[1];
+        const prev = out[out.length - 2];
         const last = out[out.length - 1];
-        const axis = this.env?.axis === "TB" ? "TB" : "LR";
-        const laneMinX = snapToCellCenter(b.x + this.gridSize * 0.5);
-        const laneMaxX = snapToCellCenter(b.x + b.w - this.gridSize * 0.5);
-        const laneMinY = snapToCellCenter(b.y + this.gridSize * 0.5);
-        const laneMaxY = snapToCellCenter(b.y + b.h - this.gridSize * 0.5);
-        if (axis === "LR") {
-          const leftToRight = first[0] <= last[0];
-          first[0] = leftToRight ? laneMinX : laneMaxX;
-          last[0] = leftToRight ? laneMaxX : laneMinX;
-        } else {
-          const topToBottom = first[1] <= last[1];
-          first[1] = topToBottom ? laneMinY : laneMaxY;
-          last[1] = topToBottom ? laneMaxY : laneMinY;
-        }
+        const laneMinX = this.gridSize * 0.5;
+        const laneMaxX = (this.cols - 0.5) * this.gridSize;
+        // Always span full playable width from left to right, with horizontal entry/exit.
+        first[0] = laneMinX;
+        first[1] = second[1];
+        last[0] = laneMaxX;
+        last[1] = prev[1];
       }
       return out;
     };

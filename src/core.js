@@ -434,22 +434,44 @@ class Game {
     const rows = this.map.rows | 0;
     if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return false;
 
-    // Keep corruption in a tight ring around track cells (value 2).
+    // Random candidate band must be no more than 3 tiles from track.
+    // Use Manhattan distance so "3 tiles away" is intuitive.
+    const maxTiles = 3;
     let nearest = Infinity;
-    const ring = 2;
-    for (let oy = -ring; oy <= ring; oy++) {
-      for (let ox = -ring; ox <= ring; ox++) {
+    for (let oy = -maxTiles; oy <= maxTiles; oy++) {
+      for (let ox = -maxTiles; ox <= maxTiles; ox++) {
+        const md = Math.abs(ox) + Math.abs(oy);
+        if (md > maxTiles) continue;
         const tx = gx + ox;
         const ty = gy + oy;
         if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) continue;
         const idx = ty * cols + tx;
         if (this.map.cells[idx] !== 2) continue;
-        const d2 = ox * ox + oy * oy;
-        if (d2 < nearest) nearest = d2;
+        if (md < nearest) nearest = md;
       }
     }
-    // Exclude track itself (0), include immediate/near neighbors only.
-    return nearest >= 1 && nearest <= 4;
+    return nearest >= 1 && nearest <= maxTiles;
+  }
+
+  _trackTileDistance(gx, gy) {
+    if (!this.map?.cells?.length) return Infinity;
+    const cols = this.map.cols | 0;
+    const rows = this.map.rows | 0;
+    const maxTiles = 3;
+    let nearest = Infinity;
+    for (let oy = -maxTiles; oy <= maxTiles; oy++) {
+      for (let ox = -maxTiles; ox <= maxTiles; ox++) {
+        const md = Math.abs(ox) + Math.abs(oy);
+        if (md > maxTiles) continue;
+        const tx = gx + ox;
+        const ty = gy + oy;
+        if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) continue;
+        const idx = ty * cols + tx;
+        if (this.map.cells[idx] !== 2) continue;
+        if (md < nearest) nearest = md;
+      }
+    }
+    return nearest;
   }
 
   _initCorruptedTiles(savedTiles = null) {
@@ -514,9 +536,9 @@ class Game {
 
     // CODEX CHANGE: Use seeded random spread (not clusters) within 3-track-tile candidates.
     const level = Math.max(1, this.levelIndex | 0);
-    // CODEX CHANGE: Increase corruption density while preserving enough open build cells to keep maps beatable.
-    const targetBase = clamp(Math.round(candidates.length * 0.44), 28, 110);
-    const minClear = clamp(Math.round(candidates.length * 0.36), 14, 80);
+    // Balanced corruption spread: enough to matter, not enough to make maps unwinnable.
+    const targetBase = clamp(Math.round(candidates.length * 0.48), 22, 96);
+    const minClear = clamp(Math.round(candidates.length * 0.40), 16, 72);
     const target = Math.min(targetBase, Math.max(0, candidates.length - minClear));
     const rng = makeRNG(((this.mapSeed || 0) ^ (level * 2654435761)) >>> 0);
 
@@ -543,8 +565,11 @@ class Game {
     // Pass 1: weighted random acceptance so corruption has pockets and gaps.
     for (const c of candidates) {
       if (selected.length >= target) break;
+      const d = this._trackTileDistance(c.gx, c.gy);
       const near = nearbyCount(c);
-      const acceptP = near <= 0 ? 0.82 : (near === 1 ? 0.48 : 0.22);
+      const distBias = d <= 1 ? 0.92 : (d === 2 ? 0.68 : 0.5);
+      const spreadBias = near <= 0 ? 1 : (near === 1 ? 0.7 : 0.35);
+      const acceptP = distBias * spreadBias;
       if (rng() > acceptP) continue;
       const key = keyOf(c);
       if (selectedKeys.has(key)) continue;
@@ -559,7 +584,7 @@ class Game {
         const key = keyOf(c);
         if (selectedKeys.has(key)) continue;
         const near = nearbyCount(c);
-        if (near >= 3 && rng() > 0.35) continue;
+        if (near >= 3 && rng() > 0.55) continue;
         selected.push(c);
         selectedKeys.add(key);
       }
@@ -1704,12 +1729,15 @@ class Game {
     if (comboCascadeEl && comboCascadeCountEl) {
       const comboActive = this.comboCount > 0;
       const comboShow = comboActive;
-      const comboOpacity = comboActive ? 1 : 0;
+      const life = comboActive ? clamp(this.comboTimer / Math.max(0.001, this.comboWindow), 0, 1) : 0;
+      const multText = comboActive ? `x${this.comboCount | 0}` : "";
       comboCascadeEl.classList.toggle("active", comboShow);
       comboCascadeEl.classList.toggle("tier10", this.comboCount >= 10);
       comboCascadeEl.classList.toggle("tier15", this.comboCount >= 15);
-      comboCascadeEl.style.opacity = comboShow ? String(clamp(comboOpacity, 0, 1)) : "0";
-      comboCascadeCountEl.textContent = comboActive ? `x${this.comboCount | 0}` : "";
+      comboCascadeEl.style.opacity = comboShow ? "1" : "0";
+      comboCascadeEl.style.setProperty("--combo-life", String(life));
+      comboCascadeEl.style.setProperty("--combo-count", String(Math.max(1, this.comboCount | 0)));
+      comboCascadeCountEl.textContent = multText;
     }
     if (screenFxEl) {
       screenFxEl.classList.toggle("comboTier10", this.comboCount >= 10);

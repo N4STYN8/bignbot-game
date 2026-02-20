@@ -1,7 +1,7 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { AudioSystem } from "./audio.js";
 import { Map } from "./map.js";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, turretHitFxProfile } from "./enemies.js";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js";
 import { Particles } from "./vfx.js";
 import { Projectile } from "./projectiles.js";
 import { TURRET_TYPES, Turret } from "./turrets.js";
@@ -10,6 +10,9 @@ import { TURRET_TYPES, Turret } from "./turrets.js";
 const comboCascadeEl = document.getElementById("comboCascade");
 const comboCascadeCountEl = document.getElementById("comboCascadeCount");
 const screenFxEl = document.querySelector(".screenFx");
+const enemySpritesToggleEl = document.getElementById("enemySpritesToggle");
+const vfxIntensitySelectEl = document.getElementById("vfxIntensitySelect");
+const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
 const ECHO_CASCADE_WINDOW_TIERS = [
   { min: 16, sec: 0.8 },
   { min: 11, sec: 1.0 },
@@ -60,6 +63,8 @@ class Game {
     this.audio = new AudioSystem();
     this._initCollections();
     this._initRuntimeState();
+    this._loadVisualSettings();
+    this._applyVisualSettings();
     this._initCorruptedTiles();
     if (pauseBtn) pauseBtn.textContent = "PAUSE";
 
@@ -75,6 +80,8 @@ class Game {
   // CODEX CHANGE: Consolidate array/map collection defaults used across gameplay and VFX.
   _initCollections() {
     this.explosions = [];
+    this.screenFlashes = [];
+    this.delayedEnemyFx = [];
     this.floatText = [];
     this.decals = [];
     this._textLimiter = new globalThis.Map();
@@ -155,6 +162,43 @@ class Game {
     this.panelHold = { left: 0, right: 0 };
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
+    this.visualSettings = { enemySprites: true, vfxIntensity: "med" };
+  }
+
+  _sanitizeVfxIntensity(v) {
+    return v === "low" || v === "high" ? v : "med";
+  }
+
+  _loadVisualSettings() {
+    try {
+      const raw = localStorage.getItem(VISUAL_SETTINGS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      this.visualSettings.enemySprites = parsed?.enemySprites !== false;
+      this.visualSettings.vfxIntensity = this._sanitizeVfxIntensity(parsed?.vfxIntensity);
+    } catch (err) {
+      this.visualSettings.enemySprites = true;
+      this.visualSettings.vfxIntensity = "med";
+    }
+  }
+
+  _saveVisualSettings() {
+    try {
+      localStorage.setItem(VISUAL_SETTINGS_KEY, JSON.stringify({
+        enemySprites: this.visualSettings.enemySprites !== false,
+        vfxIntensity: this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity)
+      }));
+    } catch (err) {}
+  }
+
+  _applyVisualSettings() {
+    ENEMY_RENDER_CONFIG.useSprites = this.visualSettings.enemySprites !== false;
+    ENEMY_RENDER_CONFIG.vfxIntensity = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
+  }
+
+  _syncVisualSettingsUi() {
+    if (enemySpritesToggleEl) enemySpritesToggleEl.checked = this.visualSettings.enemySprites !== false;
+    if (vfxIntensitySelectEl) vfxIntensitySelectEl.value = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
   }
 
   _hideLandingMenu() {
@@ -385,13 +429,27 @@ class Game {
   _isTrackAdjacentBuildCell(gx, gy, v) {
     // Corruption is only allowed on normal build tiles, never power tiles.
     if (v !== 1) return false;
-    if (!this.map?.segs?.length) return false;
-    const x = (gx + 0.5) * this.map.gridSize;
-    const y = (gy + 0.5) * this.map.gridSize;
-    const d = Math.sqrt(distanceToSegmentsSquared(x, y, this.map.segs));
-    const trackEdge = TRACK_RADIUS + TRACK_BLOCK_PAD;
-    const maxThreeTilesOut = trackEdge + this.map.gridSize * 3;
-    return d > trackEdge && d <= maxThreeTilesOut;
+    if (!this.map?.cells?.length) return false;
+    const cols = this.map.cols | 0;
+    const rows = this.map.rows | 0;
+    if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return false;
+
+    // Keep corruption in a tight ring around track cells (value 2).
+    let nearest = Infinity;
+    const ring = 2;
+    for (let oy = -ring; oy <= ring; oy++) {
+      for (let ox = -ring; ox <= ring; ox++) {
+        const tx = gx + ox;
+        const ty = gy + oy;
+        if (tx < 0 || ty < 0 || tx >= cols || ty >= rows) continue;
+        const idx = ty * cols + tx;
+        if (this.map.cells[idx] !== 2) continue;
+        const d2 = ox * ox + oy * oy;
+        if (d2 < nearest) nearest = d2;
+      }
+    }
+    // Exclude track itself (0), include immediate/near neighbors only.
+    return nearest >= 1 && nearest <= 4;
   }
 
   _initCorruptedTiles(savedTiles = null) {
@@ -676,6 +734,8 @@ class Game {
     this.cam.x = 0;
     this.cam.y = 0;
     this.explosions = [];
+    this.screenFlashes = [];
+    this.delayedEnemyFx = [];
     this.decals = [];
     this.beams = [];
     this.arcs = [];
@@ -702,10 +762,49 @@ class Game {
         if (arr[i].t <= 0) arr.splice(i, 1);
       }
     };
+    for (let i = this.delayedEnemyFx.length - 1; i >= 0; i--) {
+      const fx = this.delayedEnemyFx[i];
+      fx.delay -= dtScaled;
+      if (fx.delay > 0) continue;
+      this.delayedEnemyFx.splice(i, 1);
+      if (fx.spawn?.type === "shockwave") {
+        this.explosions.push({
+          x: fx.spawn.x,
+          y: fx.spawn.y,
+          r: fx.spawn.r,
+          t: fx.spawn.dur,
+          dur: fx.spawn.dur,
+          max: fx.spawn.max,
+          col: fx.spawn.col,
+          boom: !!fx.spawn.boom
+        });
+      }
+      if (fx.spawn?.type === "particles") {
+        this.particles.spawn(
+          fx.spawn.x,
+          fx.spawn.y,
+          fx.spawn.n,
+          fx.spawn.kind,
+          fx.spawn.tint
+        );
+      }
+      if (fx.spawn?.type === "screenFlash") {
+        this.screenFlashes.push({
+          x: fx.spawn.x,
+          y: fx.spawn.y,
+          r: fx.spawn.r,
+          t: fx.spawn.dur,
+          dur: fx.spawn.dur,
+          max: fx.spawn.max,
+          col: fx.spawn.col || "rgba(255,207,91,0.4)"
+        });
+      }
+    }
     decay(this.beams);
     decay(this.arcs);
     decay(this.cones);
     decay(this.explosions);
+    decay(this.screenFlashes);
     decay(this.decals);
     this.particles.update(dtScaled);
     for (let i = this.floatText.length - 1; i >= 0; i--) {
@@ -877,6 +976,17 @@ class Game {
 
     if (musicVol) musicVol.value = String(Math.round(this.audio.bgm.volume * 100));
     if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
+    this._syncVisualSettingsUi();
+    enemySpritesToggleEl?.addEventListener("change", () => {
+      this.visualSettings.enemySprites = !!enemySpritesToggleEl.checked;
+      this._applyVisualSettings();
+      this._saveVisualSettings();
+    });
+    vfxIntensitySelectEl?.addEventListener("change", () => {
+      this.visualSettings.vfxIntensity = this._sanitizeVfxIntensity(vfxIntensitySelectEl.value);
+      this._applyVisualSettings();
+      this._saveVisualSettings();
+    });
 
     resetBtn?.addEventListener("click", () => {
       showConfirm("Reset Game", "Reset the game? This will clear your saved progress.", () => {
@@ -2362,6 +2472,10 @@ class Game {
     this.arcs = [];
     this.cones = [];
     this.lingering = [];
+    this.explosions = [];
+    this.screenFlashes = [];
+    this.delayedEnemyFx = [];
+    this.decals = [];
     this.floatText = [];
     this._textLimiter = new globalThis.Map();
 
@@ -2415,8 +2529,19 @@ class Game {
     const y = enemy.y;
     const tint = enemy.tint || "rgba(255,207,91,0.85)";
     const type = enemy.typeKey || "";
+    const vfxScale = getEnemyVfxScale();
+    const count = (base, min = 1, max = 80) => clamp(Math.round(base * vfxScale), min, max);
+    const isFinalBoss = type.startsWith("FINAL_BOSS_");
+    const isMiniBoss = type === "BOSS_PROJECTOR" || type.includes("MINIBOSS");
 
-    const addBoom = (r, dur, max, col, boom = true) => {
+    const addShockwave = (r, dur, max, col, boom = false, delay = 0) => {
+      if (delay > 0) {
+        this.delayedEnemyFx.push({
+          delay,
+          spawn: { type: "shockwave", x, y, r, dur, max, col: col || tint, boom }
+        });
+        return;
+      }
       this.explosions.push({
         x, y,
         r,
@@ -2427,6 +2552,26 @@ class Game {
         boom
       });
     };
+    const addBurst = (n, kind, color, delay = 0) => {
+      if (delay > 0) {
+        this.delayedEnemyFx.push({
+          delay,
+          spawn: { type: "particles", x, y, n, kind, tint: color || tint }
+        });
+        return;
+      }
+      this.particles.spawn(x, y, n, kind, color || tint);
+    };
+    const addScreenFlash = (r, dur, max, col, delay = 0) => {
+      if (delay > 0) {
+        this.delayedEnemyFx.push({
+          delay,
+          spawn: { type: "screenFlash", x, y, r, dur, max, col }
+        });
+        return;
+      }
+      this.screenFlashes.push({ x, y, r, t: dur, dur, max, col });
+    };
 
     const addShake = (t, mag) => {
       this.shakeT = Math.min(0.32, this.shakeT + t);
@@ -2436,81 +2581,117 @@ class Game {
     switch (type) {
       case "RUNNER":
       case "MINI":
-        this.particles.spawn(x, y, 8, "shard", tint);
-        addBoom(10, 0.24, 38, tint, false);
-        addShake(0.03, 0.45);
+        addBurst(count(14, 10, 24), "shard", tint);
+        addBurst(count(2, 1, 4), "boom", "rgba(234,240,255,0.85)");
+        addShockwave(8, 0.2, 38, tint, false);
+        addScreenFlash(12, 0.12, 54, "rgba(234,240,255,0.18)");
+        addShake(0.05, 0.8);
         break;
       case "BRUTE":
-        this.particles.spawn(x, y, 20, "boom", tint);
-        this.particles.spawn(x, y, 10, "hit", "rgba(255,207,91,0.9)");
-        addBoom(18, 0.42, 88, tint, true);
-        addBoom(10, 0.26, 56, "rgba(255,240,190,0.75)", false);
-        addShake(0.11, 2.1);
+        addBurst(count(16, 10, 25), "boom", tint);
+        addBurst(count(3, 1, 4), "shard", "rgba(255,230,190,0.9)");
+        addShockwave(14, 0.48, 104, tint, false);
+        addShockwave(12, 0.36, 72, "rgba(255,240,190,0.7)", true);
+        addScreenFlash(22, 0.16, 92, "rgba(255,207,91,0.2)");
+        addShake(0.13, 2.4);
         break;
       case "ARMORED":
-        this.particles.spawn(x, y, 14, "shard", "rgba(200,220,255,0.9)");
-        addBoom(14, 0.34, 66, "rgba(160,190,255,0.92)", true);
-        addBoom(9, 0.22, 42, "rgba(234,240,255,0.7)", false);
-        addShake(0.08, 1.4);
+        addBurst(count(15, 10, 24), "shard", "rgba(200,220,255,0.95)");
+        addBurst(count(2, 1, 4), "boom", "rgba(210,225,255,0.85)");
+        addShockwave(12, 0.44, 92, "rgba(160,190,255,0.95)", false);
+        addShockwave(10, 0.32, 62, "rgba(234,240,255,0.75)", true);
+        addScreenFlash(18, 0.15, 76, "rgba(205,225,255,0.18)");
+        addShake(0.11, 2.0);
         break;
       case "SHIELDED":
       case "SHIELD_DRONE":
       case "BOSS_PROJECTOR":
-        this.particles.spawn(x, y, 12, "shard", "rgba(154,108,255,0.95)");
-        addBoom(11, 0.25, 52, "rgba(154,108,255,0.95)", false); // shield pop
-        addBoom(16, 0.36, 76, tint, true);
-        addShake(0.09, 1.6);
+        addShockwave(10, 0.2, 54, "rgba(154,108,255,0.95)", false);
+        addBurst(count(12, 8, 20), "shard", "rgba(154,108,255,0.95)");
+        addShockwave(14, 0.34, 78, tint, true, 0.06);
+        addBurst(count(10, 8, 20), "boom", tint, 0.06);
+        addScreenFlash(20, 0.16, 80, "rgba(154,108,255,0.22)");
+        addShake(0.1, 1.8);
         break;
       case "SPLITTER":
-        this.particles.spawn(x, y, 16, "chem", "rgba(255,207,91,0.9)");
-        addBoom(13, 0.3, 58, "rgba(255,207,91,0.9)", true);
-        addShake(0.08, 1.2);
+        addBurst(count(14, 10, 22), "chem", "rgba(255,207,91,0.92)");
+        addBurst(count(2, 1, 4), "boom", "rgba(255,224,140,0.85)");
+        addShockwave(12, 0.28, 62, "rgba(255,207,91,0.9)", true);
+        addScreenFlash(14, 0.14, 60, "rgba(255,220,150,0.16)");
+        addShake(0.08, 1.3);
         break;
       case "REGEN":
-        this.particles.spawn(x, y, 18, "chem", "rgba(109,255,154,0.92)");
-        addBoom(12, 0.3, 60, "rgba(109,255,154,0.88)", true);
+        addBurst(count(15, 10, 22), "chem", "rgba(109,255,154,0.92)");
+        addBurst(count(2, 1, 4), "boom", "rgba(200,255,220,0.8)");
+        addShockwave(11, 0.3, 64, "rgba(109,255,154,0.88)", true);
+        addScreenFlash(16, 0.15, 68, "rgba(109,255,154,0.18)");
         this.decals.push({ x, y, r: 18, t: 1.6, col: "rgba(109,255,154,0.22)" });
-        addShake(0.07, 1.1);
+        addShake(0.08, 1.3);
         break;
       case "STEALTH":
-        this.particles.spawn(x, y, 10, "hit", "rgba(234,240,255,0.9)");
-        addBoom(10, 0.22, 46, "rgba(234,240,255,0.7)", false);
+        addBurst(count(16, 10, 26), "hit", "rgba(234,240,255,0.86)");
+        addBurst(count(10, 8, 20), "muzzle", "rgba(180,205,235,0.6)");
+        addShockwave(8, 0.18, 34, "rgba(190,215,255,0.45)", false);
+        addScreenFlash(10, 0.1, 40, "rgba(220,230,255,0.12)");
         addShake(0.04, 0.7);
         break;
       case "FLYING":
-        this.particles.spawn(x, y, 12, "muzzle", "rgba(98,242,255,0.9)");
-        addBoom(12, 0.27, 50, tint, false);
-        addShake(0.05, 0.9);
+        addBurst(count(10, 8, 18), "muzzle", "rgba(98,242,255,0.9)");
+        addBurst(count(3, 1, 4), "shard", "rgba(200,245,255,0.85)");
+        addShockwave(10, 0.24, 44, tint, false);
+        addScreenFlash(12, 0.11, 50, "rgba(98,242,255,0.16)");
+        addShake(0.06, 1.0);
         break;
       case "PHASE":
-        this.particles.spawn(x, y, 14, "shard", "rgba(154,108,255,0.95)");
-        addBoom(11, 0.22, 48, "rgba(154,108,255,0.95)", false);
-        addBoom(16, 0.34, 72, tint, true);
-        addShake(0.09, 1.4);
+        addBurst(count(15, 10, 24), "shard", "rgba(154,108,255,0.95)");
+        addBurst(count(2, 1, 4), "muzzle", "rgba(195,170,255,0.8)");
+        addShockwave(9, 0.2, 46, "rgba(154,108,255,0.95)", false);
+        addShockwave(13, 0.28, 66, tint, true);
+        addScreenFlash(14, 0.12, 58, "rgba(170,132,255,0.18)");
+        addShake(0.09, 1.5);
         break;
       case "FINAL_BOSS_VORTEX":
       case "FINAL_BOSS_ABYSS":
       case "FINAL_BOSS_IRON":
-        this.particles.spawn(x, y, 34, "boom", tint);
-        this.particles.spawn(x, y, 24, "shard", "rgba(255,207,91,0.95)");
-        addBoom(24, 0.55, 150, tint, true);
-        addBoom(16, 0.4, 115, "rgba(255,120,200,0.88)", false);
-        addBoom(10, 0.24, 72, "rgba(234,240,255,0.78)", false);
+        addBurst(count(22, 14, 34), "boom", tint);
+        addBurst(count(14, 10, 24), "shard", "rgba(255,207,91,0.95)");
+        addShockwave(18, 0.44, 130, tint, true);
+        addShockwave(14, 0.38, 115, "rgba(255,120,200,0.86)", false, 0.16);
+        addShockwave(12, 0.34, 102, "rgba(234,240,255,0.76)", false, 0.34);
+        addBurst(count(14, 10, 24), "boom", tint, 0.16);
+        addBurst(count(12, 8, 20), "shard", "rgba(255,207,91,0.95)", 0.34);
+        addScreenFlash(26, 0.2, 130, "rgba(255,207,91,0.26)");
+        addScreenFlash(24, 0.16, 118, "rgba(255,120,200,0.2)", 0.16);
+        addScreenFlash(20, 0.14, 108, "rgba(234,240,255,0.16)", 0.34);
         this.decals.push({ x, y, r: 30, t: 3.2, col: "rgba(25,10,30,0.45)" });
-        addShake(0.2, 3.2);
+        addShake(0.22, 3.4);
         break;
       default:
-        if (enemy.isBoss) {
-          this.particles.spawn(x, y, 26, "boom", tint);
-          addBoom(20, 0.48, 112, tint, true);
-          addBoom(12, 0.3, 72, "rgba(234,240,255,0.76)", false);
-          addShake(0.16, 2.7);
+        if (enemy.isBoss || isMiniBoss) {
+          addBurst(count(18, 10, 30), "boom", tint);
+          addBurst(count(3, 1, 4), "shard", "rgba(255,230,190,0.9)");
+          addShockwave(16, 0.42, 96, tint, false);
+          addShockwave(12, 0.34, 72, "rgba(234,240,255,0.76)", true);
+          addScreenFlash(20, 0.16, 88, "rgba(255,207,91,0.2)");
+          addShake(0.16, 2.6);
         } else {
-          this.particles.spawn(x, y, enemy.flying ? 10 : 14, "boom", tint);
-          addBoom(enemy.flying ? 12 : 16, 0.38, 64, tint, true);
+          addBurst(count(enemy.flying ? 10 : 14, 8, 20), "boom", tint);
+          addBurst(count(2, 1, 3), "shard", "rgba(234,240,255,0.85)");
+          addShockwave(enemy.flying ? 10 : 14, 0.3, 58, tint, true);
+          addScreenFlash(enemy.flying ? 10 : 14, 0.12, enemy.flying ? 44 : 62, "rgba(255,207,91,0.16)");
           addShake(0.08, enemy.flying ? 1.0 : 1.6);
         }
         break;
+    }
+
+    if (type === "RUNNER" || type === "PHASE") {
+      this.audio?.playLimited("hit", 90);
+    }
+    if (type === "BRUTE" || type === "ARMORED" || isMiniBoss) {
+      addShockwave(14, 0.5, 108, "rgba(255,207,91,0.75)", false);
+    }
+    if (isFinalBoss) {
+      this.audio?.playLimited("explodingboss", 220);
     }
   }
 
@@ -3788,6 +3969,24 @@ class Game {
       gfx.restore();
     }
     gfx.restore();
+
+    if (this.screenFlashes.length) {
+      gfx.save();
+      for (const flash of this.screenFlashes) {
+        const k = 1 - clamp(flash.t / (flash.dur || 0.18), 0, 1);
+        const r = flash.r + (flash.max - flash.r) * k;
+        const s = this.worldToScreen(flash.x, flash.y);
+        gfx.globalAlpha = 0.45 * (1 - k);
+        const grad = gfx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
+        grad.addColorStop(0, flash.col || "rgba(255,207,91,0.35)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        gfx.fillStyle = grad;
+        gfx.beginPath();
+        gfx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        gfx.fill();
+      }
+      gfx.restore();
+    }
 
     if (this.gameState === GAME_STATE.BOSS_CINEMATIC && c) {
       gfx.save();

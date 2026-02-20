@@ -77,10 +77,39 @@ export class Map {
     this.powerCells = [];
     this.poolsN = this.poolsN || [];
 
-    const buildPathPts = (b) => this.pathN.map(([nx, ny]) => [
-      b.x + nx * b.w,
-      b.y + ny * b.h
-    ]);
+    const snapToCellCenter = (v) => (Math.floor(v / this.gridSize) + 0.5) * this.gridSize;
+    const buildPathPts = (b) => {
+      const pts = this.pathN.map(([nx, ny]) => {
+        const rawX = b.x + nx * b.w;
+        const rawY = b.y + ny * b.h;
+        return [snapToCellCenter(rawX), snapToCellCenter(rawY)];
+      });
+      const deduped = [];
+      for (const p of pts) {
+        const last = deduped[deduped.length - 1];
+        if (!last || last[0] !== p[0] || last[1] !== p[1]) deduped.push(p);
+      }
+      const out = deduped.length >= 2 ? deduped : pts;
+      if (out.length >= 2) {
+        const first = out[0];
+        const last = out[out.length - 1];
+        const axis = this.env?.axis === "TB" ? "TB" : "LR";
+        const laneMinX = snapToCellCenter(b.x + this.gridSize * 0.5);
+        const laneMaxX = snapToCellCenter(b.x + b.w - this.gridSize * 0.5);
+        const laneMinY = snapToCellCenter(b.y + this.gridSize * 0.5);
+        const laneMaxY = snapToCellCenter(b.y + b.h - this.gridSize * 0.5);
+        if (axis === "LR") {
+          const leftToRight = first[0] <= last[0];
+          first[0] = leftToRight ? laneMinX : laneMaxX;
+          last[0] = leftToRight ? laneMaxX : laneMinX;
+        } else {
+          const topToBottom = first[1] <= last[1];
+          first[1] = topToBottom ? laneMinY : laneMaxY;
+          last[1] = topToBottom ? laneMaxY : laneMinY;
+        }
+      }
+      return out;
+    };
     this.pathPts = buildPathPts(bounds);
     let segData = buildPathSegments(this.pathPts);
     if (!Number.isFinite(segData.totalLen) || segData.totalLen < Math.min(W, H) * 0.35) {

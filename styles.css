@@ -687,6 +687,25 @@ body{
   width:90px;
   accent-color: var(--accent);
 }
+.visualSettingsRow{
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+}
+.audioCtl input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  accent-color: var(--accent);
+}
+.audioCtl select{
+  min-width:84px;
+  padding:3px 6px;
+  border-radius:8px;
+  border:1px solid rgba(28,42,90,.75);
+  background: rgba(11,16,34,.65);
+  color: var(--text);
+  font-size:11px;
+}
 .audioIcon{
   width:14px;
   height:14px;

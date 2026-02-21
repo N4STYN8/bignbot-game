@@ -531,7 +531,7 @@ export function generateMap(seed, envId) {
   const safeH = Math.max(1, H);
   const gridW = Math.max(12, Math.floor(bounds.w / MAP_GRID_SIZE));
   const gridH = Math.max(8, Math.floor(bounds.h / MAP_GRID_SIZE));
-  const axis = env.axis || (rng() < 0.5 ? "LR" : "TB");
+  const axis = "LR";
   const pathCells = generatePath(rng, gridW, gridH, axis);
   const pathN = pathCells.map(([gx, gy]) => [
     (gx + 0.5) / gridW,

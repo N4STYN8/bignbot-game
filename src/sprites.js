@@ -1,4 +1,6 @@
 export const USE_TURRET_SPRITES = true;
+export const USE_ENEMY_SPRITES = true;
+export const ENEMY_SPRITE_ANGLE_OFFSET = Math.PI / 2;
 
 export const SPRITE_ANGLE_OFFSET = Math.PI / 2;
 export const TURRET_SPRITE_ANGLE_OVERRIDES = {
@@ -23,6 +25,71 @@ export const TURRET_GLOW_TINTS = {
   AURA: "rgba(171,156,255,1)",
   DRONE: "rgba(116,236,255,1)",
   TRAP: "rgba(180,120,255,1)",
+};
+
+const ENEMY_SPRITE_KEY_TO_PATHS = {
+  runner: [
+    "assets/images/enemies/runner/runner.png",
+    "assets/images/enemies/runner.png",
+  ],
+  brute: [
+    "assets/images/enemies/brute/brute.png",
+    "assets/images/enemies/brute.png",
+  ],
+  armored: [
+    "assets/images/enemies/armored/armored.png",
+    "assets/images/enemies/armored.png",
+  ],
+  shielded: [
+    "assets/images/enemies/shielded/shielded.png",
+    "assets/images/enemies/shielded.png",
+  ],
+  splitter: [
+    "assets/images/enemies/splitter/splitter.png",
+    "assets/images/enemies/splitter.png",
+  ],
+  splitter_orb: [
+    "assets/images/enemies/splitter_orb/splitter_orb.png",
+    "assets/images/enemies/mini.png",
+    "assets/images/enemies/split_splitter.png",
+  ],
+  mini: [
+    "assets/images/enemies/mini/mini.png",
+    "assets/images/enemies/mini.png",
+  ],
+  regen: [
+    "assets/images/enemies/regen/regen.png",
+    "assets/images/enemies/regen.png",
+  ],
+  stealth: [
+    "assets/images/enemies/stealth/stealth.png",
+    "assets/images/enemies/stealth.png",
+  ],
+  flying: [
+    "assets/images/enemies/flying/flying.png",
+    "assets/images/enemies/flying.png",
+  ],
+  phase: [
+    "assets/images/enemies/phase/phase.png",
+    "assets/images/enemies/phase.png",
+  ],
+  miniboss: [
+    "assets/images/enemies/miniboss/miniboss.png",
+    "assets/images/enemies/mini/mini.png",
+    "assets/images/enemies/mini.png",
+  ],
+  finalboss_triangle: [
+    "assets/images/enemies/finalboss_triangle/finalboss_triangle.png",
+    "assets/images/enemies/finalboss1.png",
+  ],
+  finalboss_oval: [
+    "assets/images/enemies/finalboss_oval/finalboss_oval.png",
+    "assets/images/enemies/finalboss2.png",
+  ],
+  finalboss_fortress: [
+    "assets/images/enemies/finalboss_fortress/finalboss_fortress.png",
+    "assets/images/enemies/finalboss3.png",
+  ],
 };
 
 const TURRET_SPRITE_DEFS = {
@@ -86,6 +153,21 @@ function buildSpriteMap() {
 }
 
 export const TURRET_SPRITE_FILES = buildSpriteMap();
+
+function uniqueList(items) {
+  const out = [];
+  const seen = new Set();
+  for (const item of items) {
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+}
+
+export const ENEMY_SPRITE_FILES = Object.fromEntries(
+  Object.entries(ENEMY_SPRITE_KEY_TO_PATHS).map(([k, paths]) => [k, uniqueList(paths)])
+);
 
 function requestSprite(path) {
   let rec = spriteCache[path];
@@ -160,4 +242,45 @@ export function getTurretSprite(typeKey, level) {
   }
 
   return null;
+}
+
+function resolveEnemySpriteKey(typeKey) {
+  switch (typeKey) {
+    case "RUNNER": return "runner";
+    case "BRUTE": return "brute";
+    case "ARMORED": return "armored";
+    case "SHIELDED": return "shielded";
+    case "SPLITTER": return "splitter";
+    case "MINI": return "splitter_orb";
+    case "REGEN": return "regen";
+    case "STEALTH": return "stealth";
+    case "FLYING": return "flying";
+    case "PHASE": return "phase";
+    case "FINAL_BOSS_VORTEX": return "finalboss_triangle";
+    case "FINAL_BOSS_ABYSS": return "finalboss_oval";
+    case "FINAL_BOSS_IRON": return "finalboss_fortress";
+    case "BOSS_PROJECTOR":
+      return "mini";
+    case "SHIELD_DRONE":
+      return "miniboss";
+    default:
+      if (typeKey && typeKey.startsWith("FINAL_BOSS_")) return "finalboss_triangle";
+      if (typeKey && (typeKey.includes("MINIBOSS") || typeKey.startsWith("BOSS_"))) return "miniboss";
+      return null;
+  }
+}
+
+export function preloadEnemySprites() {
+  for (const candidates of Object.values(ENEMY_SPRITE_FILES)) {
+    requestCandidates(candidates);
+  }
+}
+
+export function getEnemySprite(typeKey) {
+  const spriteKey = resolveEnemySpriteKey(typeKey);
+  if (!spriteKey) return null;
+  const candidates = ENEMY_SPRITE_FILES[spriteKey];
+  if (!candidates) return null;
+  requestCandidates(candidates);
+  return getLoadedCandidate(candidates);
 }

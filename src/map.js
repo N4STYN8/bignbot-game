@@ -77,10 +77,34 @@ export class Map {
     this.powerCells = [];
     this.poolsN = this.poolsN || [];
 
-    const buildPathPts = (b) => this.pathN.map(([nx, ny]) => [
-      b.x + nx * b.w,
-      b.y + ny * b.h
-    ]);
+    const snapToCellCenter = (v) => (Math.floor(v / this.gridSize) + 0.5) * this.gridSize;
+    const buildPathPts = (b) => {
+      const pts = this.pathN.map(([nx, ny]) => {
+        const rawX = b.x + nx * b.w;
+        const rawY = b.y + ny * b.h;
+        return [snapToCellCenter(rawX), snapToCellCenter(rawY)];
+      });
+      const deduped = [];
+      for (const p of pts) {
+        const last = deduped[deduped.length - 1];
+        if (!last || last[0] !== p[0] || last[1] !== p[1]) deduped.push(p);
+      }
+      const out = deduped.length >= 2 ? deduped : pts;
+      if (out.length >= 2) {
+        const first = out[0];
+        const second = out[1];
+        const prev = out[out.length - 2];
+        const last = out[out.length - 1];
+        const laneMinX = this.gridSize * 0.5;
+        const laneMaxX = (this.cols - 0.5) * this.gridSize;
+        // Always span full playable width from left to right, with horizontal entry/exit.
+        first[0] = laneMinX;
+        first[1] = second[1];
+        last[0] = laneMaxX;
+        last[1] = prev[1];
+      }
+      return out;
+    };
     this.pathPts = buildPathPts(bounds);
     let segData = buildPathSegments(this.pathPts);
     if (!Number.isFinite(segData.totalLen) || segData.totalLen < Math.min(W, H) * 0.35) {

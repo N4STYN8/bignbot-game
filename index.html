@@ -261,6 +261,23 @@
           </div>
         </div>
         <div class="settingsSection">
+          <div class="settingsLabel">Visuals</div>
+          <div class="audioSliders visualSettingsRow">
+            <label class="audioCtl">
+              <span>Enemy Sprites</span>
+              <input id="enemySpritesToggle" type="checkbox" checked>
+            </label>
+            <label class="audioCtl">
+              <span>VFX Intensity</span>
+              <select id="vfxIntensitySelect">
+                <option value="low">Low</option>
+                <option value="med" selected>Med</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="settingsSection">
           <div class="settingsLabel">Reset</div>
           <button id="settingsResetBtn" class="btn danger">Reset Game</button>
           <div class="tiny">Clears saved progress and restarts from Level 1.</div>

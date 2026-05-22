@@ -7,14 +7,23 @@ export class Particles {
   constructor() { this.list = []; }
   spawn(x, y, n, kind, tint) {
     for (let i = 0; i < n; i++) {
+      const fast = kind === "spark" || kind === "power";
+      const heavy = kind === "boom" || kind === "shard";
+      const vx = fast ? rand(-150, 150) : rand(-80, 80);
+      const vy = fast ? rand(-150, 150) : rand(-80, 80);
+      const life = fast ? rand(0.28, 0.74) : heavy ? rand(0.32, 0.86) : rand(0.20, 0.60);
       const p = {
         x, y,
-        vx: rand(-80, 80),
-        vy: rand(-80, 80),
-        r: rand(1.2, 3.0),
-        t: rand(0.20, 0.60),
+        px: x,
+        py: y,
+        vx,
+        vy,
+        r: fast ? rand(1.0, 2.4) : rand(1.2, 3.0),
+        t: life,
+        life,
         kind,
-        tint: tint || null
+        tint: tint || null,
+        spin: rand(-4, 4)
       };
       this.list.push(p);
     }
@@ -28,14 +37,19 @@ export class Particles {
       const jitterX = nx + rand(-spread, spread);
       const jitterY = ny + rand(-spread, spread);
       const vlen = 60 + rand(0, 90);
+      const life = rand(0.22, 0.65);
       this.list.push({
         x, y,
+        px: x,
+        py: y,
         vx: jitterX * vlen,
         vy: jitterY * vlen,
         r: rand(1.2, 3.2),
-        t: rand(0.22, 0.65),
+        t: life,
+        life,
         kind,
-        tint: tint || null
+        tint: tint || null,
+        spin: rand(-4, 4)
       });
     }
   }
@@ -43,39 +57,75 @@ export class Particles {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];
       p.t -= dt;
+      p.px = p.x;
+      p.py = p.y;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vx *= (1 - dt * 3.5);
-      p.vy *= (1 - dt * 3.5);
+      const drag = p.kind === "spark" || p.kind === "power" ? 2.2 : 3.5;
+      p.vx *= (1 - dt * drag);
+      p.vy *= (1 - dt * drag);
+      if (p.kind === "ember" || p.kind === "chem") p.vy -= 16 * dt;
       if (p.t <= 0) this.list.splice(i, 1);
     }
   }
   draw(gfx) {
     gfx.save();
+    gfx.globalCompositeOperation = "lighter";
     for (const p of this.list) {
-      const a = clamp(p.t / 0.6, 0, 1);
+      const a = clamp(p.t / (p.life || 0.6), 0, 1);
+      let fill = "rgba(234,240,255,0.55)";
+      let alpha = a * 0.5;
       if (p.kind === "hit") {
-        gfx.globalAlpha = a * 0.75;
-        gfx.fillStyle = p.tint || "rgba(234,240,255,0.8)";
+        alpha = a * 0.75;
+        fill = p.tint || "rgba(234,240,255,0.8)";
       } else if (p.kind === "shard") {
-        gfx.globalAlpha = a * 0.85;
-        gfx.fillStyle = p.tint || "rgba(154,108,255,0.9)";
+        alpha = a * 0.85;
+        fill = p.tint || "rgba(154,108,255,0.9)";
       } else if (p.kind === "chem") {
-        gfx.globalAlpha = a * 0.55;
-        gfx.fillStyle = "rgba(109,255,154,0.7)";
+        alpha = a * 0.55;
+        fill = p.tint || "rgba(109,255,154,0.7)";
       } else if (p.kind === "muzzle") {
-        gfx.globalAlpha = a * 0.65;
-        gfx.fillStyle = "rgba(98,242,255,0.85)";
+        alpha = a * 0.65;
+        fill = p.tint || "rgba(98,242,255,0.85)";
       } else if (p.kind === "boom") {
-        gfx.globalAlpha = a * 0.65;
-        gfx.fillStyle = "rgba(255,207,91,0.85)";
+        alpha = a * 0.65;
+        fill = p.tint || "rgba(255,207,91,0.85)";
+      } else if (p.kind === "spark") {
+        alpha = a * 0.92;
+        fill = p.tint || "rgba(98,242,255,0.95)";
+      } else if (p.kind === "power") {
+        alpha = a * 0.88;
+        fill = p.tint || "rgba(255,207,91,0.95)";
+      } else if (p.kind === "ember") {
+        alpha = a * 0.62;
+        fill = p.tint || "rgba(255,152,92,0.82)";
       } else {
-        gfx.globalAlpha = a * 0.5;
-        gfx.fillStyle = "rgba(234,240,255,0.55)";
+        alpha = a * 0.5;
       }
+      const trailLen2 = dist2(p.x, p.y, p.px || p.x, p.py || p.y);
+      if ((p.kind === "spark" || p.kind === "power" || p.kind === "shard") && trailLen2 > 1) {
+        gfx.globalAlpha = alpha * 0.42;
+        gfx.strokeStyle = fill;
+        gfx.lineWidth = Math.max(1, p.r * 0.9);
+        gfx.beginPath();
+        gfx.moveTo(p.px, p.py);
+        gfx.lineTo(p.x, p.y);
+        gfx.stroke();
+      }
+      gfx.globalAlpha = alpha;
+      gfx.fillStyle = fill;
       gfx.beginPath();
-      gfx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      gfx.fill();
+      if (p.kind === "shard" || p.kind === "spark") {
+        gfx.save();
+        gfx.translate(p.x, p.y);
+        gfx.rotate((p.life - p.t) * p.spin);
+        gfx.rect(-p.r * 0.55, -p.r * 1.4, p.r * 1.1, p.r * 2.8);
+        gfx.fill();
+        gfx.restore();
+      } else {
+        gfx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        gfx.fill();
+      }
     }
     gfx.restore();
   }

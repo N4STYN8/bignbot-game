@@ -52,7 +52,7 @@ export const TURRET_TYPES = {
       // Tier I
       [
         { name: "Rifled Core", cost: 45, desc: "+22% damage, +10% range.", apply: t => { t.dmg *= 1.22; t.range *= 1.10; t.visual.rings++; } },
-        { name: "Cycler", cost: 45, desc: "-16% fire interval, -8% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 0.92; t.visual.barrels++; } },
+        { name: "Cycler", cost: 45, desc: "-16% fire interval, +4% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 1.04; t.visual.barrels++; } },
       ],
       // Tier II
       [
@@ -62,17 +62,17 @@ export const TURRET_TYPES = {
       // Tier III
       [
         { name: "Overpressure", cost: 140, desc: "+35% damage, +muzzle shock particles.", apply: t => { t.dmg *= 1.35; t.visual.glow = 1; } },
-        { name: "Twin Lattice", cost: 140, desc: "Fires 2 weaker shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.67; t.visual.barrels += 1; } },
+        { name: "Twin Lattice", cost: 140, desc: "Fires 2 paired shots per attack.", apply: t => { t.multishot = 2; t.dmg *= 0.62; t.visual.barrels += 1; } },
       ],
       // Tier IV
       [
-        { name: "Stabilized Recoil", cost: 180, desc: "-10% fire interval, -5% damage.", apply: t => { t.fire *= 0.90; t.dmg *= 0.95; t.visual.rings++; } },
-        { name: "Piercing Lattice", cost: 180, desc: "+1 pierce, -12% damage.", apply: t => { t.pierce += 1; t.dmg *= 0.88; t.visual.spikes = true; } },
+        { name: "Stabilized Recoil", cost: 180, desc: "-12% fire interval, +6% damage.", apply: t => { t.fire *= 0.88; t.dmg *= 1.06; t.visual.rings++; } },
+        { name: "Piercing Lattice", cost: 180, desc: "+1 pierce, +8% damage.", apply: t => { t.pierce += 1; t.dmg *= 1.08; t.visual.spikes = true; } },
       ],
       // Tier V
       [
-        { name: "Core Overclock", cost: 230, desc: "+20% damage, +8% fire interval.", apply: t => { t.dmg *= 1.20; t.fire *= 1.08; t.visual.glow = 1; } },
-        { name: "Signal Marker", cost: 230, desc: "Hits increase damage taken briefly.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.10); t.visual.antenna = true; } },
+        { name: "Core Overclock", cost: 230, desc: "+28% damage, -8% fire interval.", apply: t => { t.dmg *= 1.28; t.fire *= 0.92; t.visual.glow = 1; } },
+        { name: "Signal Marker", cost: 230, desc: "Hits mark enemies for +14% damage taken.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.14); t.visual.antenna = true; } },
       ],
     ]
   },
@@ -92,23 +92,23 @@ export const TURRET_TYPES = {
     mods: [
       [
         { name: "Long Spark", cost: 55, desc: "+20% range, +1 chain.", apply: t => { t.range *= 1.20; t.chain += 1; t.visual.rings++; } },
-        { name: "Ion Burn", cost: 55, desc: "Adds slow on hit; -12% damage.", apply: t => { t.slowOnHit = { pct:0.20, dur:1.2 }; t.dmg *= 0.88; t.visual.glow = 1; } },
+        { name: "Ion Burn", cost: 55, desc: "Adds slow on hit and +4% damage.", apply: t => { t.slowOnHit = { pct:0.20, dur:1.2 }; t.dmg *= 1.04; t.visual.glow = 1; } },
       ],
       [
         { name: "Capacitor Bank", cost: 95, desc: "-12% fire interval, +10% damage.", apply: t => { t.fire *= 0.88; t.dmg *= 1.10; t.visual.barrels++; } },
-        { name: "Shield Split", cost: 95, desc: "+35% vs shields; -5% vs HP.", apply: t => { t.vsShield *= 1.35; t.vsHp *= 0.95; t.visual.antenna = true; } },
+        { name: "Shield Split", cost: 95, desc: "+35% vs shields; +4% vs HP.", apply: t => { t.vsShield *= 1.35; t.vsHp *= 1.04; t.visual.antenna = true; } },
       ],
       [
         { name: "Fork Storm", cost: 160, desc: "+2 chain; falloff reduced.", apply: t => { t.chain += 2; t.chainFalloff = 0.78; t.visual.rings += 1; } },
         { name: "Lightning Net", cost: 160, desc: "Every 3rd shot hits in a small AoE.", apply: t => { t.netBurst = true; t.visual.spikes = true; } },
       ],
       [
-        { name: "Arc Relay", cost: 200, desc: "+1 chain, -10% damage.", apply: t => { t.chain += 1; t.dmg *= 0.90; t.visual.rings++; } },
-        { name: "Dielectric Lining", cost: 200, desc: "+15% vs shields, -8% range.", apply: t => { t.vsShield *= 1.15; t.range *= 0.92; t.visual.antenna = true; } },
+        { name: "Arc Relay", cost: 200, desc: "+1 chain, +8% damage.", apply: t => { t.chain += 1; t.dmg *= 1.08; t.visual.rings++; } },
+        { name: "Dielectric Lining", cost: 200, desc: "+22% vs shields, +6% range.", apply: t => { t.vsShield *= 1.22; t.range *= 1.06; t.visual.antenna = true; } },
       ],
       [
-        { name: "Capacitive Surge", cost: 250, desc: "-10% fire interval, +8% damage.", apply: t => { t.fire *= 0.90; t.dmg *= 1.08; t.visual.glow = 1; } },
-        { name: "Static Field", cost: 250, desc: "Slow on hit stronger.", apply: t => { t.slowOnHit = t.slowOnHit ? { pct: t.slowOnHit.pct + 0.06, dur: t.slowOnHit.dur + 0.2 } : { pct:0.18, dur:1.0 }; t.visual.spikes = true; } },
+        { name: "Capacitive Surge", cost: 250, desc: "-14% fire interval, +12% damage.", apply: t => { t.fire *= 0.86; t.dmg *= 1.12; t.visual.glow = 1; } },
+        { name: "Static Field", cost: 250, desc: "Slow on hit becomes much stronger.", apply: t => { t.slowOnHit = t.slowOnHit ? { pct: t.slowOnHit.pct + 0.10, dur: t.slowOnHit.dur + 0.35 } : { pct:0.24, dur:1.25 }; t.visual.spikes = true; } },
       ],
     ]
   },
@@ -126,7 +126,7 @@ export const TURRET_TYPES = {
     desc: "Chills enemies in a cone; keeps lines stable.",
     mods: [
       [
-        { name: "Wider Plume", cost: 45, desc: "+30% cone width, -8% damage.", apply: t => { t.cone *= 1.30; t.dmg *= 0.92; t.visual.rings++; } },
+        { name: "Wider Plume", cost: 45, desc: "+30% cone width, +4% damage.", apply: t => { t.cone *= 1.30; t.dmg *= 1.04; t.visual.rings++; } },
         { name: "Deep Chill", cost: 45, desc: "+20% slow strength.", apply: t => { t.slowPct *= 1.20; t.visual.glow = 1; } },
       ],
       [
@@ -138,12 +138,12 @@ export const TURRET_TYPES = {
         { name: "Rime Lash", cost: 140, desc: "+damage and can affect Flying lightly.", apply: t => { t.dmg *= 1.30; t.canHitFlying = true; t.visual.glow = 1; } },
       ],
       [
-        { name: "Cold Front", cost: 180, desc: "+slow duration, -8% damage.", apply: t => { t.slowPct *= 1.10; t.dmg *= 0.92; t.visual.rings++; } },
-        { name: "Vent Extension", cost: 180, desc: "+10% range, -10% slow strength.", apply: t => { t.range *= 1.10; t.slowPct *= 0.90; t.visual.barrels++; } },
+        { name: "Cold Front", cost: 180, desc: "+18% slow strength, +8% damage.", apply: t => { t.slowPct *= 1.18; t.dmg *= 1.08; t.visual.rings++; } },
+        { name: "Vent Extension", cost: 180, desc: "+14% range, +8% cone width.", apply: t => { t.range *= 1.14; t.cone *= 1.08; t.visual.barrels++; } },
       ],
       [
-        { name: "Hail Core", cost: 230, desc: "+18% damage, -8% cone width.", apply: t => { t.dmg *= 1.18; t.cone *= 0.92; t.visual.glow = 1; } },
-        { name: "Deep Freeze", cost: 230, desc: "Freeze pulse more often.", apply: t => { t.freezePulse = true; t._freezePulseRate = 4; t.visual.spikes = true; } },
+        { name: "Hail Core", cost: 230, desc: "+28% damage, +10% slow strength.", apply: t => { t.dmg *= 1.28; t.slowPct *= 1.10; t.visual.glow = 1; } },
+        { name: "Deep Freeze", cost: 230, desc: "Freeze pulse more often and hits harder.", apply: t => { t.freezePulse = true; t._freezePulseRate = 4; t.dmg *= 1.10; t.visual.spikes = true; } },
       ],
     ]
   },
@@ -172,12 +172,12 @@ export const TURRET_TYPES = {
         { name: "Prismatic Core", cost: 170, desc: "Beam ramps damage over time on same target.", apply: t => { t.ramp = true; t._rampStep = 0.08; t._rampMax = 1.8; t.visual.glow = 1; } },
       ],
       [
-        { name: "Thermal Lens", cost: 210, desc: "+10% damage, -8% range.", apply: t => { t.dmg *= 1.10; t.range *= 0.92; t.visual.rings++; } },
-        { name: "Wide Aperture", cost: 210, desc: "+12% range, -8% damage.", apply: t => { t.range *= 1.12; t.dmg *= 0.92; t.visual.barrels++; } },
+        { name: "Thermal Lens", cost: 210, desc: "+18% damage, +6% vs HP.", apply: t => { t.dmg *= 1.18; t.vsHp *= 1.06; t.visual.rings++; } },
+        { name: "Wide Aperture", cost: 210, desc: "+16% range and split beam reach.", apply: t => { t.range *= 1.16; t.visual.barrels++; } },
       ],
       [
-        { name: "Iridescent Flux", cost: 260, desc: "+15% vs shields, +8% damage.", apply: t => { t.vsShield *= 1.15; t.dmg *= 1.08; t.visual.glow = 1; } },
-        { name: "Persistent Beam", cost: 260, desc: "Ramp reaches higher cap, slower gain.", apply: t => { t.ramp = true; t._rampStep = 0.06; t._rampMax = 1.95; t.visual.spikes = true; } },
+        { name: "Iridescent Flux", cost: 260, desc: "+24% vs shields, +12% damage.", apply: t => { t.vsShield *= 1.24; t.dmg *= 1.12; t.visual.glow = 1; } },
+        { name: "Persistent Beam", cost: 260, desc: "Ramp reaches a much higher cap.", apply: t => { t.ramp = true; t._rampStep = 0.07; t._rampMax = 2.15; t.visual.spikes = true; } },
       ],
     ]
   },
@@ -198,8 +198,8 @@ export const TURRET_TYPES = {
     desc: "Lobs explosive seeds. Great vs clumps.",
     mods: [
       [
-        { name: "Wider Bloom", cost: 70, desc: "+25% blast radius, -8% damage.", apply: t => { t.blast *= 1.25; t.dmg *= 0.92; t.visual.rings++; } },
-        { name: "Packed Charge", cost: 70, desc: "+25% damage, -10% blast.", apply: t => { t.dmg *= 1.25; t.blast *= 0.90; t.visual.spikes = true; } },
+        { name: "Wider Bloom", cost: 70, desc: "+25% blast radius, +4% damage.", apply: t => { t.blast *= 1.25; t.dmg *= 1.04; t.visual.rings++; } },
+        { name: "Packed Charge", cost: 70, desc: "+25% damage, +6% armor pierce.", apply: t => { t.dmg *= 1.25; t.armorPierce += 0.06; t.visual.spikes = true; } },
       ],
       [
         { name: "Shrapnel Pods", cost: 120, desc: "Blast also slows briefly (not Echo).", apply: t => { t.blastSlow = { pct:0.16, dur:1.0 }; t.visual.glow = 1; } },
@@ -210,12 +210,12 @@ export const TURRET_TYPES = {
         { name: "Seismic Pulse", cost: 190, desc: "Leaves lingering damage zone (short).", apply: t => { t.lingering = true; t.visual.rings += 1; } },
       ],
       [
-        { name: "Wide Detonation", cost: 230, desc: "+15% blast radius, -10% damage.", apply: t => { t.blast *= 1.15; t.dmg *= 0.90; t.visual.rings++; } },
-        { name: "Heavy Shells", cost: 230, desc: "+18% damage, -8% blast.", apply: t => { t.dmg *= 1.18; t.blast *= 0.92; t.visual.spikes = true; } },
+        { name: "Wide Detonation", cost: 230, desc: "+18% blast radius, +8% damage.", apply: t => { t.blast *= 1.18; t.dmg *= 1.08; t.visual.rings++; } },
+        { name: "Heavy Shells", cost: 230, desc: "+26% damage, +8% vs armor.", apply: t => { t.dmg *= 1.26; t.armorPierce += 0.08; t.visual.spikes = true; } },
       ],
       [
-        { name: "Fused Shells", cost: 280, desc: "+20% vs Flying, -8% fire interval.", apply: t => { t.vsFlying *= 1.20; t.fire *= 1.08; t.visual.antenna = true; } },
-        { name: "Aftershock", cost: 280, desc: "Longer lingering zone, -8% damage.", apply: t => { t.lingering = true; t._lingerDur = 3.0; t.dmg *= 0.92; t.visual.glow = 1; } },
+        { name: "Fused Shells", cost: 280, desc: "+30% vs Flying, -10% fire interval.", apply: t => { t.vsFlying *= 1.30; t.fire *= 0.90; t.visual.antenna = true; } },
+        { name: "Aftershock", cost: 280, desc: "Longer lingering zone, +10% damage.", apply: t => { t.lingering = true; t._lingerDur = 3.2; t.dmg *= 1.10; t.visual.glow = 1; } },
       ],
     ]
   },
@@ -236,7 +236,7 @@ export const TURRET_TYPES = {
     mods: [
       [
         { name: "Corrosive Mix", cost: 55, desc: "DOT duration +40%.", apply: t => { t.dotDur *= 1.40; t.visual.glow = 1; } },
-        { name: "Needle Spray", cost: 55, desc: "Fires 2 shots (weaker).", apply: t => { t.multishot = 2; t.dmg *= 0.72; t.visual.barrels++; } },
+        { name: "Needle Spray", cost: 55, desc: "Fires 2 lighter toxin shots.", apply: t => { t.multishot = 2; t.dmg *= 0.62; t.visual.barrels++; } },
       ],
       [
         { name: "Neurotoxin", cost: 95, desc: "DOT also slows slightly (not Echo).", apply: t => { t.dotSlow = { pct:0.10, dur:2.1 }; t.visual.rings++; } },
@@ -247,12 +247,12 @@ export const TURRET_TYPES = {
         { name: "Black Bile", cost: 160, desc: "DOT ignores shields fully.", apply: t => { t.dotIgnoresShields = true; t.visual.antenna = true; } },
       ],
       [
-        { name: "Seeping Rounds", cost: 200, desc: "+20% DOT duration, -8% damage.", apply: t => { t.dotDur *= 1.20; t.dmg *= 0.92; t.visual.rings++; } },
-        { name: "Catalyst Mist", cost: 200, desc: "+10% range, -10% DOT duration.", apply: t => { t.range *= 1.10; t.dotDur *= 0.90; t.visual.barrels++; } },
+        { name: "Seeping Rounds", cost: 200, desc: "+25% DOT duration, +8% base damage.", apply: t => { t.dotDur *= 1.25; t.dmg *= 1.08; t.visual.rings++; } },
+        { name: "Catalyst Mist", cost: 200, desc: "+14% range, +10% DOT damage.", apply: t => { t.range *= 1.14; t.dotDpsMult *= 1.10; t.visual.barrels++; } },
       ],
       [
-        { name: "Viral Saturation", cost: 250, desc: "+20% DOT damage, -10% base damage.", apply: t => { t.dotDpsMult *= 1.20; t.dmg *= 0.90; t.visual.glow = 1; } },
-        { name: "Nerve Toxin", cost: 250, desc: "DOT slow stronger.", apply: t => { t.dotSlow = { pct:0.16, dur:2.4 }; t.visual.spikes = true; } },
+        { name: "Viral Saturation", cost: 250, desc: "+32% DOT damage, +10% duration.", apply: t => { t.dotDpsMult *= 1.32; t.dotDur *= 1.10; t.visual.glow = 1; } },
+        { name: "Nerve Toxin", cost: 250, desc: "DOT slow becomes strong and long.", apply: t => { t.dotSlow = { pct:0.20, dur:2.8 }; t.visual.spikes = true; } },
       ],
     ]
   },
@@ -272,8 +272,8 @@ export const TURRET_TYPES = {
     desc: "Long-range piercing shots. Deletes brutes.",
     mods: [
       [
-        { name: "Stabilizer", cost: 75, desc: "+20% damage; slightly slower.", apply: t => { t.dmg *= 1.20; t.fire *= 1.08; t.visual.rings++; } },
-        { name: "Quickchamber", cost: 75, desc: "-16% fire interval; -10% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 0.90; t.visual.barrels++; } },
+        { name: "Stabilizer", cost: 75, desc: "+24% damage, +4% range.", apply: t => { t.dmg *= 1.24; t.range *= 1.04; t.visual.rings++; } },
+        { name: "Quickchamber", cost: 75, desc: "-16% fire interval, +4% damage.", apply: t => { t.fire *= 0.84; t.dmg *= 1.04; t.visual.barrels++; } },
       ],
       [
         { name: "Breach Rod", cost: 135, desc: "+1 pierce; +armor pierce.", apply: t => { t.pierce += 1; t.armorPierce += 0.16; t.visual.spikes = true; } },
@@ -284,12 +284,12 @@ export const TURRET_TYPES = {
         { name: "Dual Rail", cost: 210, desc: "Fires 2 needles with small spread.", apply: t => { t.multishot = 2; t.dmg *= 0.70; t.visual.barrels += 1; } },
       ],
       [
-        { name: "Long Sight", cost: 260, desc: "+12% range, -10% damage.", apply: t => { t.range *= 1.12; t.dmg *= 0.90; t.visual.rings++; } },
-        { name: "Focused Barrel", cost: 260, desc: "+15% damage, -8% fire rate.", apply: t => { t.dmg *= 1.15; t.fire *= 1.08; t.visual.spikes = true; } },
+        { name: "Long Sight", cost: 260, desc: "+16% range, +8% damage.", apply: t => { t.range *= 1.16; t.dmg *= 1.08; t.visual.rings++; } },
+        { name: "Focused Barrel", cost: 260, desc: "+22% damage, +8% armor pierce.", apply: t => { t.dmg *= 1.22; t.armorPierce += 0.08; t.visual.spikes = true; } },
       ],
       [
-        { name: "Pierce Lancer", cost: 320, desc: "+1 pierce, -10% damage.", apply: t => { t.pierce += 1; t.dmg *= 0.90; t.visual.barrels += 1; } },
-        { name: "Signal Breaker", cost: 320, desc: "Hits mark enemies longer.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.14); t.visual.antenna = true; } },
+        { name: "Pierce Lancer", cost: 320, desc: "+1 pierce, +18% damage.", apply: t => { t.pierce += 1; t.dmg *= 1.18; t.visual.barrels += 1; } },
+        { name: "Signal Breaker", cost: 320, desc: "Hits mark enemies for +18% damage taken.", apply: t => { t.markOnHit = Math.max(t.markOnHit || 0, 0.18); t.visual.antenna = true; } },
       ],
     ]
   },
@@ -310,7 +310,7 @@ export const TURRET_TYPES = {
         { name: "Overclock", cost: 60, desc: "Buffs +10% attack speed.", apply: t => { t.buffRate += 0.10; t.visual.glow = 1; } },
       ],
       [
-        { name: "Wide Canopy", cost: 105, desc: "+25% range; weaker buff.", apply: t => { t.range *= 1.25; t.buffDmg *= 0.92; t.buffRate *= 0.92; t.visual.rings++; } },
+        { name: "Wide Canopy", cost: 105, desc: "+25% range, +2% mixed buffs.", apply: t => { t.range *= 1.25; t.buffDmg += 0.02; t.buffRate += 0.02; t.visual.rings++; } },
         { name: "Revelation", cost: 105, desc: "Reveals Stealth in aura.", apply: t => { t.revealAura = true; t.visual.antenna = true; } },
       ],
       [
@@ -318,12 +318,12 @@ export const TURRET_TYPES = {
         { name: "Tether Roots", cost: 170, desc: "Adds small slow field (not Echo).", apply: t => { t.slowField = { pct:0.09, dur:0.6 }; t.visual.spikes = true; } },
       ],
       [
-        { name: "Amplify II", cost: 210, desc: "Buffs +5% damage, -8% range.", apply: t => { t.buffDmg += 0.05; t.range *= 0.92; t.visual.rings++; } },
-        { name: "Overclock II", cost: 210, desc: "Buffs +5% attack speed, -8% range.", apply: t => { t.buffRate += 0.05; t.range *= 0.92; t.visual.glow = 1; } },
+        { name: "Amplify II", cost: 210, desc: "Buffs +7% damage and +6% range.", apply: t => { t.buffDmg += 0.07; t.range *= 1.06; t.visual.rings++; } },
+        { name: "Overclock II", cost: 210, desc: "Buffs +7% attack speed and +6% range.", apply: t => { t.buffRate += 0.07; t.range *= 1.06; t.visual.glow = 1; } },
       ],
       [
-        { name: "Resonance", cost: 260, desc: "+4% damage and +4% speed buffs.", apply: t => { t.buffDmg += 0.04; t.buffRate += 0.04; t.visual.spikes = true; } },
-        { name: "Pulse Harmony", cost: 260, desc: "Buff pulse happens more often.", apply: t => { t.pulse = true; t.pulseInterval = 4.0; t.visual.antenna = true; } },
+        { name: "Resonance", cost: 260, desc: "+6% damage and +6% speed buffs.", apply: t => { t.buffDmg += 0.06; t.buffRate += 0.06; t.visual.spikes = true; } },
+        { name: "Pulse Harmony", cost: 260, desc: "Buff pulse happens often and slows harder.", apply: t => { t.pulse = true; t.pulseInterval = 3.7; t.slowField = t.slowField ? { pct: Math.max(t.slowField.pct, 0.13), dur: 0.8 } : { pct: 0.11, dur: 0.7 }; t.visual.antenna = true; } },
       ],
     ]
   },
@@ -352,12 +352,12 @@ export const TURRET_TYPES = {
         { name: "Tri-Drone", cost: 230, desc: "+1 drone and +range.", apply: t => { t.maxDrones += 1; t.range *= 1.12; t.visual.rings += 1; } },
       ],
       [
-        { name: "Aux Bay", cost: 280, desc: "+1 drone, -10% damage.", apply: t => { t.maxDrones += 1; t.dmg *= 0.90; t.visual.barrels += 1; } },
-        { name: "Long Orbit", cost: 280, desc: "+12% range, -8% fire interval.", apply: t => { t.range *= 1.12; t.fire *= 1.08; t.visual.rings++; } },
+        { name: "Aux Bay", cost: 280, desc: "+1 drone, +8% drone damage.", apply: t => { t.maxDrones += 1; t.dmg *= 1.08; t.visual.barrels += 1; } },
+        { name: "Long Orbit", cost: 280, desc: "+16% range, faster drone respawn.", apply: t => { t.range *= 1.16; t.fire *= 0.92; t.visual.rings++; } },
       ],
       [
-        { name: "Swarm Sync", cost: 340, desc: "Drones fire faster, -8% damage.", apply: t => { t.droneFire *= 0.88; t.dmg *= 0.92; t.visual.glow = 1; } },
-        { name: "Shield Flare", cost: 340, desc: "+20% vs shields, -8% range.", apply: t => { t.vsShield *= 1.20; t.range *= 0.92; t.visual.spikes = true; } },
+        { name: "Swarm Sync", cost: 340, desc: "Drones fire much faster.", apply: t => { t.droneFire *= 0.80; t.dmg *= 1.06; t.visual.glow = 1; } },
+        { name: "Shield Flare", cost: 340, desc: "+30% vs shields, +8% range.", apply: t => { t.vsShield *= 1.30; t.range *= 1.08; t.visual.spikes = true; } },
       ],
     ]
   },
@@ -386,12 +386,12 @@ export const TURRET_TYPES = {
         { name: "Anchor Field", cost: 150, desc: "Traps briefly stop Splitters from splitting.", apply: t => { t.noSplit = true; t.visual.rings += 1; } },
       ],
       [
-        { name: "Extra Charge", cost: 190, desc: "+1 charge, -10% damage.", apply: t => { t.maxCharges += 1; t.charges = Math.min(t.maxCharges, t.charges + 1); t.dmg *= 0.90; t.visual.barrels++; } },
-        { name: "Time Sink", cost: 190, desc: "+25% trap duration, -8% slow.", apply: t => { t.trapDur *= 1.25; t.trapSlow *= 0.92; t.visual.rings++; } },
+        { name: "Extra Charge", cost: 190, desc: "+1 charge, +8% trap damage.", apply: t => { t.maxCharges += 1; t.charges = Math.min(t.maxCharges, t.charges + 1); t.dmg *= 1.08; t.visual.barrels++; } },
+        { name: "Time Sink", cost: 190, desc: "+30% trap duration, +6% slow.", apply: t => { t.trapDur *= 1.30; t.trapSlow *= 1.06; t.visual.rings++; } },
       ],
       [
-        { name: "Gravity Well", cost: 240, desc: "+20% radius, -8% damage.", apply: t => { t.trapR *= 1.20; t.dmg *= 0.92; t.visual.spikes = true; } },
-        { name: "Crush Field", cost: 240, desc: "+15% slow strength, -10% damage.", apply: t => { t.trapSlow *= 1.15; t.dmg *= 0.90; t.visual.glow = 1; } },
+        { name: "Gravity Well", cost: 240, desc: "+24% radius, +10% damage.", apply: t => { t.trapR *= 1.24; t.dmg *= 1.10; t.visual.spikes = true; } },
+        { name: "Crush Field", cost: 240, desc: "+20% slow strength, +12% damage.", apply: t => { t.trapSlow *= 1.20; t.dmg *= 1.12; t.visual.glow = 1; } },
       ],
     ]
   },
@@ -707,6 +707,8 @@ export class Turret {
             const pierce = 1 + (lowGravity ? 1 : 0);
             const p = new Projectile(this.x + ox, this.y + oy, vx, vy, 2.4, dmg, DAMAGE.PHYS, pierce, 1.4, "spark");
             p.owner = this;
+            p.vsShield = this.vsShield || 1;
+            p.vsHp = this.vsHp || 1;
             game.projectiles.push(p);
             game.particles.spawn(this.x + ox, this.y + oy, 2, "muzzle");
             game.audio.playLimited("turret_drone", 160);
@@ -846,6 +848,8 @@ export class Turret {
             p.revealOnHit = this.revealOnHit;
             p.markOnHit = this.markOnHit || 0;
             p.stunChance = this.stunChance || 0;
+            p.vsShield = this.vsShield || 1;
+            p.vsHp = this.vsHp || 1;
             p.vsFlying = this.vsFlying || 1;
             if (this.typeKey === "VENOM") {
               p.dotDps = dmgBase * this.dotDpsMult;
@@ -1082,6 +1086,9 @@ export class Turret {
           p._cluster = !!this.cluster;
           p._blastSlow = this.blastSlow || null;
           p.owner = this;
+          p.vsShield = this.vsShield || 1;
+          p.vsHp = this.vsHp || 1;
+          p.armorPierce = this.armorPierce || 0;
           p.vsFlying = this.vsFlying || 1;
           game.projectiles.push(p);
           game.particles.spawn(mx, my, 3, "muzzle");

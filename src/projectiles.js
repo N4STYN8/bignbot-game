@@ -14,6 +14,8 @@ export class Projectile {
     this.hit = new Set();
     this.prevX = x;
     this.prevY = y;
+    this._didHit = false;
+    this._missed = false;
 
     // optional behavior hooks (set by turret)
     this.owner = null;
@@ -23,6 +25,9 @@ export class Projectile {
     this.markOnHit = 0;
     this.stunChance = 0;
     this.revealOnHit = false;
+    this.armorPierce = 0;
+    this.vsShield = 1;
+    this.vsHp = 1;
     this.vsFlying = 1;
     this._isMortar = false;
     this._blast = 0;
@@ -31,6 +36,14 @@ export class Projectile {
     this._cluster = false;
     this._trailT = 0;
     this._animSeed = rand(0, Math.PI * 2);
+  }
+  _markMiss(game) {
+    if (this._didHit || this._missed) return;
+    this._missed = true;
+    const mx = clamp(this.x, 24, W - 24);
+    const my = clamp(this.y, 48, H - 24);
+    game.spawnText(mx, my - 10, "MISS", "rgba(168,182,230,0.92)", 0.75);
+    game.particles?.spawn(mx, my, 3, "hit", "rgba(168,182,230,0.45)");
   }
   _explode(game) {
     if (this._exploded) return;
@@ -46,6 +59,8 @@ export class Projectile {
       if (d2 <= r * r) {
         e._lastHitBy = this.owner;
         let dealt = this.dmg;
+        dealt *= e.shield > 0 ? this.vsShield : this.vsHp;
+        if (this.armorPierce > 0 && this.dmgType === DAMAGE.PHYS) dealt *= (1 + this.armorPierce * 0.35);
         if (e.flying) dealt *= this.vsFlying;
         e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
         if (this._blastSlow) e.applySlow(this._blastSlow.pct, this._blastSlow.dur);
@@ -66,8 +81,11 @@ export class Projectile {
           if (d2 <= (r * 0.55) * (r * 0.55)) {
             e._lastHitBy = this.owner;
             let dealt = this.dmg * 0.55;
+            dealt *= e.shield > 0 ? this.vsShield : this.vsHp;
+            if (this.armorPierce > 0 && this.dmgType === DAMAGE.PHYS) dealt *= (1 + this.armorPierce * 0.35);
             if (e.flying) dealt *= this.vsFlying;
             e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
+            splashHits++;
           }
         }
       }
@@ -87,7 +105,10 @@ export class Projectile {
 
     if (this.style === "mortar") {
       if (splashHits > 0) {
+        this._didHit = true;
         game.spawnText(cx, cy - 18, "SPLASH", "rgba(255,207,91,0.95)", 0.95);
+      } else {
+        this._markMiss(game);
       }
       game.decals.push({
         x: cx,
@@ -142,7 +163,10 @@ export class Projectile {
     }
 
     // out of bounds
-    if (this.x < -80 || this.y < -80 || this.x > W + 80 || this.y > H + 80) this.ttl = 0;
+    if (this.x < -80 || this.y < -80 || this.x > W + 80 || this.y > H + 80) {
+      this._markMiss(game);
+      this.ttl = 0;
+    }
 
     // collision
     if (this._isMortar) {
@@ -168,9 +192,11 @@ export class Projectile {
       if (dist2(this.x, this.y, e.x, e.y) <= rr) {
         if (this.hit.has(e)) continue;
         this.hit.add(e);
+        this._didHit = true;
 
         e._lastHitBy = this.owner;
-        e.takeHit(game, this.dmg, this.dmgType, this.owner?.typeKey || null);
+        const dealt = this.dmg * (e.shield > 0 ? this.vsShield : this.vsHp);
+        e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
 
         // special style effects
         if (this.style === "venom" && this.dotDps > 0) e.applyDot(this.dotDps, this.dotDur || 3.5);
@@ -212,10 +238,29 @@ export class Projectile {
           col: pf.ringCol,
           boom: false
         });
+        game.decals?.push({
+          x: this.x,
+          y: this.y,
+          r: 8 * pf.ringScale,
+          t: this.style === "mortar" ? 3.0 : 1.9,
+          dur: this.style === "mortar" ? 3.0 : 1.9,
+          col: pf.ringCol
+        });
+        if (this.style === "mortar" || this.style === "venom") {
+          game.lingering?.push({
+            x: this.x,
+            y: this.y,
+            r: this.style === "mortar" ? 32 : 22,
+            t: this.style === "mortar" ? 1.15 : 0.9,
+            dur: this.style === "mortar" ? 1.15 : 0.9,
+            col: this.style === "mortar" ? "rgba(255,152,92,0.24)" : "rgba(109,255,154,0.22)"
+          });
+        }
         this.ttl = 0;
         break;
       }
     }
+    if (this.ttl <= 0 && !this._didHit) this._markMiss(game);
   }
   draw(gfx) {
     gfx.save();

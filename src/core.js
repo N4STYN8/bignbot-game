@@ -831,6 +831,7 @@ class Game {
     decay(this.explosions);
     decay(this.screenFlashes);
     decay(this.decals);
+    decay(this.lingering);
     this.particles.update(dtScaled);
     for (let i = this.floatText.length - 1; i >= 0; i--) {
       const ft = this.floatText[i];
@@ -838,6 +839,52 @@ class Game {
       ft.y -= ft.vy * dtScaled;
       if (ft.t <= 0) this.floatText.splice(i, 1);
     }
+  }
+
+  _spawnEnergyBurst(x, y, opts = {}) {
+    const tint = opts.tint || "rgba(98,242,255,0.9)";
+    const alt = opts.alt || "rgba(255,207,91,0.9)";
+    const scale = Math.max(0.25, opts.scale || 1);
+    const boom = opts.boom === true;
+    this.explosions.push({
+      x,
+      y,
+      r: 8 * scale,
+      t: 0.26 + 0.06 * scale,
+      dur: 0.26 + 0.06 * scale,
+      max: 54 * scale,
+      col: tint,
+      boom: false
+    });
+    this.explosions.push({
+      x,
+      y,
+      r: 18 * scale,
+      t: 0.44 + 0.08 * scale,
+      dur: 0.44 + 0.08 * scale,
+      max: 98 * scale,
+      col: alt,
+      boom
+    });
+    this.screenFlashes.push({
+      x,
+      y,
+      r: 8 * scale,
+      t: 0.22 + 0.04 * scale,
+      dur: 0.22 + 0.04 * scale,
+      max: 160 * scale,
+      col: tint
+    });
+    this.lingering.push({
+      x,
+      y,
+      r: 22 * scale,
+      t: 1.2 + 0.2 * scale,
+      dur: 1.2 + 0.2 * scale,
+      col: opts.linger || tint
+    });
+    this.particles.spawn(x, y, Math.round((opts.power ? 18 : 10) * scale), opts.power ? "power" : "spark", tint);
+    this.particles.spawn(x, y, Math.round(6 * scale), "ember", alt);
   }
 
   _updateBossCinematic(dt) {
@@ -2225,6 +2272,15 @@ class Game {
       this.spawnQueue = this.spawnQueue.concat(newSpawns);
     }
     toast(`Wave ${this.wave} launched`);
+    const spawn = this.map?.pathPts?.[0];
+    if (spawn) {
+      this._spawnEnergyBurst(spawn[0], spawn[1], {
+        tint: "rgba(98,242,255,0.88)",
+        alt: "rgba(154,108,255,0.78)",
+        linger: "rgba(98,242,255,0.18)",
+        scale: 1.15
+      });
+    }
     this.audio.play("wave");
   }
 
@@ -3059,7 +3115,13 @@ class Game {
     state.powerPurchased = true;
     this.map.tilesByCell[this._tileKey(gx, gy)] = state;
     const w = this.map.worldFromCell(gx, gy);
-    this.particles.spawn(w.x, w.y, 10, "muzzle");
+    this._spawnEnergyBurst(w.x, w.y, {
+      tint: "rgba(255,207,91,0.95)",
+      alt: "rgba(109,255,154,0.88)",
+      linger: "rgba(255,207,91,0.30)",
+      scale: 1.25,
+      power: true
+    });
     this.audio.play("upgrade");
     toast(`Power tile unlocked for ${cost}g`);
     this.selectedTileCell = null;
@@ -3121,7 +3183,13 @@ class Game {
       if (this.playerStats) this.playerStats.towersBuilt += 1;
       // Do not auto-open upgrade HUD on placement; require explicit turret click.
       this.selectEnemy(null);
-      this.particles.spawn(w.x, w.y, 8, "muzzle");
+      this._spawnEnergyBurst(w.x, w.y, {
+        tint: cell.v === 3 ? "rgba(255,207,91,0.95)" : "rgba(98,242,255,0.92)",
+        alt: cell.v === 3 ? "rgba(109,255,154,0.78)" : "rgba(154,108,255,0.82)",
+        linger: cell.v === 3 ? "rgba(255,207,91,0.22)" : "rgba(98,242,255,0.20)",
+        scale: cell.v === 3 ? 1.08 : 0.88,
+        power: cell.v === 3
+      });
       this.audio.play("build");
       this._save();
       return;
@@ -3813,10 +3881,23 @@ class Game {
 
     // lingering zones
     for (const l of this.lingering) {
+      const life = clamp(l.t / (l.dur || 1), 0, 1);
+      const k = 1 - life;
+      const pulse = 0.75 + 0.25 * Math.sin(performance.now() * 0.008 + l.x * 0.01);
       gfx.save();
-      gfx.globalAlpha = 0.4;
-      gfx.fillStyle = l.col || "rgba(255,207,91,0.2)";
-      gfx.beginPath(); gfx.arc(l.x, l.y, l.r, 0, Math.PI * 2); gfx.fill();
+      gfx.globalCompositeOperation = "lighter";
+      gfx.globalAlpha = 0.34 * life * pulse;
+      const r = l.r * (0.9 + k * 0.45);
+      const grad = gfx.createRadialGradient(l.x, l.y, 0, l.x, l.y, r);
+      grad.addColorStop(0, l.col || "rgba(255,207,91,0.22)");
+      grad.addColorStop(0.58, l.col || "rgba(255,207,91,0.12)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.fillStyle = grad;
+      gfx.beginPath(); gfx.arc(l.x, l.y, r, 0, Math.PI * 2); gfx.fill();
+      gfx.globalAlpha = 0.42 * life;
+      gfx.strokeStyle = l.col || "rgba(255,207,91,0.45)";
+      gfx.lineWidth = 1.4;
+      gfx.beginPath(); gfx.arc(l.x, l.y, r * 0.72, 0, Math.PI * 2); gfx.stroke();
       gfx.restore();
     }
 
@@ -3892,8 +3973,17 @@ class Game {
 
     // arcs
     for (const a of this.arcs) {
+      const life = clamp(a.t / 0.22, 0, 1);
       gfx.save();
-      gfx.globalAlpha = 0.92;
+      gfx.globalCompositeOperation = "lighter";
+      gfx.globalAlpha = 0.24 * life;
+      gfx.strokeStyle = a.col || "rgba(186,140,255,0.8)";
+      gfx.lineWidth = 9;
+      gfx.beginPath();
+      gfx.moveTo(a.ax, a.ay);
+      gfx.lineTo(a.bx, a.by);
+      gfx.stroke();
+      gfx.globalAlpha = 0.92 * life;
       gfx.strokeStyle = "rgba(186,140,255,0.98)";
       gfx.lineWidth = 2.8;
       gfx.beginPath();
@@ -3916,6 +4006,7 @@ class Game {
     // beams (multi-pass heat distortion)
     for (const b of this.beams) {
       gfx.save();
+      gfx.globalCompositeOperation = "lighter";
       gfx.globalAlpha = 0.18;
       gfx.strokeStyle = b.col || "rgba(98,242,255,0.85)";
       gfx.lineWidth = 9;
@@ -3946,6 +4037,7 @@ class Game {
       const r = ex.r + (ex.max - ex.r) * k;
       gfx.save();
       if (ex.boom) {
+        gfx.globalCompositeOperation = "lighter";
         gfx.globalAlpha = 0.9 * (1 - k);
         const grad = gfx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
         grad.addColorStop(0, "rgba(255,207,91,0.9)");
@@ -3962,7 +4054,16 @@ class Game {
         gfx.arc(ex.x, ex.y, r * 0.9, 0, Math.PI * 2);
         gfx.stroke();
       } else {
-        gfx.globalAlpha = 0.55 * (1 - k);
+        gfx.globalCompositeOperation = "lighter";
+        gfx.globalAlpha = 0.20 * (1 - k);
+        const grad = gfx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
+        grad.addColorStop(0, ex.col || "rgba(98,242,255,0.35)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        gfx.fillStyle = grad;
+        gfx.beginPath();
+        gfx.arc(ex.x, ex.y, r * 0.74, 0, Math.PI * 2);
+        gfx.fill();
+        gfx.globalAlpha = 0.62 * (1 - k);
         gfx.strokeStyle = ex.col;
         gfx.lineWidth = 3;
         gfx.beginPath();

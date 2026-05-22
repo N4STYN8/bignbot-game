@@ -1618,9 +1618,12 @@ class Game {
       const item = document.createElement("div");
       item.className = "buildItem";
       item.dataset.key = key;
+      item.dataset.icon = key;
       item.dataset.unlock = String(this.getUnlockWave(key));
       item.innerHTML = `
-        <div class="buildIcon" data-icon="${key}"></div>
+        <div class="buildIcon" data-icon="${key}" aria-hidden="true">
+          <span class="buildIconGlow"></span>
+        </div>
         <div class="buildMeta">
           <div class="buildName">${t.name}</div>
           <div class="buildDesc">${t.desc}</div>
@@ -3235,8 +3238,11 @@ class Game {
 
     const hudHtml = `
       <div class="selHeaderRow">
-        <div class="selName">${turret.name}</div>
-        <div class="selLevel">Tier ${tierNames[turret.level]}</div>
+        <div class="selPortrait" data-icon="${turret.typeKey}" aria-hidden="true"></div>
+        <div class="selHeaderText">
+          <div class="selName">${turret.name}</div>
+          <div class="selLevel">Tier ${tierNames[turret.level]}</div>
+        </div>
       </div>
       <div class="statGrid">${statCards}</div>
       <div class="targetRow">

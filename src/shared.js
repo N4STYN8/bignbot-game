@@ -170,10 +170,10 @@ export const MAP_GRID_SIZE = 44;
 export const MAP_EDGE_MARGIN = 1;
 export const TRACK_RADIUS = 16;
 export const TRACK_BLOCK_PAD = 8;
-export const POWER_TILE_COUNT = { min: 4, max: 7 };
+export const POWER_TILE_COUNT = { min: 5, max: 8 };
 export const POWER_NEAR_MIN = 28;
 export const POWER_NEAR_MAX = 70;
-export const POWER_TILE_MIN_DIST = 70;
+export const POWER_TILE_MIN_DIST = 132;
 export const LEVEL_HP_SCALE = 0.08;
 export const LEVEL_SPD_SCALE = 0.03;
 
@@ -438,16 +438,31 @@ export function generatePowerTiles(rng, segments, opts) {
   const minDist = opts.minDist;
   const avoid = opts.avoid || [];
   const avoidR2 = Math.pow(opts.avoidR || 0, 2);
-  const attempts = count * 30;
+  const totalPathLen = Math.max(1, segments.reduce((sum, s) => sum + (s.len || Math.hypot(s.bx - s.ax, s.by - s.ay)), 0));
+  const candidates = [];
+  const attempts = Math.max(220, count * 120);
 
-  const isFarFromOthers = (x, y) => {
-    for (const t of tiles) {
-      if (dist2(x, y, t.x, t.y) < minDist * minDist) return false;
+  const withinBounds = (x, y) => {
+    if (opts.bounds) {
+      const b = opts.bounds;
+      return x >= b.x + MAP_GRID_SIZE * 0.5
+        && y >= b.y + MAP_GRID_SIZE * 0.5
+        && x <= b.x + b.w - MAP_GRID_SIZE * 0.5
+        && y <= b.y + b.h - MAP_GRID_SIZE * 0.5;
     }
-    return true;
+    return x >= MAP_GRID_SIZE * 0.5
+      && y >= MAP_GRID_SIZE * 0.5
+      && x <= W - MAP_GRID_SIZE * 0.5
+      && y <= H - MAP_GRID_SIZE * 0.5;
   };
-
-  for (let i = 0; i < attempts && tiles.length < count; i++) {
+  const avoidsReserved = (x, y) => {
+    if (avoidR2 <= 0) return false;
+    for (const p of avoid) {
+      if (dist2(x, y, p.x, p.y) <= avoidR2) return true;
+    }
+    return false;
+  };
+  const addCandidate = (relaxed = false) => {
     const s = segments[(rng() * segments.length) | 0];
     const t = rng();
     const px = lerp(s.ax, s.bx, t);
@@ -457,67 +472,67 @@ export function generatePowerTiles(rng, segments, opts) {
     const len = Math.hypot(dx, dy) || 1;
     const nx = -dy / len;
     const ny = dx / len;
-    const off = lerp(minBand, maxBand, rng()) * (rng() < 0.5 ? -1 : 1);
+    const lowBand = relaxed ? Math.max(minBand * 0.82, TRACK_RADIUS + 8) : minBand;
+    const off = lerp(lowBand, maxBand, rng()) * (rng() < 0.5 ? -1 : 1);
     const cx = px + nx * off;
     const cy = py + ny * off;
-    if (opts.bounds) {
-      const b = opts.bounds;
-      if (cx < b.x + MAP_GRID_SIZE * 0.5 || cy < b.y + MAP_GRID_SIZE * 0.5 || cx > b.x + b.w - MAP_GRID_SIZE * 0.5 || cy > b.y + b.h - MAP_GRID_SIZE * 0.5) continue;
-    } else {
-      if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
-    }
+    if (!withinBounds(cx, cy)) return;
     const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segments));
-    if (d < minBand || d > maxBand) continue;
-    if (!isFarFromOthers(cx, cy)) continue;
-    if (avoidR2 > 0) {
-      let ok = true;
-      for (const p of avoid) {
-        if (dist2(cx, cy, p.x, p.y) <= avoidR2) { ok = false; break; }
-      }
-      if (!ok) continue;
-    }
-    tiles.push({ x: cx, y: cy });
+    if (d < lowBand || d > maxBand) return;
+    if (avoidsReserved(cx, cy)) return;
+    const u = ((s.cum || 0) + len * t) / totalPathLen;
+    candidates.push({ x: cx, y: cy, u, d });
+  };
+
+  for (let i = 0; i < attempts; i++) {
+    addCandidate(false);
   }
 
-  if (tiles.length < count) {
-    const relaxedMinDist = minDist * 0.6;
-    const relaxedMinBand = Math.max(minBand * 0.75, TRACK_RADIUS + 8);
-    const extraAttempts = count * 20;
-    for (let i = 0; i < extraAttempts && tiles.length < count; i++) {
-      const s = segments[(rng() * segments.length) | 0];
-      const t = rng();
-      const px = lerp(s.ax, s.bx, t);
-      const py = lerp(s.ay, s.by, t);
-      const dx = s.bx - s.ax;
-      const dy = s.by - s.ay;
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len;
-      const ny = dx / len;
-      const off = lerp(relaxedMinBand, maxBand, rng()) * (rng() < 0.5 ? -1 : 1);
-      const cx = px + nx * off;
-      const cy = py + ny * off;
-      if (opts.bounds) {
-        const b = opts.bounds;
-        if (cx < b.x + MAP_GRID_SIZE * 0.5 || cy < b.y + MAP_GRID_SIZE * 0.5 || cx > b.x + b.w - MAP_GRID_SIZE * 0.5 || cy > b.y + b.h - MAP_GRID_SIZE * 0.5) continue;
-      } else {
-        if (cx < MAP_GRID_SIZE * 0.5 || cy < MAP_GRID_SIZE * 0.5 || cx > W - MAP_GRID_SIZE * 0.5 || cy > H - MAP_GRID_SIZE * 0.5) continue;
-      }
-      const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, segments));
-      if (d < relaxedMinBand || d > maxBand) continue;
-      let ok = true;
-      for (const t of tiles) {
-        if (dist2(cx, cy, t.x, t.y) < relaxedMinDist * relaxedMinDist) { ok = false; break; }
-      }
-      if (!ok) continue;
-      if (avoidR2 > 0) {
-        let safe = true;
-        for (const p of avoid) {
-          if (dist2(cx, cy, p.x, p.y) <= avoidR2) { safe = false; break; }
+  const targets = [];
+  for (let i = 0; i < count; i++) targets.push((i + 0.35 + rng() * 0.3) / count);
+  for (let i = targets.length - 1; i > 0; i--) {
+    const j = (rng() * (i + 1)) | 0;
+    const tmp = targets[i];
+    targets[i] = targets[j];
+    targets[j] = tmp;
+  }
+
+  const chooseTiles = (requiredDist) => {
+    for (let slot = 0; slot < targets.length && tiles.length < count; slot++) {
+      const targetU = targets[slot];
+      let best = null;
+      let bestScore = -Infinity;
+      for (const c of candidates) {
+        if (c.used) continue;
+        let nearestD = Infinity;
+        let nearestU = Infinity;
+        for (const t of tiles) {
+          nearestD = Math.min(nearestD, Math.sqrt(dist2(c.x, c.y, t.x, t.y)));
+          nearestU = Math.min(nearestU, Math.abs(c.u - t.u));
         }
-        if (!safe) continue;
+        if (nearestD < requiredDist) continue;
+        const worldSpread = tiles.length ? clamp(nearestD / Math.max(requiredDist, minDist), 0, 2) : 1;
+        const pathSpread = tiles.length ? clamp(nearestU * count, 0, 2) : 1;
+        const targetFit = 1 - Math.min(1, Math.abs(c.u - targetU) * count);
+        const distanceFit = 1 - Math.min(1, Math.abs(c.d - ((minBand + maxBand) * 0.5)) / Math.max(1, maxBand - minBand));
+        const score = targetFit * 1.35 + worldSpread * 0.95 + pathSpread * 0.55 + distanceFit * 0.25 + rng() * 0.08;
+        if (score > bestScore) {
+          best = c;
+          bestScore = score;
+        }
       }
-      tiles.push({ x: cx, y: cy });
+      if (!best) break;
+      best.used = true;
+      tiles.push({ x: best.x, y: best.y });
     }
+  };
+
+  chooseTiles(minDist);
+
+  if (tiles.length < count) {
+    const extraAttempts = Math.max(120, count * 60);
+    for (let i = 0; i < extraAttempts; i++) addCandidate(true);
+    chooseTiles(minDist * 0.78);
   }
 
   return tiles;

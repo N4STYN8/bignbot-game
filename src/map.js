@@ -168,7 +168,41 @@ export class Map {
 
     const maxPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.max) || 7);
     const nearMinD = Math.max(TRACK_RADIUS + 4, POWER_NEAR_MIN * 0.7);
-    const nearMaxPreferred = Math.min(POWER_NEAR_MAX, TRACK_RADIUS + POWER_NEAR_MIN + 8);
+    const nearMaxPreferred = Math.min(POWER_NEAR_MAX, POWER_NEAR_MIN + 28);
+    const powerCellMinDist = Math.max(this.gridSize * 2.2, POWER_TILE_MIN_DIST * 0.82);
+    const nearestPathU = (px, py) => {
+      let bestD = Infinity;
+      let bestU = 0;
+      const total = Math.max(1, this.totalLen || 1);
+      for (const s of this.segs) {
+        const vx = s.bx - s.ax;
+        const vy = s.by - s.ay;
+        const len2 = vx * vx + vy * vy || 1;
+        const tt = clamp(((px - s.ax) * vx + (py - s.ay) * vy) / len2, 0, 1);
+        const qx = s.ax + vx * tt;
+        const qy = s.ay + vy * tt;
+        const d = dist2(px, py, qx, qy);
+        if (d < bestD) {
+          bestD = d;
+          bestU = ((s.cum || 0) + (s.len || Math.hypot(vx, vy)) * tt) / total;
+        }
+      }
+      return bestU;
+    };
+    const isFarFromPowerCells = (idx, minD = powerCellMinDist) => {
+      const gx = idx % this.cols;
+      const gy = Math.floor(idx / this.cols);
+      const px = (gx + 0.5) * this.gridSize;
+      const py = (gy + 0.5) * this.gridSize;
+      for (const other of this.powerCells) {
+        const ogx = other % this.cols;
+        const ogy = Math.floor(other / this.cols);
+        const ox = (ogx + 0.5) * this.gridSize;
+        const oy = (ogy + 0.5) * this.gridSize;
+        if (dist2(px, py, ox, oy) < minD * minD) return false;
+      }
+      return true;
+    };
     if (this.powerTilesN && this.powerTilesN.length) {
       for (const p of this.powerTilesN) {
         if (this.powerCells.length >= maxPowerTiles) break;
@@ -182,6 +216,7 @@ export class Map {
         const d = Math.sqrt(distanceToSegmentsSquared(cx, cy, this.segs));
         if (this.cells[idx] === 1) {
           if (d < nearMinD || d > POWER_NEAR_MAX) continue;
+          if (!isFarFromPowerCells(idx)) continue;
           this.cells[idx] = 3;
           this.powerCells.push(idx);
         }
@@ -191,7 +226,6 @@ export class Map {
     // Guarantee a baseline number of power tiles after cell quantization.
     const minPowerTiles = Math.max(4, Number(POWER_TILE_COUNT?.min) || 4);
     if (this.powerCells.length < minPowerTiles) {
-      const targetD = Math.min(POWER_NEAR_MAX, POWER_NEAR_MIN + 12);
       const taken = new Set(this.powerCells);
       const collectCandidates = (maxD) => {
         const candidates = [];
@@ -203,29 +237,52 @@ export class Map {
             const py = (gy + 0.5) * this.gridSize;
             const d = Math.sqrt(distanceToSegmentsSquared(px, py, this.segs));
             if (d < nearMinD || d > maxD) continue;
-            candidates.push({ idx, score: Math.abs(d - targetD) });
+            candidates.push({ idx, x: px, y: py, u: nearestPathU(px, py), d });
           }
         }
-        candidates.sort((a, b) => a.score - b.score);
         return candidates;
+      };
+      const addSpreadCandidates = (candidates, minD, maxD) => {
+        while (candidates.length && this.powerCells.length < minPowerTiles) {
+          const targetU = (this.powerCells.length + 0.5) / minPowerTiles;
+          let best = null;
+          let bestScore = -Infinity;
+          for (const c of candidates) {
+            if (taken.has(c.idx)) continue;
+            let nearestD = Infinity;
+            let nearestU = Infinity;
+            for (const other of this.powerCells) {
+              const ogx = other % this.cols;
+              const ogy = Math.floor(other / this.cols);
+              const ox = (ogx + 0.5) * this.gridSize;
+              const oy = (ogy + 0.5) * this.gridSize;
+              nearestD = Math.min(nearestD, Math.sqrt(dist2(c.x, c.y, ox, oy)));
+              nearestU = Math.min(nearestU, Math.abs(c.u - nearestPathU(ox, oy)));
+            }
+            if (nearestD < minD) continue;
+            const worldSpread = this.powerCells.length ? clamp(nearestD / Math.max(1, powerCellMinDist), 0, 2) : 1;
+            const pathSpread = this.powerCells.length ? clamp(nearestU * minPowerTiles, 0, 2) : 1;
+            const targetFit = 1 - Math.min(1, Math.abs(c.u - targetU) * minPowerTiles);
+            const bandFit = 1 - Math.min(1, Math.abs(c.d - ((nearMinD + maxD) * 0.5)) / Math.max(1, maxD - nearMinD));
+            const score = worldSpread * 1.2 + pathSpread * 0.7 + targetFit * 0.8 + bandFit * 0.25;
+            if (score > bestScore) {
+              best = c;
+              bestScore = score;
+            }
+          }
+          if (!best) break;
+          this.cells[best.idx] = 3;
+          this.powerCells.push(best.idx);
+          taken.add(best.idx);
+        }
       };
 
       const preferred = collectCandidates(nearMaxPreferred);
-      for (let i = 0; i < preferred.length && this.powerCells.length < minPowerTiles; i++) {
-        const idx = preferred[i].idx;
-        this.cells[idx] = 3;
-        this.powerCells.push(idx);
-        taken.add(idx);
-      }
+      addSpreadCandidates(preferred, powerCellMinDist, nearMaxPreferred);
 
       if (this.powerCells.length < minPowerTiles) {
         const relaxed = collectCandidates(POWER_NEAR_MAX);
-        for (let i = 0; i < relaxed.length && this.powerCells.length < minPowerTiles; i++) {
-          const idx = relaxed[i].idx;
-          this.cells[idx] = 3;
-          this.powerCells.push(idx);
-          taken.add(idx);
-        }
+        addSpreadCandidates(relaxed, powerCellMinDist * 0.72, POWER_NEAR_MAX);
       }
     }
   }

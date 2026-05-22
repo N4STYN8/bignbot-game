@@ -1588,7 +1588,7 @@ body{
 }
 .howBlock{
   padding:12px;
-  border-radius: 18px;
+  border-radius: 8px;
   border:1px solid rgba(28,42,90,.75);
   background: rgba(7,10,18,.38);
 }
@@ -1728,10 +1728,13 @@ body{
 }
 .settingsSection{
   padding:10px;
-  border-radius: 14px;
+  border-radius: 8px;
   border:1px solid rgba(28,42,90,.75);
   background: rgba(7,10,18,.35);
   margin-bottom:12px;
+}
+.settingsSection .howGrid{
+  grid-template-columns: 1fr;
 }
 .settingsLabel{
   font-size:11px;

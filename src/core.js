@@ -29,6 +29,63 @@ const ECHO_CASCADE_GOLD_TIERS = [
 const ECHO_CASCADE_FADE_SECS = 0.45;
 const ECHO_CASCADE_PULSE_SHAKE_T = 0.02;
 const ECHO_CASCADE_PULSE_SHAKE_MAG = 0.35;
+const LEVEL_PROFILES = [
+  {
+    name: "Baseline",
+    hp: 1,
+    spd: 1,
+    armor: 1,
+    shield: 1,
+    regen: 1,
+    count: 1,
+    spacing: 1,
+    weights: {}
+  },
+  {
+    name: "Swarm",
+    hp: 0.94,
+    spd: 1.08,
+    armor: 0.92,
+    shield: 0.96,
+    regen: 1,
+    count: 1.10,
+    spacing: 0.93,
+    weights: { RUNNER: 1.35, SPLITTER: 1.28, PHASE: 1.18, STEALTH: 1.10 }
+  },
+  {
+    name: "Bulwark",
+    hp: 1.08,
+    spd: 0.96,
+    armor: 1.18,
+    shield: 1.02,
+    regen: 1.06,
+    count: 0.96,
+    spacing: 1.08,
+    weights: { BRUTE: 1.28, ARMORED: 1.36, REGEN: 1.15, BOSS_PROJECTOR: 1.10 }
+  },
+  {
+    name: "Prism",
+    hp: 1,
+    spd: 1,
+    armor: 0.96,
+    shield: 1.22,
+    regen: 1.02,
+    count: 1,
+    spacing: 1,
+    weights: { SHIELDED: 1.36, SHIELD_DRONE: 1.34, FLYING: 1.18 }
+  },
+  {
+    name: "Veil",
+    hp: 0.97,
+    spd: 1.05,
+    armor: 0.94,
+    shield: 1.02,
+    regen: 1,
+    count: 1.04,
+    spacing: 0.97,
+    weights: { STEALTH: 1.38, PHASE: 1.32, FLYING: 1.16, RUNNER: 1.10 }
+  }
+];
 
 // CODEX CHANGE: Helper keeps combo window tiers centralized for quick balancing.
 function comboWindowForCount(count) {
@@ -116,6 +173,7 @@ class Game {
     this.waveActive = false;
     this.intermission = 0;
     this.skipBuff = { dmgMul: 1, rateMul: 1, t: 0 };
+    this.finalBossDefeated = false;
     this.abilities = {
       scan: { cd: ABILITY_COOLDOWN, t: 0 },
       pulse: { cd: ABILITY_COOLDOWN, t: 0 },
@@ -2118,6 +2176,7 @@ class Game {
 
   _waveScalar(wave) {
     const i = wave - 1;
+    const profile = this._levelProfile();
     const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.92 : 1;
     const earlySpd = wave === 1 ? 0.9 : wave === 2 ? 0.96 : 1;
     const late = Math.max(0, wave - 8);
@@ -2129,13 +2188,18 @@ class Game {
     const levelDef = 1 + Math.max(0, this.levelIndex - 1) * 0.02;
     const levelReward = 1 + Math.max(0, this.levelIndex - 1) * 0.03;
     return {
-      hp: (1 + i * 0.105 + latePow) * earlyHp * 1.35 * post2Boost * levelHp,
-      spd: (1 + i * 0.013) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd,
-      armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.15 * (1 + post2 * 0.012) * levelDef,
-      shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.012) * levelDef,
-      regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.008) * levelDef,
+      hp: (1 + i * 0.105 + latePow) * earlyHp * 1.32 * post2Boost * levelHp * profile.hp,
+      spd: (1 + i * 0.013) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd * profile.spd,
+      armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.12 * (1 + post2 * 0.012) * levelDef * profile.armor,
+      shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.07 * (1 + post2 * 0.012) * levelDef * profile.shield,
+      regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.008) * levelDef * profile.regen,
       reward: (1 + i * 0.05) * 1.15 * levelReward
     };
+  }
+
+  _levelProfile() {
+    const idx = Math.max(0, (this.levelIndex - 1) % LEVEL_PROFILES.length);
+    return LEVEL_PROFILES[idx] || LEVEL_PROFILES[0];
   }
 
   _sanitizeWaveScalar(scalar) {
@@ -2160,10 +2224,11 @@ class Game {
 
   _buildWave(wave, scalar) {
     const i = wave;
+    const profile = this._levelProfile();
     if (wave === this.waveMax) {
-      // Wave 16 is a single boss-only wave.
+      // Wave 16 must be won by defeating the final boss, not a carried-over miniboss.
       return [
-        { t: 0.8, type: this._getBossKey(), scalar, miniboss: true }
+        { t: 0.8, type: this._getBossKey(), scalar, finalBoss: true }
       ];
     }
     const baseCount = Math.round(((wave === 1) ? 6
@@ -2176,8 +2241,8 @@ class Game {
       : (wave === 3 ? 0.82
       : (wave === 4 ? 0.76
       : Math.max(0.22, (0.66 - i * 0.013) * 0.9))));
-    const earlyCountMul = wave <= 5 ? 0.88 : 1;
-    const earlySpacingMul = wave <= 5 ? 1.12 : 1;
+    const earlyCountMul = (wave <= 5 ? 0.88 : 1) * profile.count;
+    const earlySpacingMul = (wave <= 5 ? 1.12 : 1) * profile.spacing;
     const spawns = [];
 
     const types = ["RUNNER", "BRUTE"];
@@ -2204,7 +2269,7 @@ class Game {
     };
 
     const pickWeighted = () => {
-      const pool = types.map(t => ({ t, w: weights[t] || 1 }));
+      const pool = types.map(t => ({ t, w: (weights[t] || 1) * (profile.weights[t] || 1) }));
       const sum = pool.reduce((a, b) => a + b.w, 0);
       let r = Math.random() * sum;
       for (const p of pool) { r -= p.w; if (r <= 0) return p.t; }
@@ -2246,6 +2311,7 @@ class Game {
     if (this.wave >= this.waveMax) return;
 
     this.wave++;
+    if (this.wave === this.waveMax) this.finalBossDefeated = false;
     this._resetWaveStats();
     this._refreshBuildList();
     {
@@ -2331,6 +2397,7 @@ class Game {
         waveActive: this.waveActive,
         intermission: this.intermission,
         skipBuff: this.skipBuff,
+        finalBossDefeated: !!this.finalBossDefeated,
         waveAnomaly: this.waveAnomaly ? this.waveAnomaly.key : null,
         warpRippleT: this._warpRippleT,
         speed: this.speed,
@@ -2461,6 +2528,7 @@ class Game {
       this.hasStarted = !!data.hasStarted;
       this.waveActive = !!data.waveActive;
       this.intermission = data.intermission ?? this.intermission;
+      this.finalBossDefeated = !!data.finalBossDefeated;
       if (data.skipBuff) {
         const dmgMul = clamp(data.skipBuff.dmgMul || 1, 1, 1.25);
         const rateMul = clamp(data.skipBuff.rateMul || 1, 1, 1.25);
@@ -2573,6 +2641,7 @@ class Game {
     this.hasStarted = false;
     this.waveActive = false;
     this.intermission = 0;
+    this.finalBossDefeated = false;
     this.gameOver = false;
     this.gameWon = false;
     this._gameOverPrompted = false;
@@ -2912,8 +2981,9 @@ class Game {
       }
     }
 
-    // Wave 16 boss death enters the cinematic sequence.
-    if (enemy.isBoss && this.wave >= this.waveMax && this.gameState === GAME_STATE.GAMEPLAY) {
+    // Wave 16 only clears on the main boss. Carried-over miniboss kills never advance the level.
+    if (enemy.isFinalBoss && this.wave >= this.waveMax && this.gameState === GAME_STATE.GAMEPLAY) {
+      this.finalBossDefeated = true;
       this._startBossCinematic(enemy);
     }
   }
@@ -2924,7 +2994,7 @@ class Game {
     if (this.waveStats) this.waveStats.leaks += 1;
     if (this.runStats) this.runStats.leaks += 1;
     if (this.playerStats) this.playerStats.leaks += 1;
-    this.lives--;
+    this.lives -= enemy.isFinalBoss ? this.lives : 1;
     this.particles.spawn(enemy.x, enemy.y, 8, "boom");
     // CODEX CHANGE: Throttle leak SFX so simultaneous leaks do not hard-retrigger and sound broken.
     this.audio.playLimited("leak", 110);
@@ -3522,14 +3592,20 @@ class Game {
       while (this.spawnIndex < this.spawnQueue.length && this.spawnT >= this.spawnQueue[this.spawnIndex].t) {
         const s = this.spawnQueue[this.spawnIndex++];
         let spawned = null;
-        if (s.miniboss) {
-          toast("MINIBOSS INBOUND");
+        if (s.miniboss || s.finalBoss) {
+          toast(s.finalBoss ? "MAIN BOSS INBOUND" : "MINIBOSS INBOUND");
           this.shakeT = Math.min(0.18, this.shakeT + 0.06);
           this.shakeMag = Math.min(4, this.shakeMag + 0.8);
         }
         spawned = this.spawnEnemy(s.type, 0, s.scalar, s.eliteTag || null);
-        if (s.miniboss && spawned) {
-          this.spawnText(spawned.x, spawned.y - 20, "MINIBOSS", "rgba(98,242,255,0.95)", 1.0);
+        if ((s.miniboss || s.finalBoss) && spawned) {
+          this.spawnText(
+            spawned.x,
+            spawned.y - 20,
+            s.finalBoss ? "MAIN BOSS" : "MINIBOSS",
+            s.finalBoss ? "rgba(255,207,91,0.96)" : "rgba(98,242,255,0.95)",
+            1.0
+          );
         }
       }
       if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0 || e._dead)) {
@@ -3538,6 +3614,11 @@ class Game {
         this._warpRippleT = 0;
         this._save();
         if (this.wave >= this.waveMax) {
+          if (!this.finalBossDefeated) {
+            this.intermission = 0;
+            this.updateHUD();
+            return;
+          }
           if (!this.gameOver && !this._transitioning) {
             this.advanceLevel();
             this.audio.play("win");

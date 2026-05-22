@@ -55,8 +55,8 @@ export const ENEMY_TYPES = {
   // 8 distinct baseline types
   RUNNER: {
     name: "Skitter",
-    hp: 52,
-    speed: 96,
+    hp: 50,
+    speed: 98,
     armor: 0,
     shield: 0,
     regen: 0,
@@ -72,7 +72,7 @@ export const ENEMY_TYPES = {
   },
   BRUTE: {
     name: "Bulwark",
-    hp: 170,
+    hp: 165,
     speed: 58,
     armor: 0.10,
     shield: 0,
@@ -89,9 +89,9 @@ export const ENEMY_TYPES = {
   },
   ARMORED: {
     name: "Plated",
-    hp: 130,
+    hp: 128,
     speed: 64,
-    armor: 0.35,
+    armor: 0.30,
     shield: 0,
     regen: 0,
     stealth: false,
@@ -106,10 +106,10 @@ export const ENEMY_TYPES = {
   },
   SHIELDED: {
     name: "Prism Guard",
-    hp: 110,
+    hp: 116,
     speed: 62,
     armor: 0.05,
-    shield: 85,
+    shield: 76,
     regen: 0,
     stealth: false,
     flying: false,
@@ -123,7 +123,7 @@ export const ENEMY_TYPES = {
   },
   SPLITTER: {
     name: "Mitosis",
-    hp: 95,
+    hp: 92,
     speed: 70,
     armor: 0,
     shield: 0,
@@ -147,11 +147,11 @@ export const ENEMY_TYPES = {
   },
   REGEN: {
     name: "Mender",
-    hp: 120,
+    hp: 126,
     speed: 60,
     armor: 0.08,
     shield: 0,
-    regen: 3.5, // hp per second (scaled by speed)
+    regen: 4.0, // hp per second (scaled by speed)
     stealth: false,
     flying: false,
     onDeath: null,
@@ -164,8 +164,8 @@ export const ENEMY_TYPES = {
   },
   STEALTH: {
     name: "Veil",
-    hp: 85,
-    speed: 82,
+    hp: 82,
+    speed: 84,
     armor: 0,
     shield: 0,
     regen: 0,
@@ -181,7 +181,7 @@ export const ENEMY_TYPES = {
   },
   FLYING: {
     name: "Skydart",
-    hp: 90,
+    hp: 86,
     speed: 88,
     armor: 0.05,
     shield: 30,
@@ -198,8 +198,8 @@ export const ENEMY_TYPES = {
   },
   PHASE: {
     name: "Phase Runner",
-    hp: 80,
-    speed: 104,
+    hp: 84,
+    speed: 102,
     armor: 0.04,
     shield: 0,
     regen: 0,
@@ -235,7 +235,7 @@ export const ENEMY_TYPES = {
   },
   SHIELD_DRONE: {
     name: "Shield Drone",
-    hp: 95,
+    hp: 92,
     speed: 78,
     armor: 0.06,
     shield: 30,
@@ -293,7 +293,7 @@ export const ENEMY_TYPES = {
   },
   BOSS_PROJECTOR: {
     name: "Shield Projector",
-    hp: 680,
+    hp: 720,
     speed: 42,
     armor: 0.18,
     shield: 120,
@@ -333,7 +333,7 @@ export const ENEMY_TYPES = {
   },
   FINAL_BOSS_VORTEX: {
     name: "Vortex Dominus",
-    hp: 2400,
+    hp: 2650,
     speed: 34,
     armor: 0.25,
     shield: 420,
@@ -373,7 +373,7 @@ export const ENEMY_TYPES = {
   },
   FINAL_BOSS_ABYSS: {
     name: "Abyss Maw",
-    hp: 2300,
+    hp: 2550,
     speed: 30,
     armor: 0.32,
     shield: 300,
@@ -413,7 +413,7 @@ export const ENEMY_TYPES = {
   },
   FINAL_BOSS_IRON: {
     name: "Iron Regent",
-    hp: 2500,
+    hp: 2800,
     speed: 28,
     armor: 0.38,
     shield: 260,
@@ -523,7 +523,8 @@ export class Enemy {
     const base = ENEMY_TYPES[typeKey];
     this.typeKey = typeKey;
     this.name = base.name;
-    this.isBoss = typeKey === "BOSS_PROJECTOR" || typeKey.startsWith("FINAL_BOSS_");
+    this.isFinalBoss = typeKey.startsWith("FINAL_BOSS_");
+    this.isBoss = typeKey === "BOSS_PROJECTOR" || this.isFinalBoss;
 
     // Scaling rules: HP, armor/shield slight, speed slight.
     this.maxHp = base.hp * waveScalar.hp;

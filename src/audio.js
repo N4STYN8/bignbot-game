@@ -156,7 +156,6 @@ export class AudioSystem {
   _makeAudio(sources, loop = false, volume = 1) {
     const ordered = this._orderSources(sources);
     const a = new Audio();
-    a.crossOrigin = "anonymous";
     a.loop = loop;
     a.volume = volume;
     a.preload = "metadata";

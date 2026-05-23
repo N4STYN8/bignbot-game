@@ -43,6 +43,7 @@ export class MusicVisualizer {
     if (!audio || this.sourceAudio === audio) return;
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) return;
+    if (!this._canAnalyseAudio(audio)) return;
     try {
       if (!this.audioContext) {
         this.audioContext = new AudioContextCtor();
@@ -62,6 +63,18 @@ export class MusicVisualizer {
     } catch (err) {
       // Browsers only allow one MediaElementSource per element; reuse any existing connection.
       this.sourceAudio = audio;
+    }
+  }
+
+  _canAnalyseAudio(audio) {
+    try {
+      const src = audio.currentSrc || audio.src || "";
+      if (!src) return true;
+      const audioUrl = new URL(src, window.location.href);
+      if (audioUrl.origin === window.location.origin) return true;
+      return !!audio.crossOrigin;
+    } catch (err) {
+      return false;
     }
   }
 

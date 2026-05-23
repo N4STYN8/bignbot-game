@@ -455,6 +455,8 @@ export const ENEMY_TYPES = {
 
 // Damage interactions (simple but meaningful)
 export function applyDamageToEnemy(enemy, amount, dmgType) {
+  amount = Number(amount);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
   const hpBefore = enemy.hp;
   if (enemy.elite && enemy.elite.tag === "PHASELINK") {
     const protectedState = !enemy.revealed && (!enemy._markedT || enemy._markedT <= 0);

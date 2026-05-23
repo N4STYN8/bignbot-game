@@ -2352,7 +2352,8 @@ class Game {
 
   spawnEnemy(typeKey, startD = 0, scalarOverride = null, eliteTag = null) {
     const scalar = this._sanitizeWaveScalar(scalarOverride || this.waveScalar);
-    const e = new Enemy(typeKey, scalar, startD, eliteTag);
+    const safeStartD = clamp(Number(startD) || 0, 0, Math.max(0, (this.map?.totalLen || 1) - 2));
+    const e = new Enemy(typeKey, scalar, safeStartD, eliteTag);
     e._game = this;
     if (this.waveAnomaly?.key === "ION_STORM") {
       e._ionStorm = true;
@@ -2366,7 +2367,7 @@ class Game {
       e._dotDurMul = 0.85;
     }
     e._id = this._id++;
-    const p = this.map.posAt(startD);
+    const p = this.map.posAt(safeStartD);
     e.x = p.x; e.y = p.y; e.ang = p.ang;
     this.enemies.push(e);
     return e;
@@ -2973,10 +2974,17 @@ class Game {
 
     // venom splash
     if (enemy._lastHitBy && enemy._lastHitBy.onKillSplash) {
+      const source = enemy._lastHitBy;
+      const splashDps = clamp(
+        (Number(source.dmg) || 10) * (Number(source.dotDpsMult) || 0.32) * 0.7,
+        4,
+        24 + Math.max(0, this.levelIndex - 1) * 2
+      );
+      const splashDur = clamp((Number(source.dotDur) || 3.5) * 0.55, 1.4, 2.8);
       for (const e of this.enemies) {
         if (e.hp <= 0) continue;
         if (dist2(enemy.x, enemy.y, e.x, e.y) <= 80 * 80) {
-          e.applyDot(Math.max(4, reward * 0.6), 2.4);
+          e.applyDot(splashDps, splashDur);
         }
       }
     }
@@ -3614,15 +3622,10 @@ class Game {
         this._warpRippleT = 0;
         this._save();
         if (this.wave >= this.waveMax) {
-          if (!this.finalBossDefeated) {
-            this.intermission = 0;
-            this.updateHUD();
-            return;
-          }
-          if (!this.gameOver && !this._transitioning) {
-            this.advanceLevel();
-            this.audio.play("win");
-          }
+          // Final-wave level progression is owned by the boss cinematic only.
+          // This prevents any cleanup/skip edge case from jumping straight to the next map.
+          this.intermission = 0;
+          this.updateHUD();
           return;
         } else {
           this.intermission = INTERMISSION_SECS;
@@ -3753,10 +3756,12 @@ class Game {
       const l = this.lingering[i];
       l.t -= dtScaled;
       if (l.t <= 0) { this.lingering.splice(i, 1); continue; }
+      const zoneDps = Number(l.dps);
+      if (!Number.isFinite(zoneDps) || zoneDps <= 0) continue;
       for (const e of this.enemies) {
         if (e.hp <= 0) continue;
         if (dist2(l.x, l.y, e.x, e.y) <= l.r * l.r) {
-          e.takeHit(this, l.dps * dtScaled, DAMAGE.TRUE, l.ownerKey || null);
+          e.takeHit(this, zoneDps * dtScaled, DAMAGE.TRUE, l.ownerKey || null);
         }
       }
     }

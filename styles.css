@@ -297,6 +297,33 @@ body{
   height:auto;
   display:block;
 }
+.versionStamp{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:126px;
+  padding-left:10px;
+  border-left:1px solid rgba(98,242,255,.22);
+  line-height:1.1;
+}
+.versionLabel{
+  color:var(--muted);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.versionValue{
+  color:var(--text);
+  font-size:12px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+.versionDate{
+  color:rgba(190, 205, 245, .74);
+  font-size:10px;
+  font-weight:700;
+}
 .logoMark{
   width:38px; height:38px; border-radius:14px;
   background:

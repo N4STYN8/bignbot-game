@@ -2477,31 +2477,7 @@ body{
 }
 .comboCascade::before,
 .comboCascade::after{
-  content: "" !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 56% !important;
-  width: calc(120px + var(--combo-heat, 0) * 150px) !important;
-  height: calc(48px + var(--combo-heat, 0) * 74px) !important;
-  transform: translate(-50%, -50%) scale(calc(.85 + var(--combo-life, 0) * .25)) !important;
-  border-radius: 999px !important;
-  pointer-events: none !important;
-  z-index: -1 !important;
-}
-.comboCascade::before{
-  background:
-    radial-gradient(closest-side, var(--combo-hot-soft), transparent 72%) !important;
-  filter: blur(12px) !important;
-  opacity: calc(.18 + var(--combo-life, 0) * .34 + var(--combo-heat, 0) * .24) !important;
-  animation: comboHeatAura .7s ease-out infinite !important;
-}
-.comboCascade::after{
-  border: 2px solid var(--combo-hot-glow) !important;
-  box-shadow:
-    0 0 18px var(--combo-hot-glow),
-    inset 0 0 22px var(--combo-flare-glow) !important;
-  opacity: calc(.16 + var(--combo-life, 0) * .22 + var(--combo-heat, 0) * .32) !important;
-  animation: comboHeatRing .55s cubic-bezier(.2,.78,.22,1) infinite !important;
+  content: none !important;
 }
 .comboLabel,
 .comboCount,

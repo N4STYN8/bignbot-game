@@ -364,15 +364,25 @@ export class Map {
     const intensity = clamp(Number(e.intensity) || 0, 0, 1);
     const beat = clamp(Number(e.beat) || 0, 0, 1);
     const time = Number.isFinite(music?.time) ? music.time : performance.now() * 0.001;
+    const wave = Math.max(0, Number(music?.wave) || 0);
+    const waveMax = Math.max(1, Number(music?.waveMax) || 16);
+    const level = Math.max(1, Number(music?.level) || 1);
+    const progression = clamp((wave / waveMax) * 0.72 + Math.min(0.28, (level - 1) * 0.045), 0, 1);
+    const amp = 0.74 + progression * 0.42;
     return {
       mode: Number.isFinite(music?.mode) ? music.mode | 0 : 0,
-      bass,
-      mid,
-      high,
-      intensity,
+      bass: clamp(bass * amp, 0, 1),
+      mid: clamp(mid * amp, 0, 1),
+      high: clamp(high * amp, 0, 1),
+      intensity: clamp(intensity * amp, 0, 1),
       beat,
+      wave,
+      waveMax,
+      level,
+      progression,
+      amp,
       time,
-      tempo: 0.65 + intensity * 1.55 + bass * 0.75
+      tempo: 0.65 + intensity * 1.55 + bass * 0.75 + progression * 0.45
     };
   }
 
@@ -428,6 +438,73 @@ export class Map {
     gfx.restore();
   }
 
+  _drawSynthGridSweep(gfx, m, perf) {
+    if (perf < 0.7) return;
+    const skip = perf < 1 ? 2 : 1;
+    const phase = m.time * (0.9 + m.tempo * 0.75);
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    gfx.lineWidth = 1;
+    for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy += skip) {
+      const rowWave = 0.5 + 0.5 * Math.sin(phase - gy * 0.44);
+      const alpha = clamp((0.025 + rowWave * m.mid * 0.13 + m.beat * 0.025) * (0.85 + m.progression * 0.55), 0, 0.24);
+      if (alpha < 0.035) continue;
+      const y = gy * this.gridSize + this.gridSize * 0.5;
+      const grad = gfx.createLinearGradient(0, y, W, y);
+      grad.addColorStop(0, "rgba(98,242,255,0)");
+      grad.addColorStop(0.45, "rgba(98,242,255,0.75)");
+      grad.addColorStop(0.58, "rgba(255,150,76,0.55)");
+      grad.addColorStop(1, "rgba(98,242,255,0)");
+      gfx.globalAlpha = alpha;
+      gfx.strokeStyle = grad;
+      gfx.beginPath();
+      gfx.moveTo(MAP_EDGE_MARGIN * this.gridSize, y);
+      gfx.lineTo((this.cols - MAP_EDGE_MARGIN) * this.gridSize, y);
+      gfx.stroke();
+    }
+    const columns = Math.max(5, Math.floor(this.cols / 4));
+    for (let i = 0; i < columns; i++) {
+      const gx = MAP_EDGE_MARGIN + ((i * 4 + Math.floor(phase * 2)) % Math.max(1, this.cols - MAP_EDGE_MARGIN * 2));
+      const x = gx * this.gridSize + this.gridSize * 0.5;
+      const alpha = clamp(0.035 + m.high * 0.12 + m.progression * 0.035, 0, 0.22);
+      gfx.globalAlpha = alpha;
+      gfx.strokeStyle = i % 2 ? "rgba(154,108,255,0.65)" : "rgba(98,242,255,0.75)";
+      gfx.beginPath();
+      gfx.moveTo(x, MAP_EDGE_MARGIN * this.gridSize);
+      gfx.lineTo(x, (this.rows - MAP_EDGE_MARGIN) * this.gridSize);
+      gfx.stroke();
+    }
+    gfx.restore();
+  }
+
+  _drawPathEqualizer(gfx, m, perf) {
+    if (!this.pathPts?.length || perf < 0.7) return;
+    const count = perf < 1 ? 12 : 20;
+    const side = 18 + m.progression * 8;
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    gfx.lineCap = "round";
+    for (let i = 0; i < count; i++) {
+      const prog = (i + 0.5) / count;
+      const p = this.posAt(this.totalLen * prog);
+      const nx = -Math.sin(p.ang);
+      const ny = Math.cos(p.ang);
+      const pulse = 0.5 + 0.5 * Math.sin(m.time * (3.8 + m.tempo) + i * 0.8);
+      const h = (6 + pulse * 18 * m.mid + m.beat * 14) * (0.7 + m.progression * 0.55);
+      const alpha = clamp(0.05 + m.mid * 0.12 + pulse * m.high * 0.08, 0, 0.28);
+      gfx.globalAlpha = alpha;
+      gfx.strokeStyle = i % 4 === 0 && m.beat > 0.2 ? "rgba(255,150,76,0.90)" : "rgba(98,242,255,0.82)";
+      gfx.lineWidth = 1.4;
+      gfx.beginPath();
+      gfx.moveTo(p.x + nx * side, p.y + ny * side);
+      gfx.lineTo(p.x + nx * (side + h), p.y + ny * (side + h));
+      gfx.moveTo(p.x - nx * side, p.y - ny * side);
+      gfx.lineTo(p.x - nx * (side + h * 0.65), p.y - ny * (side + h * 0.65));
+      gfx.stroke();
+    }
+    gfx.restore();
+  }
+
   drawBase(gfx, music = null) {
     const area = W * H;
     const perf = area > 7000000 ? 0.5 : area > 3800000 ? 0.7 : 1;
@@ -453,6 +530,7 @@ export class Map {
       gfx.beginPath(); gfx.moveTo(0, y + 0.5); gfx.lineTo(W, y + 0.5); gfx.stroke();
     }
     gfx.restore();
+    this._drawSynthGridSweep(gfx, musicGrid, perf);
 
     const t = performance.now() * 0.001;
 
@@ -694,6 +772,7 @@ export class Map {
     for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
     gfx.stroke();
     gfx.restore();
+    this._drawPathEqualizer(gfx, musicGrid, perf);
 
     // Flow-field lane energy ribbons
     const ribbonCount = perf < 0.7 ? 6 : 10;

@@ -3925,7 +3925,13 @@ class Game {
     gfx.translate(W * 0.5, H * 0.5);
     gfx.scale(renderZoom, renderZoom);
     gfx.translate(-W * 0.5 - renderCam.x, -H * 0.5 - renderCam.y);
-    this.map.drawBase(gfx, this.musicVisualizer?.getGridState?.());
+    const musicState = this.musicVisualizer?.getGridState?.();
+    if (musicState) {
+      musicState.wave = this.wave;
+      musicState.waveMax = this.waveMax;
+      musicState.level = this.levelIndex;
+    }
+    this.map.drawBase(gfx, musicState);
 
     if (this.corePulseT > 0) {
       const end = this.map.pathPts[this.map.pathPts.length - 1];

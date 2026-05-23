@@ -8,6 +8,19 @@ export const VISUAL_MODES = [
   "Track + Tile Sync"
 ];
 
+const TRACK_PROFILES = [
+  { bpm: 104, bass: 0.78, mid: 0.58, high: 0.42, phase: 0.1 },
+  { bpm: 118, bass: 0.70, mid: 0.66, high: 0.52, phase: 0.8 },
+  { bpm: 112, bass: 0.74, mid: 0.62, high: 0.47, phase: 1.4 },
+  { bpm: 96, bass: 0.62, mid: 0.72, high: 0.55, phase: 2.1 },
+  { bpm: 126, bass: 0.82, mid: 0.54, high: 0.64, phase: 2.8 },
+  { bpm: 108, bass: 0.76, mid: 0.69, high: 0.46, phase: 3.4 },
+  { bpm: 122, bass: 0.68, mid: 0.74, high: 0.58, phase: 4.0 },
+  { bpm: 100, bass: 0.80, mid: 0.52, high: 0.44, phase: 4.6 },
+  { bpm: 132, bass: 0.66, mid: 0.78, high: 0.62, phase: 5.2 },
+  { bpm: 114, bass: 0.72, mid: 0.64, high: 0.50, phase: 5.8 }
+];
+
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -27,6 +40,7 @@ export class MusicVisualizer {
     this.timeSeconds = this.last * 0.001;
     this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0 };
     this.beatAvg = 0.12;
+    this.lastSyntheticBeat = -1;
     this.idleT = 0;
     this.userUnlocked = false;
     this._raf = 0;
@@ -166,6 +180,11 @@ export class MusicVisualizer {
       return;
     }
 
+    if (this.audioSystem?.isMusicPlaying?.()) {
+      this._sampleTimedTrack(dt);
+      return;
+    }
+
     this.idleT += dt;
     const idle = 0.2 + Math.sin(this.idleT * 0.85) * 0.05;
     this.energy.beat = Math.max(0, this.energy.beat - dt * 3);
@@ -174,6 +193,34 @@ export class MusicVisualizer {
     this.energy.high = lerp(this.energy.high, idle * 0.5, 0.02);
     this.energy.wave = lerp(this.energy.wave, idle * 0.8, 0.02);
     this.energy.intensity = lerp(this.energy.intensity, idle, 0.02);
+  }
+
+  _sampleTimedTrack(dt) {
+    const audio = this.audioSystem?.bgm;
+    const trackIndex = Math.max(0, this.audioSystem?.trackIndex | 0);
+    const profile = TRACK_PROFILES[trackIndex % TRACK_PROFILES.length] || TRACK_PROFILES[0];
+    const t = Number.isFinite(audio?.currentTime) ? audio.currentTime : this.timeSeconds;
+    const beatLen = 60 / profile.bpm;
+    const beatPos = (t / beatLen) % 1;
+    const beatIndex = Math.floor(t / beatLen);
+    const kick = Math.pow(Math.max(0, 1 - beatPos * 5.5), 2.2);
+    const offBeatPos = ((t / beatLen) + 0.5) % 1;
+    const snare = Math.pow(Math.max(0, 1 - offBeatPos * 7), 2.4);
+    const bar = (beatIndex % 16) / 16;
+    const phraseLift = 0.65 + 0.35 * Math.sin((bar * Math.PI * 2) + profile.phase);
+    const bass = clamp01(0.18 + kick * profile.bass + 0.12 * Math.sin(t * 1.7 + profile.phase));
+    const mid = clamp01(0.20 + phraseLift * profile.mid * 0.55 + snare * 0.32 + 0.10 * Math.sin(t * 2.4 + profile.phase));
+    const high = clamp01(0.12 + profile.high * (0.35 + 0.35 * Math.sin(t * 5.8 + profile.phase)) + snare * 0.28);
+    const wave = clamp01(0.16 + bass * 0.38 + mid * 0.28 + high * 0.18);
+    const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
+    const newBeat = beatIndex !== this.lastSyntheticBeat && beatPos < 0.08;
+    if (newBeat) this.lastSyntheticBeat = beatIndex;
+    this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
+    this.energy.bass = lerp(this.energy.bass, bass, 0.24);
+    this.energy.mid = lerp(this.energy.mid, mid, 0.20);
+    this.energy.high = lerp(this.energy.high, high, 0.20);
+    this.energy.wave = lerp(this.energy.wave, wave, 0.22);
+    this.energy.intensity = lerp(this.energy.intensity, instant, 0.18);
   }
 
   _avg(arr, start, end) {

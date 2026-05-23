@@ -5,10 +5,38 @@ export class AudioSystem {
     this.enabled = false;
     this.unlocked = false;
     this.bgmSources = [
-      "assets/music/bgm.mp3"
+      "assets/music/Background/Echoes of Orbit 2.mp3",
+      "assets/music/Background/Echoes of Orbit 3.mp3",
+      "assets/music/Background/Echoes of Orbit.mp3",
+      "assets/music/Background/Echoing Orbit.mp3",
+      "assets/music/Background/Echos of Orbit 7.mp3",
+      "assets/music/Background/Galactic Defenses.mp3",
+      "assets/music/Background/Orbit Echo 3.mp3",
+      "assets/music/Background/Orbit Echo.mp3",
+      "assets/music/Background/Orbit Echo4.mp3",
+      "assets/music/Background/Orbit Echo_ A Defensive Pulse.mp3"
     ];
-    this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
-    this.bgm.loop = true;
+    this.trackNames = [
+      "Echoes of Orbit 2",
+      "Echoes of Orbit 3",
+      "Echoes of Orbit",
+      "Echoing Orbit",
+      "Echos of Orbit 7",
+      "Galactic Defenses",
+      "Orbit Echo 3",
+      "Orbit Echo",
+      "Orbit Echo 4",
+      "Defensive Pulse"
+    ];
+    this.trackIndex = 0;
+    this.repeat = true;
+    this.shuffle = false;
+    this.musicMuted = false;
+    this.musicPaused = false;
+    this._pendingProgressRatio = null;
+    this._pendingSeekSeconds = 0;
+    this._pendingProgressDisplay = 0;
+    this.bgm = this._makeBgm();
     this.bgm.volume = 0.32;
     this.sfx = {
       build: ["assets/sfx/sfx_build.wav"],
@@ -123,6 +151,7 @@ export class AudioSystem {
     const a = new Audio();
     a.loop = loop;
     a.volume = volume;
+    a.preload = "metadata";
     let idx = 0;
     const setSrc = () => {
       if (idx >= ordered.length) return;
@@ -132,6 +161,68 @@ export class AudioSystem {
     a.addEventListener("error", setSrc);
     setSrc();
     return a;
+  }
+
+  _makeBgm() {
+    const a = this._makeAudio([this.bgmSources[this.trackIndex]], false, this.bgm?.volume ?? 0.32);
+    a.preload = "metadata";
+    a.muted = this.musicMuted;
+    a.addEventListener("loadedmetadata", () => this._applyPendingSeek());
+    a.addEventListener("ended", () => this._handleTrackEnded());
+    return a;
+  }
+
+  _applyPendingSeek() {
+    if (!this.bgm || !Number.isFinite(this.bgm.duration) || this.bgm.duration <= 0) return;
+    if (typeof this._pendingProgressRatio === "number") {
+      try {
+        this.bgm.currentTime = clamp(this._pendingProgressRatio, 0, 1) * this.bgm.duration;
+      } catch (err) {}
+      this._pendingProgressRatio = null;
+      this._pendingSeekSeconds = 0;
+      this._pendingProgressDisplay = 0;
+      return;
+    }
+    if (this._pendingSeekSeconds) {
+      const current = Number.isFinite(this.bgm.currentTime) ? this.bgm.currentTime : 0;
+      try {
+        this.bgm.currentTime = clamp(current + this._pendingSeekSeconds, 0, this.bgm.duration);
+      } catch (err) {}
+      this._pendingSeekSeconds = 0;
+      this._pendingProgressDisplay = this.bgm.duration > 0 ? clamp(this.bgm.currentTime / this.bgm.duration, 0, 1) : 0;
+    }
+  }
+
+  _handleTrackEnded() {
+    if (this.repeat) {
+      this.nextTrack(this.enabled && this.unlocked && !this.musicPaused);
+      return;
+    }
+    if (this.trackIndex < this.bgmSources.length - 1) {
+      this.setTrackIndex(this.trackIndex + 1, this.enabled && this.unlocked && !this.musicPaused);
+    }
+    this.savePref();
+  }
+
+  setTrackIndex(index, autoplay = false, save = true) {
+    if (!this.bgmSources.length) return;
+    const next = ((index % this.bgmSources.length) + this.bgmSources.length) % this.bgmSources.length;
+    const volume = this.bgm ? this.bgm.volume : 0.32;
+    const wasPlaying = this.bgm && !this.bgm.paused;
+    if (this.bgm) this.bgm.pause();
+    this.trackIndex = next;
+    this.bgm = this._makeBgm();
+    this.bgm.volume = volume;
+    if (save) this.savePref();
+    if (autoplay || wasPlaying) this.playMusic();
+  }
+
+  currentTrackName() {
+    return this.trackNames[this.trackIndex] || `Track ${this.trackIndex + 1}`;
+  }
+
+  isMusicPlaying() {
+    return !!this.bgm && !this.bgm.paused;
   }
 
   _setButton() {
@@ -146,6 +237,12 @@ export class AudioSystem {
       const raw = localStorage.getItem(AUDIO_KEY);
       const data = raw ? JSON.parse(raw) : null;
       this.enabled = data ? data.enabled === 1 : true;
+      if (typeof data?.track === "number") this.setTrackIndex(data.track, false, false);
+      if (typeof data?.repeat === "boolean") this.repeat = data.repeat;
+      if (typeof data?.shuffle === "boolean") this.shuffle = data.shuffle;
+      if (typeof data?.muted === "boolean") this.musicMuted = data.muted;
+      if (this.bgm) this.bgm.muted = this.musicMuted;
+      this.musicPaused = data?.musicPaused === true;
       if (typeof data?.music === "number") this.bgm.volume = clamp(data.music, 0, 1);
       if (typeof data?.sfx === "number") this.sfxVol = clamp(data.sfx, 0, 1);
     } catch (err) {
@@ -159,7 +256,12 @@ export class AudioSystem {
       localStorage.setItem(AUDIO_KEY, JSON.stringify({
         enabled: this.enabled ? 1 : 0,
         music: this.bgm.volume,
-        sfx: this.sfxVol
+        sfx: this.sfxVol,
+        track: this.trackIndex,
+        repeat: this.repeat,
+        shuffle: this.shuffle,
+        muted: this.musicMuted,
+        musicPaused: this.musicPaused
       }));
     } catch (err) {
       // ignore
@@ -178,7 +280,7 @@ export class AudioSystem {
     if (!force && (now - this._lastEnsure) < 1200) return;
     this._lastEnsure = now;
     if (!this.bgm) return;
-    if (this.bgm.paused) {
+    if (this.bgm.paused && !this.musicPaused) {
       this.bgm.play().then(() => {
         if (!this.enabled) this.bgm.pause();
       }).catch(() => {});
@@ -191,11 +293,9 @@ export class AudioSystem {
     this.savePref();
     if (!this.unlocked) return;
     if (this.enabled) {
-      if (!this.bgm) {
-        this.bgm = this._makeAudio(this.bgmSources, true, 0.32);
-      }
+      this.musicPaused = false;
       this.bgm.volume = this.bgm.volume ?? 0.32;
-      this.bgm.play().catch(() => {
+      this.playMusic().catch(() => {
         if (!this._errorShown) {
           this._errorShown = true;
           toast("Audio blocked. Click once on the game, then toggle Audio.");
@@ -210,6 +310,10 @@ export class AudioSystem {
 
   setMusicVolume(v) {
     this.bgm.volume = clamp(v, 0, 1);
+    if (this.bgm.volume > 0) {
+      this.musicMuted = false;
+      this.bgm.muted = false;
+    }
     this.savePref();
   }
 
@@ -221,6 +325,109 @@ export class AudioSystem {
   toggle() {
     this.unlock();
     this.setEnabled(!this.enabled);
+  }
+
+  playMusic() {
+    this.unlock();
+    this.enabled = true;
+    this.musicPaused = false;
+    this._setButton();
+    this.savePref();
+    if (!this.bgm) this.bgm = this._makeBgm();
+    return this.bgm.play().catch((err) => {
+      if (!this._errorShown) {
+        this._errorShown = true;
+        toast("Audio blocked. Click once on the game, then press Play.");
+      }
+      throw err;
+    });
+  }
+
+  pauseMusic() {
+    this.musicPaused = true;
+    if (this.bgm) this.bgm.pause();
+    this.savePref();
+  }
+
+  toggleMusic() {
+    if (this.isMusicPlaying()) {
+      this.pauseMusic();
+      return false;
+    }
+    this.playMusic().catch(() => {});
+    return true;
+  }
+
+  nextTrack(autoplay = this.isMusicPlaying()) {
+    if (this.shuffle && this.bgmSources.length > 1) {
+      let next = this.trackIndex;
+      while (next === this.trackIndex) next = Math.floor(Math.random() * this.bgmSources.length);
+      this.setTrackIndex(next, autoplay);
+      return;
+    }
+    this.setTrackIndex(this.trackIndex + 1, autoplay);
+  }
+
+  prevTrack() {
+    this.setTrackIndex(this.trackIndex - 1, this.isMusicPlaying());
+  }
+
+  setRepeat(on) {
+    this.repeat = !!on;
+    this.savePref();
+  }
+
+  setShuffle(on) {
+    this.shuffle = !!on;
+    this.savePref();
+  }
+
+  toggleMute() {
+    this.musicMuted = !this.musicMuted;
+    if (this.bgm) this.bgm.muted = this.musicMuted;
+    this.savePref();
+    return this.musicMuted;
+  }
+
+  seekBy(seconds) {
+    if (!this.bgm) return;
+    const current = Number.isFinite(this.bgm.currentTime) ? this.bgm.currentTime : 0;
+    if (!Number.isFinite(this.bgm.duration) || this.bgm.duration <= 0) {
+      this._pendingSeekSeconds += seconds;
+      this._pendingProgressDisplay = clamp(this._pendingProgressDisplay + (seconds / 180), 0, 1);
+      try { this.bgm.load(); } catch (err) {}
+      return;
+    }
+    const max = this.bgm.duration;
+    try {
+      this.bgm.currentTime = clamp(current + seconds, 0, max);
+    } catch (err) {}
+  }
+
+  setProgress(value, max = 1) {
+    if (!this.bgm) return;
+    const range = Math.max(1, Number(max) || 1);
+    const ratio = clamp((Number(value) || 0) / range, 0, 1);
+    if (!Number.isFinite(this.bgm.duration) || this.bgm.duration <= 0) {
+      this._pendingProgressRatio = ratio;
+      this._pendingProgressDisplay = ratio;
+      try { this.bgm.load(); } catch (err) {}
+      return;
+    }
+    const seconds = ratio * this.bgm.duration;
+    try {
+      this.bgm.currentTime = clamp(seconds, 0, this.bgm.duration);
+    } catch (err) {}
+  }
+
+  getMusicReactiveLevel() {
+    if (!this.enabled || !this.bgm || this.bgm.paused) return 0;
+    const t = this.bgm.currentTime || 0;
+    const i = this.trackIndex + 1;
+    const pulse = Math.sin(t * (2.8 + i * 0.07)) * 0.5 + 0.5;
+    const bass = Math.sin(t * (0.82 + i * 0.03) + i) * 0.5 + 0.5;
+    const shimmer = Math.sin(t * (6.4 + i * 0.11)) * 0.5 + 0.5;
+    return clamp((pulse * 0.48) + (bass * 0.36) + (shimmer * 0.16), 0, 1);
   }
 
   _pruneActiveSfx(now = performance.now()) {

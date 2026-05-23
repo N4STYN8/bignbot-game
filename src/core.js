@@ -1,18 +1,27 @@
-import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
+import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { AudioSystem } from "./audio.js";
 import { Map } from "./map.js";
 import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js";
 import { Particles } from "./vfx.js";
 import { Projectile } from "./projectiles.js";
 import { TURRET_TYPES, Turret } from "./turrets.js";
+import { MusicVisualizer } from "./visualization.js";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
 const comboCascadeCountEl = document.getElementById("comboCascadeCount");
 const screenFxEl = document.querySelector(".screenFx");
+const visualModeLabelEl = document.getElementById("visualModeLabel");
 const enemySpritesToggleEl = document.getElementById("enemySpritesToggle");
 const vfxIntensitySelectEl = document.getElementById("vfxIntensitySelect");
 const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
+const formatMusicTime = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
 const ECHO_CASCADE_WINDOW_TIERS = [
   { min: 16, sec: 0.8 },
   { min: 11, sec: 1.0 },
@@ -118,6 +127,11 @@ class Game {
     this.map = new Map(this.mapData);
     this.particles = new Particles();
     this.audio = new AudioSystem();
+    this.musicVisualizer = new MusicVisualizer({
+      label: visualModeLabelEl,
+      audioSystem: this.audio
+    });
+    this.musicVisualizer.start();
     this._initCollections();
     this._initRuntimeState();
     this._loadVisualSettings();
@@ -257,6 +271,61 @@ class Game {
   _syncVisualSettingsUi() {
     if (enemySpritesToggleEl) enemySpritesToggleEl.checked = this.visualSettings.enemySprites !== false;
     if (vfxIntensitySelectEl) vfxIntensitySelectEl.value = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
+  }
+
+  _syncMusicHud() {
+    if (!this.audio) return;
+    this._syncMusicHudGeometry();
+    const bgm = this.audio.bgm;
+    const vol = String(Math.round((this.audio.bgm?.volume ?? 0.32) * 100));
+    if (musicTrackName) musicTrackName.textContent = this.audio.currentTrackName();
+    if (musicPlayBtn) {
+      const icon = musicPlayBtn.querySelector(".material-symbols-rounded");
+      if (icon) icon.textContent = this.audio.isMusicPlaying() ? "pause" : "play_arrow";
+      musicPlayBtn.title = this.audio.isMusicPlaying() ? "Pause" : "Play";
+    }
+    if (musicShuffleBtn) {
+      musicShuffleBtn.classList.toggle("active", !!this.audio.shuffle);
+      musicShuffleBtn.setAttribute("aria-pressed", this.audio.shuffle ? "true" : "false");
+    }
+    if (musicRepeatBtn) {
+      musicRepeatBtn.classList.toggle("active", !!this.audio.repeat);
+      musicRepeatBtn.setAttribute("aria-pressed", this.audio.repeat ? "true" : "false");
+    }
+    if (musicMuteBtn) {
+      const icon = musicMuteBtn.querySelector(".material-symbols-rounded");
+      if (icon) icon.textContent = this.audio.musicMuted ? "volume_off" : "volume_up";
+      musicMuteBtn.classList.toggle("active", !!this.audio.musicMuted);
+      musicMuteBtn.setAttribute("aria-pressed", this.audio.musicMuted ? "true" : "false");
+    }
+    if (musicHud) musicHud.classList.toggle("isPlaying", this.audio.isMusicPlaying());
+    if (musicVol && musicVol.value !== vol) musicVol.value = vol;
+    if (musicHudVol && musicHudVol.value !== vol) musicHudVol.value = vol;
+    const duration = Number.isFinite(bgm?.duration) ? bgm.duration : 0;
+    const current = Number.isFinite(bgm?.currentTime) ? bgm.currentTime : 0;
+    if (musicElapsed) musicElapsed.textContent = formatMusicTime(current);
+    if (musicDuration) musicDuration.textContent = formatMusicTime(duration);
+    if (musicProgress) {
+      musicProgress.max = duration > 0 ? String(Math.ceil(duration)) : "1000";
+      musicProgress.disabled = false;
+    }
+    if (musicProgress && document.activeElement !== musicProgress) {
+      const pending = typeof this.audio._pendingProgressDisplay === "number" ? this.audio._pendingProgressDisplay : 0;
+      musicProgress.value = duration > 0 ? String(Math.round(current)) : String(Math.round(pending * Number(musicProgress.max || "1000")));
+    }
+  }
+
+  _syncMusicHudGeometry() {
+    if (!musicHud || !abilitiesBarEl) return;
+    const r = abilitiesBarEl.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    musicHud.style.width = `${Math.round(r.width)}px`;
+    const bottom = Math.max(0, Math.round(window.innerHeight - r.top));
+    musicHud.style.bottom = `${bottom}px`;
+    if (visualModeLabelEl) {
+      const closedHeight = Number.parseFloat(getComputedStyle(musicHud).getPropertyValue("--music-closed-height")) || 46;
+      visualModeLabelEl.style.bottom = `${bottom + closedHeight + 8}px`;
+    }
   }
 
   _hideLandingMenu() {
@@ -1098,6 +1167,65 @@ class Game {
     musicVol?.addEventListener("input", () => {
       const v = Number(musicVol.value || "0") / 100;
       this.audio.setMusicVolume(v);
+      if (musicHudVol) musicHudVol.value = musicVol.value;
+      this._syncMusicHud();
+    });
+    musicHudVol?.addEventListener("input", () => {
+      const v = Number(musicHudVol.value || "0") / 100;
+      this.audio.setMusicVolume(v);
+      if (musicVol) musicVol.value = musicHudVol.value;
+      this._syncMusicHud();
+    });
+    musicHud?.addEventListener("mouseenter", () => musicHud.classList.add("open"));
+    musicHud?.addEventListener("mouseleave", () => {
+      if (!musicHud.matches(":focus-within")) musicHud.classList.remove("open");
+    });
+    musicHud?.addEventListener("focusin", () => musicHud.classList.add("open"));
+    musicHud?.addEventListener("focusout", () => {
+      setTimeout(() => {
+        if (!musicHud.matches(":hover, :focus-within")) musicHud.classList.remove("open");
+      }, 0);
+    });
+    musicProgress?.addEventListener("input", () => {
+      this.audio.setProgress(Number(musicProgress.value || "0"), Number(musicProgress.max || "1"));
+      this._syncMusicHud();
+    });
+    musicProgress?.addEventListener("change", () => {
+      this.audio.setProgress(Number(musicProgress.value || "0"), Number(musicProgress.max || "1"));
+      this._syncMusicHud();
+    });
+    musicPlayBtn?.addEventListener("click", () => {
+      this.musicVisualizer?.unlock();
+      this.audio.toggleMusic();
+      this._syncMusicHud();
+    });
+    musicShuffleBtn?.addEventListener("click", () => {
+      this.audio.setShuffle(!this.audio.shuffle);
+      this._syncMusicHud();
+    });
+    musicPrevBtn?.addEventListener("click", () => {
+      this.audio.prevTrack();
+      this._syncMusicHud();
+    });
+    musicNextBtn?.addEventListener("click", () => {
+      this.audio.nextTrack();
+      this._syncMusicHud();
+    });
+    musicBack10Btn?.addEventListener("click", () => {
+      this.audio.seekBy(-10);
+      this._syncMusicHud();
+    });
+    musicForward10Btn?.addEventListener("click", () => {
+      this.audio.seekBy(10);
+      this._syncMusicHud();
+    });
+    musicRepeatBtn?.addEventListener("click", () => {
+      this.audio.setRepeat(!this.audio.repeat);
+      this._syncMusicHud();
+    });
+    musicMuteBtn?.addEventListener("click", () => {
+      this.audio.toggleMute();
+      this._syncMusicHud();
     });
     sfxVol?.addEventListener("input", () => {
       const v = Number(sfxVol.value || "0") / 100;
@@ -1105,7 +1233,9 @@ class Game {
     });
 
     if (musicVol) musicVol.value = String(Math.round(this.audio.bgm.volume * 100));
+    if (musicHudVol) musicHudVol.value = String(Math.round(this.audio.bgm.volume * 100));
     if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
+    this._syncMusicHud();
     this._syncVisualSettingsUi();
     enemySpritesToggleEl?.addEventListener("change", () => {
       this.visualSettings.enemySprites = !!enemySpritesToggleEl.checked;
@@ -1131,7 +1261,11 @@ class Game {
       });
     });
 
-    audioBtn?.addEventListener("click", () => this.audio.toggle());
+    audioBtn?.addEventListener("click", () => {
+      this.musicVisualizer?.unlock();
+      this.audio.toggle();
+      this._syncMusicHud();
+    });
 
     modalCancel?.addEventListener("click", () => closeConfirm());
     modalConfirm?.addEventListener("click", () => {
@@ -3533,6 +3667,7 @@ class Game {
       this.statsOpen = false;
       this.statsMode = null;
     }
+    this._syncMusicHud();
     if (this.gameOver || this.gameWon) {
       this.updateHUD();
       return;
@@ -3790,7 +3925,7 @@ class Game {
     gfx.translate(W * 0.5, H * 0.5);
     gfx.scale(renderZoom, renderZoom);
     gfx.translate(-W * 0.5 - renderCam.x, -H * 0.5 - renderCam.y);
-    this.map.drawBase(gfx);
+    this.map.drawBase(gfx, this.musicVisualizer?.getGridState?.());
 
     if (this.corePulseT > 0) {
       const end = this.map.pathPts[this.map.pathPts.length - 1];

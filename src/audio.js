@@ -18,16 +18,16 @@ export class AudioSystem {
       "assets/music/Background/Orbit Echo_ A Defensive Pulse.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
-      "Echoes of Orbit 2",
-      "Echoes of Orbit 3",
-      "Echoes of Orbit",
-      "Echoing Orbit",
-      "Echos of Orbit 7",
-      "Galactic Defenses",
-      "Orbit Echo 3",
-      "Orbit Echo",
-      "Orbit Echo 4",
-      "Defensive Pulse"
+      "Pulse Grid Ascension",
+      "Neon Bastion Drift",
+      "Orbit Core Awakening",
+      "Echo Lane Overdrive",
+      "Wavebreaker Protocol",
+      "Galactic Turret Stand",
+      "Synthwave Sentinel",
+      "Core Shield Horizon",
+      "Boss Wave Afterburn",
+      "Defensive Pulse Finale"
     ];
     this.trackIndex = 0;
     this.repeat = true;

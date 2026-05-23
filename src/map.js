@@ -386,31 +386,54 @@ export class Map {
     };
   }
 
-  _drawMusicRipple(gfx, m) {
+  _musicHue(m, offset = 0) {
+    return (188 + offset + m.level * 11 + m.wave * 3 + Math.sin(m.time * 0.35 + offset) * 34) % 360;
+  }
+
+  _drawGridBeatRipple(gfx, m, perf) {
     if (!this.pathPts?.length || m.beat <= 0.02) return;
     const [sx, sy] = this.pathPts[0];
-    const maxR = Math.hypot(W, H) + 160;
+    const maxR = Math.hypot(W, H) + this.gridSize * 3;
     const radius = (m.time * (170 + m.tempo * 120)) % maxR;
+    const band = Math.max(this.gridSize * 1.05, 36);
+    const skip = perf < 0.7 ? 3 : (m.progression < 0.45 ? 2 : 1);
+    const hue = this._musicHue(m, 28);
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
-    gfx.globalAlpha = clamp(0.06 + m.beat * 0.18, 0, 0.25);
-    gfx.strokeStyle = "rgba(98,242,255,0.85)";
-    gfx.lineWidth = 1.5 + m.beat * 2;
-    gfx.beginPath();
-    gfx.arc(sx, sy, radius, 0, Math.PI * 2);
-    gfx.stroke();
-    gfx.globalAlpha = clamp(0.035 + m.beat * 0.10, 0, 0.16);
-    gfx.strokeStyle = "rgba(255,150,76,0.75)";
-    gfx.beginPath();
-    gfx.arc(sx, sy, Math.max(0, radius - 26), 0, Math.PI * 2);
-    gfx.stroke();
+    gfx.lineWidth = 1.2 + m.beat * 1.2;
+    for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy += skip) {
+      for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx += skip) {
+        const idx = gy * this.cols + gx;
+        const v = this.cells[idx];
+        if (v !== 1 && v !== 3) continue;
+        if (this._isBuildableCorrupted(gx, gy, idx, v)) continue;
+        const x = gx * this.gridSize;
+        const y = gy * this.gridSize;
+        const cx = x + this.gridSize * 0.5;
+        const cy = y + this.gridSize * 0.5;
+        const d = Math.hypot(cx - sx, cy - sy);
+        const k = Math.max(0, 1 - Math.abs(d - radius) / band);
+        if (k <= 0.02) continue;
+        const alpha = clamp((0.025 + k * m.beat * 0.16) * (0.78 + m.progression * 0.42), 0, 0.23);
+        gfx.globalAlpha = alpha;
+        gfx.strokeStyle = v === 3
+          ? `hsla(${(hue + 58) % 360}, 100%, 64%, 0.90)`
+          : `hsla(${hue}, 100%, 64%, 0.92)`;
+        gfx.strokeRect(x + 3, y + 3, this.gridSize - 6, this.gridSize - 6);
+        if (k > 0.55) {
+          gfx.globalAlpha = clamp(alpha * 0.55, 0, 0.14);
+          gfx.fillStyle = `hsla(${hue}, 100%, 58%, 0.65)`;
+          gfx.fillRect(x + 5, y + 5, this.gridSize - 10, this.gridSize - 10);
+        }
+      }
+    }
     gfx.restore();
   }
 
   _drawCircuitFlow(gfx, m, perf) {
-    if (perf < 0.7 || m.mid + m.high < 0.12) return;
+    if (perf < 0.7 || m.progression < 0.22 || m.mid + m.high < 0.12) return;
     const phase = Math.floor(m.time * (5 + m.tempo * 4));
-    const step = Math.max(2, perf < 1 ? 3 : 2);
+    const step = Math.max(2, m.progression < 0.55 ? 4 : (perf < 1 ? 3 : 2));
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
     gfx.lineWidth = 1;
@@ -424,7 +447,7 @@ export class Map {
         if (gate > 1) continue;
         const x = gx * this.gridSize;
         const y = gy * this.gridSize;
-        const a = clamp(0.04 + m.mid * 0.10 + m.high * 0.08, 0, 0.22);
+        const a = clamp((0.035 + m.mid * 0.09 + m.high * 0.06) * (0.65 + m.progression * 0.55), 0, 0.20);
         gfx.globalAlpha = a;
         gfx.strokeStyle = v === 3 ? "rgba(255,207,91,0.70)" : "rgba(98,242,255,0.85)";
         gfx.beginPath();
@@ -440,46 +463,108 @@ export class Map {
 
   _drawSynthGridSweep(gfx, m, perf) {
     if (perf < 0.7) return;
-    const skip = perf < 1 ? 2 : 1;
+    const skip = m.progression < 0.28 ? 4 : m.progression < 0.58 ? 3 : (perf < 1 ? 2 : 1);
     const phase = m.time * (0.9 + m.tempo * 0.75);
+    const hueA = this._musicHue(m, 0);
+    const hueB = this._musicHue(m, 86);
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
     gfx.lineWidth = 1;
     for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy += skip) {
-      const rowWave = 0.5 + 0.5 * Math.sin(phase - gy * 0.44);
-      const alpha = clamp((0.025 + rowWave * m.mid * 0.13 + m.beat * 0.025) * (0.85 + m.progression * 0.55), 0, 0.24);
-      if (alpha < 0.035) continue;
-      const y = gy * this.gridSize + this.gridSize * 0.5;
-      const grad = gfx.createLinearGradient(0, y, W, y);
-      grad.addColorStop(0, "rgba(98,242,255,0)");
-      grad.addColorStop(0.45, "rgba(98,242,255,0.75)");
-      grad.addColorStop(0.58, "rgba(255,150,76,0.55)");
-      grad.addColorStop(1, "rgba(98,242,255,0)");
-      gfx.globalAlpha = alpha;
-      gfx.strokeStyle = grad;
-      gfx.beginPath();
-      gfx.moveTo(MAP_EDGE_MARGIN * this.gridSize, y);
-      gfx.lineTo((this.cols - MAP_EDGE_MARGIN) * this.gridSize, y);
-      gfx.stroke();
+      for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx += skip) {
+        const idx = gy * this.cols + gx;
+        const v = this.cells[idx];
+        if (v !== 1 && v !== 3) continue;
+        if (this._isBuildableCorrupted(gx, gy, idx, v)) continue;
+        const rowWave = 0.5 + 0.5 * Math.sin(phase - gy * 0.44 + gx * 0.08);
+        const colWave = 0.5 + 0.5 * Math.sin(phase * 1.22 + gx * 0.38);
+        const band = rowWave * 0.65 + colWave * 0.35;
+        const activeBand = band > (0.74 - m.progression * 0.18) ? band : 0;
+        const alpha = clamp((0.008 + activeBand * m.mid * 0.075 + m.high * colWave * 0.025) * (0.7 + m.progression * 0.5), 0, 0.16);
+        if (alpha < 0.026) continue;
+        const x = gx * this.gridSize;
+        const y = gy * this.gridSize;
+        const hue = (hueA + gx * 2 + gy * 5 + band * 48) % 360;
+        gfx.globalAlpha = alpha;
+        gfx.fillStyle = v === 3
+          ? `hsla(${(hueB + band * 30) % 360}, 100%, 58%, 0.55)`
+          : `hsla(${hue}, 100%, 56%, 0.52)`;
+        gfx.fillRect(x + 3, y + 3, this.gridSize - 6, this.gridSize - 6);
+        gfx.globalAlpha = clamp(alpha * 0.75, 0, 0.13);
+        gfx.strokeStyle = `hsla(${(hue + 34) % 360}, 100%, 68%, 0.85)`;
+        gfx.strokeRect(x + 2, y + 2, this.gridSize - 4, this.gridSize - 4);
+      }
     }
-    const columns = Math.max(5, Math.floor(this.cols / 4));
-    for (let i = 0; i < columns; i++) {
-      const gx = MAP_EDGE_MARGIN + ((i * 4 + Math.floor(phase * 2)) % Math.max(1, this.cols - MAP_EDGE_MARGIN * 2));
-      const x = gx * this.gridSize + this.gridSize * 0.5;
-      const alpha = clamp(0.035 + m.high * 0.12 + m.progression * 0.035, 0, 0.22);
-      gfx.globalAlpha = alpha;
-      gfx.strokeStyle = i % 2 ? "rgba(154,108,255,0.65)" : "rgba(98,242,255,0.75)";
-      gfx.beginPath();
-      gfx.moveTo(x, MAP_EDGE_MARGIN * this.gridSize);
-      gfx.lineTo(x, (this.rows - MAP_EDGE_MARGIN) * this.gridSize);
-      gfx.stroke();
+    gfx.restore();
+  }
+
+  _drawGridSpectrumCells(gfx, m, perf) {
+    if (perf < 0.7 || m.progression < 0.14) return;
+    const stride = m.progression < 0.42 ? 6 : m.progression < 0.72 ? 5 : 4;
+    const phase = Math.floor(m.time * (2.8 + m.tempo * 1.4));
+    const bands = [m.bass, m.mid, m.high];
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy++) {
+      for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx++) {
+        const idx = gy * this.cols + gx;
+        const v = this.cells[idx];
+        if (v !== 1 && v !== 3) continue;
+        if (this._isBuildableCorrupted(gx, gy, idx, v)) continue;
+        if (((gx * 5 + gy * 7 + phase) % stride) !== 0) continue;
+        const x = gx * this.gridSize;
+        const y = gy * this.gridSize;
+        const hue = this._musicHue(m, gx * 5 + gy * 3);
+        const barW = Math.max(2, (this.gridSize - 12) / 5);
+        for (let b = 0; b < 3; b++) {
+          const level = bands[b] * (0.6 + 0.4 * Math.sin(m.time * (2.2 + b) + gx * 0.3 + gy * 0.2));
+          const h = clamp(level, 0, 1) * (this.gridSize * 0.38);
+          const bx = x + 6 + b * (barW + 2);
+          const by = y + this.gridSize - 6 - h;
+          gfx.globalAlpha = clamp(0.035 + bands[b] * 0.13 + m.progression * 0.035, 0, 0.20);
+          gfx.fillStyle = `hsla(${(hue + b * 46) % 360}, 100%, ${58 + b * 4}%, 0.75)`;
+          gfx.fillRect(bx, by, barW, h);
+        }
+      }
+    }
+    gfx.restore();
+  }
+
+  _drawGridSequencer(gfx, m, perf) {
+    if (perf < 0.7 || m.progression < 0.34) return;
+    const stepCount = m.progression < 0.68 ? 8 : 12;
+    const step = Math.floor(m.time * (2.2 + m.tempo * 0.9)) % stepCount;
+    const hue = this._musicHue(m, 118);
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    gfx.lineWidth = 1.4;
+    for (let i = 0; i < stepCount; i++) {
+      const pathIndex = Math.floor((i / Math.max(1, stepCount - 1)) * (this.pathPts.length - 1));
+      const anchor = this.pathPts[pathIndex] || this.pathPts[0];
+      const gx = clamp(Math.floor(anchor[0] / this.gridSize) + ((i % 3) - 1) * 2, MAP_EDGE_MARGIN, this.cols - MAP_EDGE_MARGIN - 1);
+      const gy = clamp(Math.floor(anchor[1] / this.gridSize) + (((i + 1) % 3) - 1) * 2, MAP_EDGE_MARGIN, this.rows - MAP_EDGE_MARGIN - 1);
+      const idx = gy * this.cols + gx;
+      const v = this.cells[idx];
+      if (v !== 1 && v !== 3) continue;
+      if (this._isBuildableCorrupted(gx, gy, idx, v)) continue;
+      const x = gx * this.gridSize;
+      const y = gy * this.gridSize;
+      const active = i === step;
+      gfx.globalAlpha = active ? clamp(0.12 + m.beat * 0.14 + m.progression * 0.06, 0, 0.28) : clamp(0.035 + m.mid * 0.05, 0, 0.10);
+      gfx.strokeStyle = active ? `hsla(${hue}, 100%, 68%, 0.95)` : `hsla(${(hue + 72) % 360}, 100%, 62%, 0.55)`;
+      gfx.strokeRect(x + 6, y + 6, this.gridSize - 12, this.gridSize - 12);
+      if (active) {
+        gfx.globalAlpha = clamp(0.04 + m.beat * 0.12, 0, 0.16);
+        gfx.fillStyle = `hsla(${hue}, 100%, 58%, 0.65)`;
+        gfx.fillRect(x + 8, y + 8, this.gridSize - 16, this.gridSize - 16);
+      }
     }
     gfx.restore();
   }
 
   _drawPathEqualizer(gfx, m, perf) {
-    if (!this.pathPts?.length || perf < 0.7) return;
-    const count = perf < 1 ? 12 : 20;
+    if (!this.pathPts?.length || perf < 0.7 || m.progression < 0.08) return;
+    const count = perf < 1 ? 8 + Math.floor(m.progression * 8) : 12 + Math.floor(m.progression * 14);
     const side = 18 + m.progression * 8;
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
@@ -491,7 +576,7 @@ export class Map {
       const ny = Math.cos(p.ang);
       const pulse = 0.5 + 0.5 * Math.sin(m.time * (3.8 + m.tempo) + i * 0.8);
       const h = (6 + pulse * 18 * m.mid + m.beat * 14) * (0.7 + m.progression * 0.55);
-      const alpha = clamp(0.05 + m.mid * 0.12 + pulse * m.high * 0.08, 0, 0.28);
+      const alpha = clamp((0.035 + m.mid * 0.10 + pulse * m.high * 0.06) * (0.75 + m.progression * 0.45), 0, 0.24);
       gfx.globalAlpha = alpha;
       gfx.strokeStyle = i % 4 === 0 && m.beat > 0.2 ? "rgba(255,150,76,0.90)" : "rgba(98,242,255,0.82)";
       gfx.lineWidth = 1.4;
@@ -557,6 +642,7 @@ export class Map {
         const rippleRadius = (musicGrid.time * (170 + musicGrid.tempo * 120)) % (mapDiag + 160);
         const ripple = musicGrid.beat * Math.max(0, 1 - Math.abs(distSpawn - rippleRadius) / Math.max(34, this.gridSize * 1.8));
         const trackSync = this.segs?.length ? 1 - clamp(Math.sqrt(distanceToSegmentsSquared(cx, cy, this.segs)) / Math.max(1, TRACK_RADIUS + this.gridSize * 3.5), 0, 1) : 0;
+        const colorHue = this._musicHue(musicGrid, gx * 2 + gy * 4);
         let modeGlow = bassBreath * 0.7;
         if (musicGrid.mode === 1) modeGlow = waveSweep;
         else if (musicGrid.mode === 2) modeGlow = ripple + bassBreath * 0.25;
@@ -568,23 +654,23 @@ export class Map {
         const pulse = 0.35 + 0.25 * Math.sin(t * 1.2 + gx * 0.7 + gy * 0.5);
         if (v === 3) {
           const goldPulse = 0.55 + 0.35 * Math.sin(t * 2.4 + gx * 0.6 + gy * 0.4);
-          gfx.fillStyle = `rgba(255,207,91,${clamp(0.16 + goldPulse * 0.18 + musicGlow * 0.04, 0, 0.35)})`;
+          gfx.fillStyle = `rgba(255,207,91,${clamp(0.15 + goldPulse * 0.16 + musicGlow * 0.035, 0, 0.32)})`;
         } else {
-          gfx.fillStyle = `rgba(98,242,255,${clamp(0.035 + pulse * 0.02 + musicGlow * 0.085, 0, 0.16)})`;
+          gfx.fillStyle = `hsla(${colorHue}, 100%, 58%, ${clamp(0.026 + pulse * 0.015 + musicGlow * 0.052, 0, 0.12)})`;
         }
         gfx.fillRect(x, y, this.gridSize, this.gridSize);
 
         gfx.strokeStyle = v === 3
-          ? `rgba(255,207,91,${clamp(0.45 + pulse * 0.2 + musicGlow * 0.08, 0, 0.72)})`
-          : `rgba(154,108,255,${clamp(0.08 + pulse * 0.06 + musicGlow * 0.16, 0, 0.30)})`;
+          ? `rgba(255,207,91,${clamp(0.42 + pulse * 0.16 + musicGlow * 0.07, 0, 0.66)})`
+          : `hsla(${(colorHue + 72) % 360}, 100%, 66%, ${clamp(0.065 + pulse * 0.045 + musicGlow * 0.11, 0, 0.24)})`;
         gfx.lineWidth = 1;
         gfx.strokeRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
 
         if (!corrupted && (musicGrid.mode === 1 || musicGrid.mode === 4) && waveSweep > 0.16) {
           gfx.save();
           gfx.globalCompositeOperation = "lighter";
-          gfx.globalAlpha = clamp(waveSweep * 0.16, 0, 0.20);
-          gfx.fillStyle = v === 3 ? "rgba(255,207,91,0.75)" : "rgba(98,242,255,0.75)";
+          gfx.globalAlpha = clamp(waveSweep * 0.11, 0, 0.15);
+          gfx.fillStyle = v === 3 ? "rgba(255,207,91,0.75)" : `hsla(${colorHue}, 100%, 62%, 0.72)`;
           gfx.fillRect(x + 2, y + 2, this.gridSize - 4, this.gridSize - 4);
           gfx.restore();
         }
@@ -593,7 +679,7 @@ export class Map {
           gfx.save();
           gfx.globalCompositeOperation = "lighter";
           gfx.globalAlpha = clamp(ripple * 0.22, 0, 0.25);
-          gfx.strokeStyle = "rgba(98,242,255,0.9)";
+          gfx.strokeStyle = `hsla(${(colorHue + 30) % 360}, 100%, 68%, 0.9)`;
           gfx.lineWidth = 1.5;
           gfx.strokeRect(x + 3, y + 3, this.gridSize - 6, this.gridSize - 6);
           gfx.restore();
@@ -733,7 +819,9 @@ export class Map {
     }
 
     gfx.restore();
-    this._drawMusicRipple(gfx, musicGrid);
+    this._drawGridSpectrumCells(gfx, musicGrid, perf);
+    this._drawGridSequencer(gfx, musicGrid, perf);
+    this._drawGridBeatRipple(gfx, musicGrid, perf);
     this._drawCircuitFlow(gfx, musicGrid, perf);
 
     // Path with layered glow

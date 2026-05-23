@@ -2,6 +2,7 @@ import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx,
 
 export class AudioSystem {
   constructor() {
+    this.cdnBase = "https://cdn.bignbot.com";
     this.enabled = false;
     this.unlocked = false;
     this.bgmSources = [
@@ -15,7 +16,7 @@ export class AudioSystem {
       "assets/music/Background/Orbit Echo.mp3",
       "assets/music/Background/Orbit Echo4.mp3",
       "assets/music/Background/Orbit Echo_ A Defensive Pulse.mp3"
-    ];
+    ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Echoes of Orbit 2",
       "Echoes of Orbit 3",
@@ -132,6 +133,12 @@ export class AudioSystem {
     return fallback;
   }
 
+  _cdnUrl(path) {
+    const cleanBase = String(this.cdnBase || "").replace(/\/+$/, "");
+    const cleanPath = String(path || "").replace(/^\/+/, "");
+    return encodeURI(`${cleanBase}/${cleanPath}`);
+  }
+
   _orderSources(sources) {
     const probe = document.createElement("audio");
     const ranked = [];
@@ -149,6 +156,7 @@ export class AudioSystem {
   _makeAudio(sources, loop = false, volume = 1) {
     const ordered = this._orderSources(sources);
     const a = new Audio();
+    a.crossOrigin = "anonymous";
     a.loop = loop;
     a.volume = volume;
     a.preload = "metadata";

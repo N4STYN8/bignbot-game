@@ -105,6 +105,10 @@ body{
   opacity:0.82;
   animation: screenNoise 6s steps(10) infinite, comboScreenPulseStrong 1.2s ease-in-out infinite;
 }
+.screenFx.comboTier24{
+  opacity:0.9;
+  animation: screenNoise 6s steps(10) infinite, comboScreenPulseStrong 0.9s ease-in-out infinite;
+}
 @keyframes comboScreenPulse{
   0%{filter:brightness(1) saturate(1)}
   50%{filter:brightness(1.035) saturate(1.06)}
@@ -2451,4 +2455,141 @@ body{
   0%{opacity:.65}
   50%{opacity:1}
   100%{opacity:.68}
+}
+
+/* Hit Combo final override: combat chain readout with bonus tier callout. */
+.comboCascade{
+  width: 260px !important;
+  height: 134px !important;
+  --combo-hot-color: hsl(calc(46 - var(--combo-heat, 0) * 42), 100%, calc(66% - var(--combo-heat, 0) * 4%));
+  --combo-warm-color: hsl(calc(52 - var(--combo-heat, 0) * 52), 100%, 62%);
+  --combo-flare-color: hsl(calc(35 - var(--combo-heat, 0) * 35), 100%, 58%);
+  --combo-hot-glow: hsla(calc(46 - var(--combo-heat, 0) * 42), 100%, 62%, .76);
+  --combo-hot-soft: hsla(calc(46 - var(--combo-heat, 0) * 42), 100%, 62%, .34);
+  --combo-flare-glow: hsla(calc(35 - var(--combo-heat, 0) * 35), 100%, 58%, .58);
+  --combo-warm-glow: hsla(calc(52 - var(--combo-heat, 0) * 52), 100%, 62%, .58);
+  filter:
+    drop-shadow(0 0 calc(8px + var(--combo-heat, 0) * 16px) rgba(255,190,80,.45))
+    drop-shadow(0 0 calc(var(--combo-heat, 0) * 20px) rgba(255,70,70,.52));
+}
+.comboCascade.active{
+  animation: comboHotPop .32s cubic-bezier(.2,.86,.22,1) both !important;
+}
+.comboCascade::before,
+.comboCascade::after{
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 56% !important;
+  width: calc(120px + var(--combo-heat, 0) * 150px) !important;
+  height: calc(48px + var(--combo-heat, 0) * 74px) !important;
+  transform: translate(-50%, -50%) scale(calc(.85 + var(--combo-life, 0) * .25)) !important;
+  border-radius: 999px !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+.comboCascade::before{
+  background:
+    radial-gradient(closest-side, var(--combo-hot-soft), transparent 72%) !important;
+  filter: blur(12px) !important;
+  opacity: calc(.18 + var(--combo-life, 0) * .34 + var(--combo-heat, 0) * .24) !important;
+  animation: comboHeatAura .7s ease-out infinite !important;
+}
+.comboCascade::after{
+  border: 2px solid var(--combo-hot-glow) !important;
+  box-shadow:
+    0 0 18px var(--combo-hot-glow),
+    inset 0 0 22px var(--combo-flare-glow) !important;
+  opacity: calc(.16 + var(--combo-life, 0) * .22 + var(--combo-heat, 0) * .32) !important;
+  animation: comboHeatRing .55s cubic-bezier(.2,.78,.22,1) infinite !important;
+}
+.comboLabel,
+.comboCount,
+.comboBonus{
+  position: absolute !important;
+  left: 50% !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  paint-order: stroke fill !important;
+}
+.comboLabel{
+  top: 22px !important;
+  font-size: calc(14px + var(--combo-heat, 0) * 4px) !important;
+  letter-spacing: .16em !important;
+  color: var(--combo-hot-color) !important;
+  -webkit-text-stroke: 1.2px rgba(0,0,0,.9) !important;
+  text-shadow:
+    0 0 14px var(--combo-hot-glow),
+    0 0 30px var(--combo-flare-glow),
+    0 2px 8px rgba(0,0,0,.72) !important;
+  animation: comboFlashLabel .5s steps(2) infinite !important;
+}
+.comboCount{
+  top: calc(43px - var(--combo-heat, 0) * 7px) !important;
+  font-size: calc(40px + var(--combo-life, 0) * 26px + var(--combo-heat, 0) * 36px) !important;
+  color: var(--combo-hot-color) !important;
+  -webkit-text-stroke: calc(1.8px + var(--combo-heat, 0) * .8px) rgba(0,0,0,.9) !important;
+  text-shadow:
+    0 0 13px var(--combo-hot-glow),
+    0 0 34px var(--combo-flare-glow),
+    0 0 calc(var(--combo-heat, 0) * 54px) rgba(255,42,42,.72),
+    0 2px 10px rgba(0,0,0,.68) !important;
+  animation: comboFlashCount calc(.62s - var(--combo-heat, 0) * .22s) ease-in-out infinite !important;
+}
+.comboBonus{
+  top: calc(100px + var(--combo-heat, 0) * 8px) !important;
+  display: block !important;
+  font-size: calc(12px + var(--combo-heat, 0) * 3px) !important;
+  font-weight: 1000 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: var(--combo-warm-color) !important;
+  -webkit-text-stroke: 1px rgba(0,0,0,.82) !important;
+  text-shadow:
+    0 0 12px var(--combo-warm-glow),
+    0 0 22px var(--combo-flare-glow),
+    0 2px 8px rgba(0,0,0,.72) !important;
+  animation: comboFlashBonus .72s ease-in-out infinite !important;
+}
+.comboCascade.tier10{ transform: translateY(0) scale(1.05) !important; }
+.comboCascade.tier15{ transform: translateY(-4px) scale(1.13) !important; }
+.comboCascade.tier24{ transform: translateY(-8px) scale(1.24) !important; }
+@keyframes comboHotPop{
+  0%{ transform: translateY(12px) scale(.82); opacity:.1 }
+  60%{ transform: translateY(-4px) scale(calc(1.02 + var(--combo-heat, 0) * .18)); opacity:1 }
+  100%{ transform: translateY(0) scale(1); opacity:1 }
+}
+@keyframes comboHeatAura{
+  0%{ transform: translate(-50%, -50%) scale(.86); opacity:.18 }
+  50%{ transform: translate(-50%, -50%) scale(1.08); opacity:calc(.32 + var(--combo-heat, 0) * .32) }
+  100%{ transform: translate(-50%, -50%) scale(.94); opacity:.20 }
+}
+@keyframes comboHeatRing{
+  0%{ transform: translate(-50%, -50%) scale(.86); opacity:.12 }
+  55%{ transform: translate(-50%, -50%) scale(calc(1.04 + var(--combo-heat, 0) * .20)); opacity:calc(.28 + var(--combo-heat, 0) * .36) }
+  100%{ transform: translate(-50%, -50%) scale(1.24); opacity:.08 }
+}
+@keyframes comboFlashLabel{
+  0%,100%{ transform:translateX(-50%) skewX(0deg); opacity:.78 }
+  50%{ transform:translateX(-50%) skewX(-4deg); opacity:1 }
+}
+@keyframes comboFlashCount{
+  0%,100%{ transform:translateX(-50%) scale(1) rotate(0deg) }
+  35%{ transform:translateX(-50%) scale(calc(1.03 + var(--combo-heat, 0) * .06)) rotate(-1deg) }
+  70%{ transform:translateX(-50%) scale(.99) rotate(1deg) }
+}
+@keyframes comboFlashBonus{
+  0%,100%{ opacity:.7; transform:translateX(-50%) translateY(0) }
+  50%{ opacity:1; transform:translateX(-50%) translateY(-1px) }
+}
+@media (max-width: 900px){
+  .comboCascade{
+    width: 220px !important;
+    height: 112px !important;
+  }
+  .comboLabel{ top: 18px !important; font-size: 12px !important; }
+  .comboCount{ top: 36px !important; font-size: calc(30px + var(--combo-life, 0) * 22px + var(--combo-heat, 0) * 20px) !important; }
+  .comboBonus{ top: 84px !important; font-size: 10px !important; }
 }

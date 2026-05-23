@@ -10,6 +10,7 @@ import { MusicVisualizer } from "./visualization.js";
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
 const comboCascadeCountEl = document.getElementById("comboCascadeCount");
+const comboCascadeBonusEl = document.getElementById("comboCascadeBonus");
 const screenFxEl = document.querySelector(".screenFx");
 const visualModeLabelEl = document.getElementById("visualModeLabel");
 const enemySpritesToggleEl = document.getElementById("enemySpritesToggle");
@@ -23,16 +24,18 @@ const formatMusicTime = (seconds) => {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 };
 const ECHO_CASCADE_WINDOW_TIERS = [
-  { min: 16, sec: 0.8 },
-  { min: 11, sec: 1.0 },
-  { min: 6, sec: 1.25 },
-  { min: 1, sec: 1.5 }
+  { min: 24, sec: 0.86 },
+  { min: 16, sec: 1.02 },
+  { min: 9, sec: 1.22 },
+  { min: 4, sec: 1.45 },
+  { min: 1, sec: 1.75 }
 ];
 const ECHO_CASCADE_GOLD_TIERS = [
-  { min: 15, mult: 1.25 },
-  { min: 10, mult: 1.15 },
-  { min: 6, mult: 1.1 },
-  { min: 3, mult: 1.05 },
+  { min: 24, mult: 1.42 },
+  { min: 18, mult: 1.32 },
+  { min: 12, mult: 1.24 },
+  { min: 8, mult: 1.16 },
+  { min: 4, mult: 1.08 },
   { min: 0, mult: 1.0 }
 ];
 const ECHO_CASCADE_FADE_SECS = 0.45;
@@ -112,6 +115,16 @@ function comboMultForCount(count) {
     if (c >= tier.min) return tier.mult;
   }
   return 1.0;
+}
+
+function comboRankForCount(count) {
+  const c = Math.max(0, count | 0);
+  if (c >= 24) return "OVERCLOCK";
+  if (c >= 18) return "SURGE";
+  if (c >= 12) return "CHAIN";
+  if (c >= 8) return "RAMP";
+  if (c >= 4) return "LINK";
+  return "START";
 }
 
 /**********************
@@ -1967,23 +1980,31 @@ class Game {
     const nextPill = nextInEl?.closest(".pill");
     if (nextPill) nextPill.classList.toggle("intermissionPulse", this.intermission > 0 && !this.waveActive);
 
-    // CODEX CHANGE: Echo Cascade HUD update (reuses single DOM nodes, no DOM churn).
+    // CODEX CHANGE: Hit Combo HUD update (reuses single DOM nodes, no DOM churn).
     if (comboCascadeEl && comboCascadeCountEl) {
       const comboActive = this.comboCount > 0;
       const comboShow = comboActive;
       const life = comboActive ? clamp(this.comboTimer / Math.max(0.001, this.comboWindow), 0, 1) : 0;
-      const multText = comboActive ? `x${this.comboCount | 0}` : "";
+      const hits = this.comboCount | 0;
+      const bonusPct = comboActive ? Math.round((this.comboMult - 1) * 100) : 0;
+      const rank = comboRankForCount(hits);
+      const comboText = comboActive ? `${hits}x` : "";
       comboCascadeEl.classList.toggle("active", comboShow);
       comboCascadeEl.classList.toggle("tier10", this.comboCount >= 10);
       comboCascadeEl.classList.toggle("tier15", this.comboCount >= 15);
+      comboCascadeEl.classList.toggle("tier24", this.comboCount >= 24);
+      comboCascadeEl.dataset.comboRank = rank;
+      comboCascadeEl.style.setProperty("--combo-heat", String(clamp(hits / 28, 0, 1)));
       comboCascadeEl.style.opacity = comboShow ? "1" : "0";
       comboCascadeEl.style.setProperty("--combo-life", String(life));
       comboCascadeEl.style.setProperty("--combo-count", String(Math.max(1, this.comboCount | 0)));
-      comboCascadeCountEl.textContent = multText;
+      comboCascadeCountEl.textContent = comboText;
+      if (comboCascadeBonusEl) comboCascadeBonusEl.textContent = comboActive ? `${rank}  +${bonusPct}% GOLD` : "";
     }
     if (screenFxEl) {
       screenFxEl.classList.toggle("comboTier10", this.comboCount >= 10);
       screenFxEl.classList.toggle("comboTier15", this.comboCount >= 15);
+      screenFxEl.classList.toggle("comboTier24", this.comboCount >= 24);
     }
 
     const controlsLocked = this.gameState !== GAME_STATE.GAMEPLAY;
@@ -2994,7 +3015,7 @@ class Game {
     this.comboMult = 1;
     this._comboUiFade = 0;
     if (screenFxEl) {
-      screenFxEl.classList.remove("comboTier10", "comboTier15");
+      screenFxEl.classList.remove("comboTier10", "comboTier15", "comboTier24");
     }
   }
 
@@ -3020,6 +3041,10 @@ class Game {
     if (this.comboCount >= 15) {
       this.shakeT = Math.min(0.2, this.shakeT + ECHO_CASCADE_PULSE_SHAKE_T);
       this.shakeMag = Math.min(5, this.shakeMag + ECHO_CASCADE_PULSE_SHAKE_MAG);
+    }
+    if (this.comboCount >= 24) {
+      this.shakeT = Math.min(0.24, this.shakeT + ECHO_CASCADE_PULSE_SHAKE_T);
+      this.shakeMag = Math.min(6, this.shakeMag + ECHO_CASCADE_PULSE_SHAKE_MAG);
     }
     return rewardTotal;
   }
@@ -3067,9 +3092,12 @@ class Game {
       this.shakeMag = Math.min(8, this.shakeMag + 1.2);
     }
 
-    // CODEX CHANGE: Reward includes Echo Cascade multiplier and popup feedback at kill position.
+    // CODEX CHANGE: Reward includes Hit Combo bonus and popup feedback at kill position.
     const reward = this._grantKillReward(enemy);
-    const comboText = `+${reward}g  x${this.comboCount}`;
+    const bonusPct = Math.round((this.comboMult - 1) * 100);
+    const comboText = bonusPct > 0
+      ? `+${reward}g  ${this.comboCount} HIT +${bonusPct}%`
+      : `+${reward}g  ${this.comboCount} HIT`;
     const comboColor = this.comboCount >= 15
       ? "rgba(255,207,91,0.96)"
       : (this.comboCount >= 10 ? "rgba(154,108,255,0.95)" : "rgba(98,242,255,0.95)");

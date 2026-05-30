@@ -12,10 +12,15 @@ export class AudioSystem {
       "assets/music/Background/Echoing Orbit.mp3",
       "assets/music/Background/Echos of Orbit 7.mp3",
       "assets/music/Background/Galactic Defenses.mp3",
+      "assets/music/Background/Neon Core Uprising.mp3",
       "assets/music/Background/Orbit Echo 3.mp3",
       "assets/music/Background/Orbit Echo.mp3",
       "assets/music/Background/Orbit Echo4.mp3",
-      "assets/music/Background/Orbit Echo_ A Defensive Pulse.mp3"
+      "assets/music/Background/Orbit Echo_ A Defensive Pulse.mp3",
+      "assets/music/Background/Rift Runner Ambush.mp3",
+      "assets/music/Background/Sentinel Overcharge.mp3",
+      "assets/music/Background/Void Lane Pursuit.mp3",
+      "assets/music/Background/Anomaly Wavebreak.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -24,10 +29,15 @@ export class AudioSystem {
       "Echo Lane Overdrive",
       "Wavebreaker Protocol",
       "Galactic Turret Stand",
+      "Neon Core Uprising",
       "Synthwave Sentinel",
       "Core Shield Horizon",
       "Boss Wave Afterburn",
-      "Defensive Pulse Finale"
+      "Defensive Pulse Finale",
+      "Rift Runner Ambush",
+      "Sentinel Overcharge",
+      "Void Lane Pursuit",
+      "Anomaly Wavebreak"
     ];
     this.trackIndex = 0;
     this.repeat = true;

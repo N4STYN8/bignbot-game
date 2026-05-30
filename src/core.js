@@ -15,7 +15,16 @@ const screenFxEl = document.querySelector(".screenFx");
 const visualModeLabelEl = document.getElementById("visualModeLabel");
 const enemySpritesToggleEl = document.getElementById("enemySpritesToggle");
 const vfxIntensitySelectEl = document.getElementById("vfxIntensitySelect");
+const leaderboardBtnEl = document.getElementById("leaderboardBtn");
+const leaderboardModalEl = document.getElementById("leaderboardModal");
+const leaderboardCloseEl = document.getElementById("leaderboardClose");
+const leaderboardBodyEl = document.getElementById("leaderboardBody");
+const landingLeaderboardBtnEl = document.getElementById("landingLeaderboardBtn");
+const landingPilotStatusEl = document.getElementById("landingPilotStatus");
 const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
+const PROFILE_KEY = "orbit_echo_profile_v1";
+const LEADERBOARD_KEY = "orbit_echo_leaderboard_v1";
+const NEW_PLAYER_TIPS_KEY = "orbit_echo_new_player_tips_v1";
 const formatMusicTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
@@ -41,6 +50,13 @@ const ECHO_CASCADE_GOLD_TIERS = [
 const ECHO_CASCADE_FADE_SECS = 0.45;
 const ECHO_CASCADE_PULSE_SHAKE_T = 0.02;
 const ECHO_CASCADE_PULSE_SHAKE_MAG = 0.35;
+const NEW_PLAYER_WAVE_TIPS = {
+  1: "Tip: Build on glowing square tiles before enemies reach the core path.",
+  2: "Tip: Upgrade a turret by selecting it; each tier changes how it fights.",
+  3: "Tip: Power tiles boost damage, range, and fire rate once unlocked.",
+  4: "Tip: Press 1, 2, or 3 for abilities when a wave starts getting heavy.",
+  5: "Tip: Press V to change the music-reactive grid style."
+};
 const LEVEL_PROFILES = [
   {
     name: "Baseline",
@@ -125,6 +141,16 @@ function comboRankForCount(count) {
   if (c >= 8) return "RAMP";
   if (c >= 4) return "LINK";
   return "START";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[ch]));
 }
 
 /**********************
@@ -231,6 +257,10 @@ class Game {
     this.runStats = this._newRunStats();
     this.mapStats = [];
     this.playerStats = this._newPlayerStats();
+    this.playerProfile = null;
+    this.leaderboard = [];
+    this._playRecordedThisSession = false;
+    this.newPlayerTipsSeen = this._loadNewPlayerTipsSeen();
     this.globalOverchargeT = 0;
     this._transitioning = false;
     this.gameState = GAME_STATE.GAMEPLAY;
@@ -248,6 +278,7 @@ class Game {
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
     this.visualSettings = { enemySprites: true, vfxIntensity: "med" };
+    this._loadLeaderboardState();
   }
 
   _sanitizeVfxIntensity(v) {
@@ -284,6 +315,29 @@ class Game {
   _syncVisualSettingsUi() {
     if (enemySpritesToggleEl) enemySpritesToggleEl.checked = this.visualSettings.enemySprites !== false;
     if (vfxIntensitySelectEl) vfxIntensitySelectEl.value = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
+  }
+
+  _loadNewPlayerTipsSeen() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(NEW_PLAYER_TIPS_KEY) || "[]");
+      return new Set(Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : []);
+    } catch (err) {
+      return new Set();
+    }
+  }
+
+  _saveNewPlayerTipsSeen() {
+    try {
+      localStorage.setItem(NEW_PLAYER_TIPS_KEY, JSON.stringify([...this.newPlayerTipsSeen].slice(0, 12)));
+    } catch (err) {}
+  }
+
+  _showNewPlayerWaveTip(wave) {
+    const tip = NEW_PLAYER_WAVE_TIPS[wave];
+    if (!tip || this.newPlayerTipsSeen.has(wave)) return;
+    this.newPlayerTipsSeen.add(wave);
+    this._saveNewPlayerTipsSeen();
+    setTimeout(() => toast(tip), 1150);
   }
 
   _syncMusicHud() {
@@ -408,6 +462,7 @@ class Game {
       if (loadBtn) loadBtn.disabled = !hasSave();
     };
     refreshLoadState();
+    this._syncLeaderboardProfileUi();
 
     const openMenuSection = () => {
       if (commentPage) {
@@ -464,6 +519,9 @@ class Game {
     settingsMenuBtn?.addEventListener("click", () => {
       settingsModal?.classList.remove("hidden");
       settingsModal?.setAttribute("aria-hidden", "false");
+    });
+    landingLeaderboardBtnEl?.addEventListener("click", () => {
+      this._openLeaderboardModal();
     });
     commentBtn?.addEventListener("click", () => {
       openCommentSection();
@@ -1119,6 +1177,7 @@ class Game {
       if (this.statsOpen) return;
       if (!this.hasStarted) {
         this.hasStarted = true;
+        this._recordLeaderboardPlay();
         this.startWave();
         this.audio.play("wave");
         this._save();
@@ -1325,6 +1384,12 @@ class Game {
         settingsModal.setAttribute("aria-hidden", "true");
       }
     });
+    leaderboardBtnEl?.addEventListener("click", () => this._openLeaderboardModal());
+    leaderboardCloseEl?.addEventListener("click", () => this._closeLeaderboardModal());
+    leaderboardModalEl?.addEventListener("click", (ev) => {
+      if (ev.target === leaderboardModalEl) this._closeLeaderboardModal();
+    });
+    this._syncLeaderboardProfileUi();
 
     document.addEventListener("pointerover", (ev) => {
       const btn = ev.target.closest("button");
@@ -1645,6 +1710,237 @@ class Game {
 
   _newPlayerStats() {
     return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 };
+  }
+
+  _profileHash(name, password) {
+    const input = `${String(name || "").trim().toLowerCase()}:${String(password || "")}`;
+    let h = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+      h ^= input.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
+  }
+
+  _sanitizeProfileName(name) {
+    return String(name || "").trim().replace(/\s+/g, " ").slice(0, 18);
+  }
+
+  _emptyLeaderboardEntry(profile) {
+    return {
+      id: profile.id,
+      name: profile.name,
+      passHash: profile.passHash,
+      plays: 0,
+      bestLevel: 1,
+      bestWave: 0,
+      mapsCleared: 0,
+      kills: 0,
+      gold: 0,
+      bosses: 0,
+      updatedAt: Date.now()
+    };
+  }
+
+  _loadLeaderboardState() {
+    try {
+      const rawBoard = localStorage.getItem(LEADERBOARD_KEY);
+      const parsedBoard = rawBoard ? JSON.parse(rawBoard) : [];
+      this.leaderboard = Array.isArray(parsedBoard) ? parsedBoard.filter(e => e && e.id && e.name).map(e => ({
+        id: String(e.id),
+        name: String(e.name).slice(0, 18),
+        passHash: String(e.passHash || ""),
+        plays: Math.max(0, Number(e.plays) | 0),
+        bestLevel: Math.max(1, Number(e.bestLevel) | 0),
+        bestWave: Math.max(0, Number(e.bestWave) | 0),
+        mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
+        kills: Math.max(0, Number(e.kills) | 0),
+        gold: Math.max(0, Number(e.gold) | 0),
+        bosses: Math.max(0, Number(e.bosses) | 0),
+        updatedAt: Math.max(0, Number(e.updatedAt) || 0)
+      })) : [];
+
+      const rawProfile = localStorage.getItem(PROFILE_KEY);
+      const profile = rawProfile ? JSON.parse(rawProfile) : null;
+      if (profile?.id && profile?.name) {
+        this.playerProfile = {
+          id: String(profile.id),
+          name: String(profile.name).slice(0, 18),
+          passHash: String(profile.passHash || "")
+        };
+        this._leaderboardEntryForProfile(true);
+      }
+    } catch (err) {
+      this.leaderboard = [];
+      this.playerProfile = null;
+    }
+  }
+
+  _saveLeaderboardState() {
+    try {
+      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(this.leaderboard.slice(0, 20)));
+      if (this.playerProfile) localStorage.setItem(PROFILE_KEY, JSON.stringify(this.playerProfile));
+      else localStorage.removeItem(PROFILE_KEY);
+    } catch (err) {}
+  }
+
+  _leaderboardEntryForProfile(create = true) {
+    if (!this.playerProfile) return null;
+    let entry = this.leaderboard.find(e => e.id === this.playerProfile.id);
+    if (!entry && create) {
+      entry = this._emptyLeaderboardEntry(this.playerProfile);
+      this.leaderboard.push(entry);
+    }
+    if (entry) {
+      entry.name = this.playerProfile.name;
+      entry.passHash = this.playerProfile.passHash;
+    }
+    return entry || null;
+  }
+
+  _sortLeaderboard() {
+    this.leaderboard.sort((a, b) =>
+      (b.bestLevel - a.bestLevel)
+      || (b.bestWave - a.bestWave)
+      || (b.mapsCleared - a.mapsCleared)
+      || (b.kills - a.kills)
+      || (b.gold - a.gold)
+      || (b.updatedAt - a.updatedAt)
+    );
+  }
+
+  _syncLeaderboardStats() {
+    const entry = this._leaderboardEntryForProfile(false);
+    if (!entry) return;
+    this._reconcilePlayerStats();
+    const p = this.playerStats || this._newPlayerStats();
+    entry.bestLevel = Math.max(entry.bestLevel || 1, this.levelIndex || 1);
+    entry.bestWave = Math.max(entry.bestWave || 0, this.wave || 0);
+    entry.mapsCleared = Math.max(entry.mapsCleared || 0, p.mapsCleared || 0);
+    entry.kills = Math.max(entry.kills || 0, p.kills || 0);
+    entry.gold = Math.max(entry.gold || 0, p.gold || 0);
+    entry.bosses = Math.max(entry.bosses || 0, p.bosses || 0);
+    entry.updatedAt = Date.now();
+    this._sortLeaderboard();
+    this._saveLeaderboardState();
+    this._syncLeaderboardProfileUi();
+  }
+
+  _recordLeaderboardPlay() {
+    const entry = this._leaderboardEntryForProfile(false);
+    if (!entry || this._playRecordedThisSession) return;
+    entry.plays = Math.max(0, Number(entry.plays) | 0) + 1;
+    entry.updatedAt = Date.now();
+    this._playRecordedThisSession = true;
+    this._syncLeaderboardStats();
+  }
+
+  _syncLeaderboardProfileUi() {
+    const name = this.playerProfile?.name || "Guest";
+    if (landingPilotStatusEl) landingPilotStatusEl.textContent = this.playerProfile ? `Pilot: ${name}` : "Playing as Guest";
+    if (leaderboardBtnEl) leaderboardBtnEl.textContent = this.playerProfile ? "PILOT" : "LEADERS";
+  }
+
+  _setPlayerProfile(profile) {
+    this.playerProfile = profile;
+    this._leaderboardEntryForProfile(true);
+    this._syncLeaderboardStats();
+    this._saveLeaderboardState();
+    this._renderLeaderboardModal();
+    toast(`Pilot ready: ${profile.name}`);
+  }
+
+  _createOrLoginProfile(mode) {
+    const nameInput = document.getElementById("leaderboardNameInput");
+    const passInput = document.getElementById("leaderboardPasswordInput");
+    const name = this._sanitizeProfileName(nameInput?.value);
+    const password = String(passInput?.value || "");
+    if (name.length < 3) {
+      toast("Pilot name needs at least 3 characters.");
+      return;
+    }
+    if (password.length < 4) {
+      toast("Password needs at least 4 characters.");
+      return;
+    }
+    const existing = this.leaderboard.find(e => e.name.toLowerCase() === name.toLowerCase());
+    const passHash = this._profileHash(name, password);
+    if (existing) {
+      if (existing.passHash && existing.passHash !== passHash) {
+        toast("Wrong password for that pilot.");
+        return;
+      }
+      this._setPlayerProfile({ id: existing.id, name: existing.name, passHash });
+      return;
+    }
+    if (mode === "login") {
+      toast("Pilot not found. Create it first.");
+      return;
+    }
+    const id = `pilot_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+    this._setPlayerProfile({ id, name, passHash });
+  }
+
+  _logoutProfile() {
+    this._syncLeaderboardStats();
+    this.playerProfile = null;
+    this._playRecordedThisSession = false;
+    this._saveLeaderboardState();
+    this._renderLeaderboardModal();
+    this._syncLeaderboardProfileUi();
+    toast("Playing as Guest.");
+  }
+
+  _renderLeaderboardModal() {
+    if (!leaderboardBodyEl) return;
+    this._syncLeaderboardStats();
+    const activeId = this.playerProfile?.id || "";
+    const rows = (this.leaderboard || []).slice(0, 10).map((entry, index) => `
+      <div class="leaderboardRow ${entry.id === activeId ? "active" : ""}">
+        <div class="leaderboardStat">#${index + 1}</div>
+        <div class="leaderboardName">${escapeHtml(entry.name)}</div>
+        <div class="leaderboardStat">${entry.bestLevel || 1}</div>
+        <div class="leaderboardStat">${entry.bestWave || 0}</div>
+        <div class="leaderboardStat">${entry.plays || 0}</div>
+        <div class="leaderboardStat">${entry.mapsCleared || 0}</div>
+        <div class="leaderboardStat">${entry.kills || 0}</div>
+        <div class="leaderboardStat">${fmt(entry.gold || 0)}</div>
+      </div>
+    `).join("");
+    leaderboardBodyEl.innerHTML = `
+      <div class="leaderboardMeta">
+        <div class="leaderboardCurrent">${this.playerProfile ? `Pilot: ${escapeHtml(this.playerProfile.name)}` : "Guest Pilot"}</div>
+        <div class="leaderboardNote">Stored on this browser for now. Online sync can be added later.</div>
+      </div>
+      <div class="leaderboardProfile">
+        <label>Username <input id="leaderboardNameInput" type="text" maxlength="18" autocomplete="username" value="${escapeHtml(this.playerProfile?.name || "")}"></label>
+        <label>Password <input id="leaderboardPasswordInput" type="password" maxlength="32" autocomplete="current-password"></label>
+        <button id="leaderboardCreateBtn" class="btn primary" type="button">Create</button>
+        <button id="leaderboardLoginBtn" class="btn ghost" type="button">Login</button>
+      </div>
+      <div class="leaderboardTable">
+        <div class="leaderboardRow header">
+          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Gold</div>
+        </div>
+        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
+      </div>
+      ${this.playerProfile ? `<div class="modalFooter"><button id="leaderboardLogoutBtn" class="btn ghost" type="button">Logout</button></div>` : ""}
+    `;
+    document.getElementById("leaderboardCreateBtn")?.addEventListener("click", () => this._createOrLoginProfile("create"));
+    document.getElementById("leaderboardLoginBtn")?.addEventListener("click", () => this._createOrLoginProfile("login"));
+    document.getElementById("leaderboardLogoutBtn")?.addEventListener("click", () => this._logoutProfile());
+  }
+
+  _openLeaderboardModal() {
+    this._renderLeaderboardModal();
+    leaderboardModalEl?.classList.remove("hidden");
+    leaderboardModalEl?.setAttribute("aria-hidden", "false");
+    document.getElementById("leaderboardNameInput")?.focus();
+  }
+
+  _closeLeaderboardModal() {
+    leaderboardModalEl?.classList.add("hidden");
+    leaderboardModalEl?.setAttribute("aria-hidden", "true");
   }
 
   _getStartGold() {
@@ -2493,6 +2789,7 @@ class Game {
       this.spawnQueue = this.spawnQueue.concat(newSpawns);
     }
     toast(`Wave ${this.wave} launched`);
+    this._showNewPlayerWaveTip(this.wave);
     const spawn = this.map?.pathPts?.[0];
     if (spawn) {
       this._spawnEnergyBurst(spawn[0], spawn[1], {
@@ -2530,6 +2827,7 @@ class Game {
 
   _save() {
     try {
+      this._syncLeaderboardStats();
       const data = {
         mapIndex: 0,
         levelIndex: this.levelIndex,
@@ -3118,6 +3416,7 @@ class Game {
       if (enemy.isBoss) this.playerStats.bosses += 1;
     }
     this.audio.playLimited("kill", 80);
+    this.map?.triggerKillPulse?.(enemy.x, enemy.y, enemy.isBoss || enemy.isFinalBoss);
 
     // type-specific death animation
     this._spawnEnemyDeathFx(enemy);
@@ -3958,6 +4257,10 @@ class Game {
       musicState.wave = this.wave;
       musicState.waveMax = this.waveMax;
       musicState.level = this.levelIndex;
+      musicState.boss = this.wave >= this.waveMax
+        || this.gameState === GAME_STATE.BOSS_CINEMATIC
+        || this.enemies.some((e) => e && e.hp > 0 && (e.isBoss || e.isMiniBoss || e.isFinalBoss));
+      musicState.bossCinematic = this.gameState === GAME_STATE.BOSS_CINEMATIC;
     }
     this.map.drawBase(gfx, musicState);
 

@@ -41,18 +41,19 @@
             <button id="startBtn" class="btn primary">START</button>
             <button id="pauseBtn" class="btn ghost">PAUSE</button>
             <button id="helpBtn" class="btn ghost">HELP</button>
+            <button id="leaderboardBtn" class="btn ghost">LEADERS</button>
             <button id="speedBtn" class="btn ghost">SPEED: 1x</button>
           </div>
 
           <div class="versionStamp" aria-label="Build version">
-            <span class="versionValue">v2026.05.23.1006</span>
-            <span class="versionDate">2026-05-23 10:06 -04:00</span>
+            <span class="versionValue">v2026.05.29.2125</span>
+            <span class="versionDate">2026-05-29 21:25 -04:00</span>
           </div>
         </div>
 
         <div id="turretStateBar" class="turretStateBar hidden" aria-live="polite"></div>
 
-        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">VISUAL MODE: Whole Grid Pulse</div>
+        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">VISUAL MODE: Synthwave</div>
 
         <div id="musicHud" class="musicHud" aria-label="Background music player">
           <div class="musicHudInfo">
@@ -309,9 +310,11 @@
         <div class="landingActions">
           <button id="landingPlayBtn" class="btn primary">Play</button>
           <button id="landingLoadBtn" class="btn ghost">Load Saved Game</button>
+          <button id="landingLeaderboardBtn" class="btn ghost">Pilot / Leaderboard</button>
           <button id="landingSettingsBtn" class="btn ghost">Settings</button>
           <button id="landingCommentBtn" class="btn ghost">Comment Page</button>
         </div>
+        <div id="landingPilotStatus" class="landingPilotStatus">Playing as Guest</div>
       </div>
     </div>
   </div>
@@ -513,6 +516,16 @@
         <button id="waveStatsControls" class="btn ghost">Controls</button>
         <button id="waveStatsSkip" class="btn ghost">Skip</button>
       </div>
+    </div>
+  </div>
+
+  <div id="leaderboardModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard leaderboardCard" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="modalHeader">
+        <div id="leaderboardTitle" class="modalTitle">Pilot Leaderboard</div>
+        <button id="leaderboardClose" class="btn ghost">Close</button>
+      </div>
+      <div id="leaderboardBody" class="modalBody leaderboardBody"></div>
     </div>
   </div>
 

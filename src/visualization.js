@@ -1,11 +1,11 @@
 const VISUAL_MODE_KEY = "orbit_echo_grid_visual_mode_v1";
 
 export const VISUAL_MODES = [
-  "Whole Grid Pulse",
-  "Grid Wave Sweep",
-  "Bass Ripple",
-  "Circuit Flow",
-  "Track + Tile Sync"
+  "Synthwave",
+  "Plasma",
+  "Inferno",
+  "Quantum",
+  "Void"
 ];
 
 const TRACK_PROFILES = [
@@ -18,7 +18,12 @@ const TRACK_PROFILES = [
   { bpm: 122, bass: 0.68, mid: 0.74, high: 0.58, phase: 4.0 },
   { bpm: 100, bass: 0.80, mid: 0.52, high: 0.44, phase: 4.6 },
   { bpm: 132, bass: 0.66, mid: 0.78, high: 0.62, phase: 5.2 },
-  { bpm: 114, bass: 0.72, mid: 0.64, high: 0.50, phase: 5.8 }
+  { bpm: 114, bass: 0.72, mid: 0.64, high: 0.50, phase: 5.8 },
+  { bpm: 128, bass: 0.84, mid: 0.56, high: 0.60, phase: 0.45 },
+  { bpm: 116, bass: 0.73, mid: 0.76, high: 0.54, phase: 1.15 },
+  { bpm: 102, bass: 0.79, mid: 0.60, high: 0.48, phase: 2.65 },
+  { bpm: 124, bass: 0.69, mid: 0.70, high: 0.66, phase: 3.75 },
+  { bpm: 110, bass: 0.77, mid: 0.68, high: 0.57, phase: 4.85 }
 ];
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));

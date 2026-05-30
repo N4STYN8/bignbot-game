@@ -1,0 +1,8 @@
+name = "orbit-echo-leaderboard"
+main = "src/index.js"
+compatibility_date = "2026-05-29"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "orbit-echo-leaderboard"
+database_id = "ff191eec-e5dd-4601-a94c-9827e61a8aac"

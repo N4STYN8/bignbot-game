@@ -25,6 +25,7 @@ const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
 const PROFILE_KEY = "orbit_echo_profile_v1";
 const LEADERBOARD_KEY = "orbit_echo_leaderboard_v1";
 const NEW_PLAYER_TIPS_KEY = "orbit_echo_new_player_tips_v1";
+const LEADERBOARD_API_BASE = String(window.ORBIT_ECHO_LEADERBOARD_API || "").replace(/\/+$/, "");
 const formatMusicTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
@@ -1784,6 +1785,24 @@ class Game {
     } catch (err) {}
   }
 
+  _pushRemoteLeaderboardScore(entry) {
+    if (!LEADERBOARD_API_BASE || !this.playerProfile?.apiToken || !entry) return;
+    this._apiRequest("/api/score", {
+      method: "POST",
+      body: JSON.stringify({
+        plays: entry.plays || 0,
+        bestLevel: entry.bestLevel || 1,
+        bestWave: entry.bestWave || 0,
+        mapsCleared: entry.mapsCleared || 0,
+        kills: entry.kills || 0,
+        gold: entry.gold || 0,
+        bosses: entry.bosses || 0
+      })
+    }).then((data) => {
+      if (data?.score) this._refreshRemoteLeaderboard();
+    }).catch(() => {});
+  }
+
   _leaderboardEntryForProfile(create = true) {
     if (!this.playerProfile) return null;
     let entry = this.leaderboard.find(e => e.id === this.playerProfile.id);
@@ -1809,7 +1828,8 @@ class Game {
     );
   }
 
-  _syncLeaderboardStats() {
+  _syncLeaderboardStats(options = {}) {
+    const push = options.push !== false;
     const entry = this._leaderboardEntryForProfile(false);
     if (!entry) return;
     this._reconcilePlayerStats();
@@ -1824,6 +1844,7 @@ class Game {
     this._sortLeaderboard();
     this._saveLeaderboardState();
     this._syncLeaderboardProfileUi();
+    if (push) this._pushRemoteLeaderboardScore(entry);
   }
 
   _recordLeaderboardPlay() {
@@ -1850,7 +1871,27 @@ class Game {
     toast(`Pilot ready: ${profile.name}`);
   }
 
-  _createOrLoginProfile(mode) {
+  _profileFromApi(data) {
+    if (!data?.player?.id || !data?.player?.username || !data?.token) return null;
+    return {
+      id: String(data.player.id),
+      name: String(data.player.username).slice(0, 18),
+      passHash: "",
+      apiToken: String(data.token)
+    };
+  }
+
+  async _apiRequest(path, options = {}) {
+    if (!LEADERBOARD_API_BASE) return null;
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (this.playerProfile?.apiToken) headers.Authorization = `Bearer ${this.playerProfile.apiToken}`;
+    const res = await fetch(`${LEADERBOARD_API_BASE}${path}`, { ...options, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Leaderboard request failed.");
+    return data;
+  }
+
+  async _createOrLoginProfile(mode) {
     const nameInput = document.getElementById("leaderboardNameInput");
     const passInput = document.getElementById("leaderboardPasswordInput");
     const name = this._sanitizeProfileName(nameInput?.value);
@@ -1862,6 +1903,21 @@ class Game {
     if (password.length < 4) {
       toast("Password needs at least 4 characters.");
       return;
+    }
+    if (LEADERBOARD_API_BASE) {
+      try {
+        const data = await this._apiRequest(mode === "login" ? "/api/login" : "/api/register", {
+          method: "POST",
+          body: JSON.stringify({ username: name, password })
+        });
+        const profile = this._profileFromApi(data);
+        if (!profile) throw new Error("Leaderboard login did not return a session.");
+        this._setPlayerProfile(profile);
+        return;
+      } catch (err) {
+        toast(err.message || "Leaderboard service unavailable.");
+        return;
+      }
     }
     const existing = this.leaderboard.find(e => e.name.toLowerCase() === name.toLowerCase());
     const passHash = this._profileHash(name, password);
@@ -1893,7 +1949,7 @@ class Game {
 
   _renderLeaderboardModal() {
     if (!leaderboardBodyEl) return;
-    this._syncLeaderboardStats();
+    this._syncLeaderboardStats({ push: false });
     const activeId = this.playerProfile?.id || "";
     const rows = (this.leaderboard || []).slice(0, 10).map((entry, index) => `
       <div class="leaderboardRow ${entry.id === activeId ? "active" : ""}">
@@ -1936,6 +1992,30 @@ class Game {
     leaderboardModalEl?.classList.remove("hidden");
     leaderboardModalEl?.setAttribute("aria-hidden", "false");
     document.getElementById("leaderboardNameInput")?.focus();
+    this._refreshRemoteLeaderboard();
+  }
+
+  async _refreshRemoteLeaderboard() {
+    if (!LEADERBOARD_API_BASE) return;
+    try {
+      const data = await this._apiRequest("/api/leaderboard");
+      if (Array.isArray(data?.leaderboard)) {
+        this.leaderboard = data.leaderboard.map(e => ({
+          id: String(e.id || e.name),
+          name: String(e.name || "Pilot").slice(0, 18),
+          passHash: "",
+          plays: Math.max(0, Number(e.plays) | 0),
+          bestLevel: Math.max(1, Number(e.bestLevel) | 0),
+          bestWave: Math.max(0, Number(e.bestWave) | 0),
+          mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
+          kills: Math.max(0, Number(e.kills) | 0),
+          gold: Math.max(0, Number(e.gold) | 0),
+          bosses: Math.max(0, Number(e.bosses) | 0),
+          updatedAt: Date.parse(e.updatedAt || "") || 0
+        }));
+        this._renderLeaderboardModal();
+      }
+    } catch (err) {}
   }
 
   _closeLeaderboardModal() {

@@ -1,0 +1,38 @@
+CREATE TABLE IF NOT EXISTS players (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  username_norm TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  player_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS scores (
+  player_id TEXT PRIMARY KEY,
+  plays INTEGER NOT NULL DEFAULT 0,
+  best_level INTEGER NOT NULL DEFAULT 1,
+  best_wave INTEGER NOT NULL DEFAULT 0,
+  maps_cleared INTEGER NOT NULL DEFAULT 0,
+  kills INTEGER NOT NULL DEFAULT 0,
+  gold INTEGER NOT NULL DEFAULT 0,
+  bosses INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scores_rank ON scores (
+  best_level DESC,
+  best_wave DESC,
+  maps_cleared DESC,
+  kills DESC,
+  gold DESC
+);

@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202605311408";
-import { Map } from "./map.js?v=202605311408";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605311408";
-import { Particles } from "./vfx.js?v=202605311408";
-import { Projectile } from "./projectiles.js?v=202605311408";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202605311408";
-import { MusicVisualizer } from "./visualization.js?v=202605311408";
+import { AudioSystem } from "./audio.js?v=202605311453";
+import { Map } from "./map.js?v=202605311453";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605311453";
+import { Particles } from "./vfx.js?v=202605311453";
+import { Projectile } from "./projectiles.js?v=202605311453";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202605311453";
+import { MusicVisualizer } from "./visualization.js?v=202605311453";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -2596,12 +2596,13 @@ class Game {
           x: W * 0.5,
           y: H * 0.5,
           r: 24,
-          t: 0.32,
-          dur: 0.32,
-          max: Math.max(W, H) * 0.35,
-          col: "rgba(154,108,255,0.65)",
+          t: 3.1,
+          dur: 3.1,
+          max: Math.max(W, H) * 1.12,
+          col: "rgba(210,252,255,0.82)",
           boom: false
         });
+        this.map?.triggerEmpPulse?.();
         this.audio.playLimited("beam", 220);
         if (found === 0) {
           toast("EMP PULSE: no enemies found");
@@ -3404,6 +3405,20 @@ class Game {
     if (type === "BRUTE" || type === "ARMORED" || isMiniBoss) {
       addShockwave(14, 0.5, 108, "rgba(255,207,91,0.75)", false);
     }
+    if (enemy.r >= 15 || enemy.isBoss || enemy.isFinalBoss) {
+      const largeRingColor = enemy.isFinalBoss
+        ? "rgba(255,207,91,0.98)"
+        : enemy.isBoss
+          ? "rgba(168,118,255,0.96)"
+          : "rgba(255,52,52,0.96)";
+      addShockwave(
+        Math.max(16, enemy.r * 0.78),
+        enemy.isBoss || enemy.isFinalBoss ? 3.3 : 2.8,
+        Math.max(W, H) * (enemy.isBoss || enemy.isFinalBoss ? 1.35 : 1.08),
+        largeRingColor,
+        false
+      );
+    }
     if (isFinalBoss) {
       this.audio?.playLimited("explodingboss", 220);
     }
@@ -3522,10 +3537,10 @@ class Game {
     this.audio.playLimited("kill", 80);
     const dramaticKill = enemy._overkillHit || enemy.elite || enemy.isBoss || enemy.isFinalBoss;
     this.map?.triggerKillPulse?.(enemy.x, enemy.y, dramaticKill);
-    const largeEnemyKill = enemy.r >= 15 || enemy.isBoss || enemy.isFinalBoss;
+    const largeEnemyKill = enemy.r >= 15 && !enemy.isBoss && !enemy.isFinalBoss;
     if (largeEnemyKill) this.map?.triggerLargeKillPulse?.(enemy.x, enemy.y);
-    if ((enemy.isBoss || enemy.isMiniBoss || enemy.isFinalBoss) && [5, 10, 15].includes(this.wave)) {
-      this.map?.triggerBossKillPulse?.(enemy.x, enemy.y);
+    if (enemy.isBoss || enemy.isFinalBoss) {
+      this.map?.triggerBossKillPulse?.(enemy.x, enemy.y, !!enemy.isFinalBoss);
     }
 
     // type-specific death animation

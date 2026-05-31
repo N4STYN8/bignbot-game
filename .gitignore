@@ -3,6 +3,7 @@ assets/music/bgmdontuse.mp3
 assets/music/
 videos/
 .wrangler/
+.http-server.log
 *.mp3
 *.wav
 *.mp4

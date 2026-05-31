@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js";
-import { Map } from "./map.js";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js";
-import { Particles } from "./vfx.js";
-import { Projectile } from "./projectiles.js";
-import { TURRET_TYPES, Turret } from "./turrets.js";
-import { MusicVisualizer } from "./visualization.js";
+import { AudioSystem } from "./audio.js?v=202605310635";
+import { Map } from "./map.js?v=202605310635";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605310635";
+import { Particles } from "./vfx.js?v=202605310635";
+import { Projectile } from "./projectiles.js?v=202605310635";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202605310635";
+import { MusicVisualizer } from "./visualization.js?v=202605310635";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -171,6 +171,7 @@ class Game {
       label: visualModeLabelEl,
       audioSystem: this.audio
     });
+    this.musicVisualizer.setLevelTheme(this.levelIndex, this.mapSeed);
     this.musicVisualizer.start();
     this._initCollections();
     this._initRuntimeState();
@@ -492,6 +493,7 @@ class Game {
 
     playBtn?.addEventListener("click", () => {
       showConfirm("Start New Game", "Start a new game? Your current run progress will be replaced.", () => {
+        this.audio.randomizeStartingTrack();
         this.audio.unlock();
         this._hideLandingMenu();
         requestAnimationFrame(() => {
@@ -821,6 +823,7 @@ class Game {
     this.mapSeed = mapData.seed;
     this.envId = mapData.envId;
     this.map.loadGeneratedMap(mapData);
+    this.musicVisualizer?.setLevelTheme?.(this.levelIndex, this.mapSeed);
     this.applyEnvironment(mapData.env || ENV_PRESETS[mapData.envId || 0]);
     this._initCorruptedTiles();
   }
@@ -2757,23 +2760,34 @@ class Game {
     const i = wave;
     const profile = this._levelProfile();
     if (wave === this.waveMax) {
-      // Wave 16 must be won by defeating the final boss, not a carried-over miniboss.
-      return [
-        { t: 0.8, type: this._getBossKey(), scalar, finalBoss: true }
+      // Give the final boss a musical buildup while keeping its defeat as the win condition.
+      const bossScalar = scalar;
+      const escortScalar = { ...scalar, hp: scalar.hp * 0.94, reward: scalar.reward * 0.92 };
+      const escorts = [
+        { t: 0.8, type: "RUNNER", scalar: escortScalar },
+        { t: 2.6, type: "ARMORED", scalar: escortScalar },
+        { t: 4.4, type: "SHIELDED", scalar: escortScalar },
+        { t: 6.2, type: "PHASE", scalar: escortScalar },
+        { t: 8.0, type: "REGEN", scalar: escortScalar },
+        { t: 9.8, type: "SHIELD_DRONE", scalar: escortScalar },
+        { t: 11.6, type: this._getBossKey(), scalar: bossScalar, finalBoss: true },
+        { t: 14.0, type: "RUNNER", scalar: escortScalar },
+        { t: 16.4, type: "ARMORED", scalar: escortScalar },
+        { t: 18.8, type: "SHIELDED", scalar: escortScalar }
       ];
+      return escorts;
     }
-    const baseCount = Math.round(((wave === 1) ? 6
-      : (wave === 2 ? 8
-      : (wave === 3 ? 10
-      : (wave === 4 ? 12
-      : (10 + Math.floor(i * 1.55) + Math.max(0, i - 10) * 0.6 + Math.max(0, i - 15) * 0.85))))) * 1.2);
-    const spacing = (wave === 1) ? 0.95
-      : (wave === 2 ? 0.88
-      : (wave === 3 ? 0.82
-      : (wave === 4 ? 0.76
-      : Math.max(0.22, (0.66 - i * 0.013) * 0.9))));
-    const earlyCountMul = (wave <= 5 ? 0.88 : 1) * profile.count;
-    const earlySpacingMul = (wave <= 5 ? 1.12 : 1) * profile.spacing;
+    const earlyCounts = [0, 10, 13, 16, 19];
+    const baseCount = wave <= 4
+      ? earlyCounts[wave]
+      : Math.round(16 + Math.floor(i * 1.9) + Math.max(0, i - 9) * 0.75 + Math.max(0, i - 13) * 0.85);
+    const spacing = (wave === 1) ? 1.38
+      : (wave === 2 ? 1.30
+      : (wave === 3 ? 1.22
+      : (wave === 4 ? 1.14
+      : Math.max(0.72, 1.08 - i * 0.021))));
+    const earlyCountMul = (wave <= 5 ? 0.94 : 1) * profile.count;
+    const earlySpacingMul = (wave <= 5 ? 1.06 : 1) * profile.spacing;
     const spawns = [];
 
     const types = ["RUNNER", "BRUTE"];
@@ -2825,11 +2839,12 @@ class Game {
     }
 
     if (i % 5 === 0) {
-      spawns.push({ t: 1.2, type: "BRUTE", scalar });
-      if (i >= 6) spawns.push({ t: 2.3, type: "ARMORED", scalar });
-      if (i >= 10) spawns.push({ t: 2.8, type: "SHIELDED", scalar });
-      if (i >= 12) spawns.push({ t: 3.0, type: "REGEN", scalar });
-      spawns.push({ t: 3.4, type: "BOSS_PROJECTOR", scalar, miniboss: true });
+      const flowEnd = spawns.length ? spawns[spawns.length - 1].t : 12;
+      spawns.push({ t: flowEnd * 0.24, type: "BRUTE", scalar });
+      if (i >= 6) spawns.push({ t: flowEnd * 0.42, type: "ARMORED", scalar });
+      if (i >= 10) spawns.push({ t: flowEnd * 0.58, type: "SHIELDED", scalar });
+      if (i >= 12) spawns.push({ t: flowEnd * 0.72, type: "REGEN", scalar });
+      spawns.push({ t: Math.max(4.2, flowEnd * 0.84), type: "BOSS_PROJECTOR", scalar, miniboss: true });
     }
 
     spawns.sort((a, b) => a.t - b.t);
@@ -3496,7 +3511,11 @@ class Game {
       if (enemy.isBoss) this.playerStats.bosses += 1;
     }
     this.audio.playLimited("kill", 80);
-    this.map?.triggerKillPulse?.(enemy.x, enemy.y, enemy.isBoss || enemy.isFinalBoss);
+    const dramaticKill = enemy._overkillHit || enemy.elite || enemy.isBoss || enemy.isFinalBoss;
+    this.map?.triggerKillPulse?.(enemy.x, enemy.y, dramaticKill);
+    if ((enemy.isBoss || enemy.isMiniBoss || enemy.isFinalBoss) && [5, 10, 15].includes(this.wave)) {
+      this.map?.triggerBossKillPulse?.(enemy.x, enemy.y);
+    }
 
     // type-specific death animation
     this._spawnEnemyDeathFx(enemy);

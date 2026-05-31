@@ -44,11 +44,13 @@ export class AudioSystem {
     this.shuffle = false;
     this.musicMuted = false;
     this.musicPaused = false;
+    this.analysisCorsReady = false;
     this._pendingProgressRatio = null;
     this._pendingSeekSeconds = 0;
     this._pendingProgressDisplay = 0;
     this.bgm = this._makeBgm();
     this.bgm.volume = 0.32;
+    this._probeAnalysisCors();
     this.sfx = {
       build: ["assets/sfx/sfx_build.wav"],
       upgrade: ["assets/sfx/sfx_upgrade.wav"],
@@ -166,6 +168,9 @@ export class AudioSystem {
   _makeAudio(sources, loop = false, volume = 1) {
     const ordered = this._orderSources(sources);
     const a = new Audio();
+    if (this.analysisCorsReady && ordered.some(src => src.startsWith(this.cdnBase))) {
+      a.crossOrigin = "anonymous";
+    }
     a.loop = loop;
     a.volume = volume;
     a.preload = "metadata";
@@ -178,6 +183,35 @@ export class AudioSystem {
     a.addEventListener("error", setSrc);
     setSrc();
     return a;
+  }
+
+  async _probeAnalysisCors() {
+    const src = this.bgmSources[0];
+    if (!src || typeof fetch !== "function") return;
+    try {
+      const res = await fetch(src, { method: "HEAD", mode: "cors", cache: "force-cache" });
+      if (!res.ok) return;
+      this.analysisCorsReady = true;
+      this._refreshBgmForAnalysis();
+    } catch (err) {
+      // Playback remains available; the visualizer uses its music-timed fallback until CDN CORS is enabled.
+    }
+  }
+
+  _refreshBgmForAnalysis() {
+    const prev = this.bgm;
+    if (!prev || prev.crossOrigin === "anonymous") return;
+    const currentTime = Number.isFinite(prev.currentTime) ? prev.currentTime : 0;
+    const volume = prev.volume;
+    const wasPlaying = !prev.paused;
+    prev.pause();
+    this.bgm = this._makeBgm();
+    this.bgm.volume = volume;
+    this.bgm.muted = this.musicMuted;
+    this.bgm.addEventListener("loadedmetadata", () => {
+      try { this.bgm.currentTime = clamp(currentTime, 0, this.bgm.duration || currentTime); } catch (err) {}
+      if (wasPlaying) this.bgm.play().catch(() => {});
+    }, { once: true });
   }
 
   _makeBgm() {
@@ -383,6 +417,13 @@ export class AudioSystem {
       return;
     }
     this.setTrackIndex(this.trackIndex + 1, autoplay);
+  }
+
+  randomizeStartingTrack() {
+    if (this.bgmSources.length <= 1) return;
+    let next = this.trackIndex;
+    while (next === this.trackIndex) next = Math.floor(Math.random() * this.bgmSources.length);
+    this.setTrackIndex(next, this.isMusicPlaying());
   }
 
   prevTrack() {

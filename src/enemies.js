@@ -693,6 +693,7 @@ export class Enemy {
 
   takeHit(game, amount, dmgType, sourceKey = null) {
     if (this._dead) return;
+    const hpBeforeHit = this.hp;
     this.hitFlashDur = rand(0.08, 0.12);
     this.hitFlashT = this.hitFlashDur;
     this.hitFlash = 1;
@@ -756,6 +757,7 @@ export class Enemy {
     }
     game.audio?.playLimited("hit", 120);
     if (this.hp <= 0) {
+      this._overkillHit = amount >= Math.max(1, hpBeforeHit) * 1.45;
       if (!this._dead) {
         this._dead = true;
         game.onEnemyKill(this);

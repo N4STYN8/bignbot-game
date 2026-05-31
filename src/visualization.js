@@ -1,11 +1,16 @@
 const VISUAL_MODE_KEY = "orbit_echo_grid_visual_mode_v1";
 
 export const VISUAL_MODES = [
-  "Synthwave",
-  "Plasma",
-  "Inferno",
-  "Quantum",
-  "Void"
+  "Synthwave Equalizer",
+  "Neon Ocean",
+  "Plasma Storm",
+  "Quantum Grid",
+  "Orbital Echo Rings",
+  "Digital Rain",
+  "Energy Lattice",
+  "Cyber Pulse",
+  "Aurora Field",
+  "Cosmic Reactor"
 ];
 
 const TRACK_PROFILES = [
@@ -43,8 +48,13 @@ export class MusicVisualizer {
     this.time = null;
     this.last = performance.now();
     this.timeSeconds = this.last * 0.001;
-    this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0 };
+    this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, drop: 0, tempo: 0.5 };
+    this.spectrum = new Array(24).fill(0.18);
     this.beatAvg = 0.12;
+    this.previousBass = 0;
+    this.lastBeatAt = 0;
+    this.beatInterval = 0.56;
+    this.dropCooldown = 0;
     this.lastSyntheticBeat = -1;
     this.idleT = 0;
     this.userUnlocked = false;
@@ -111,12 +121,25 @@ export class MusicVisualizer {
     this._syncLabel();
   }
 
+  setLevelTheme(level, seed = 0) {
+    const safeLevel = Math.max(1, Number(level) | 0);
+    const safeSeed = Number(seed) >>> 0;
+    let next = ((safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0) % VISUAL_MODES.length;
+    if (safeLevel > 1 && next === this.mode) next = (next + 1) % VISUAL_MODES.length;
+    this.mode = next;
+    this.modeName = VISUAL_MODES[this.mode];
+    this._saveMode();
+    this._syncLabel();
+  }
+
   getGridState() {
     return {
       mode: this.mode,
       modeName: this.modeName,
       time: this.timeSeconds,
-      energy: { ...this.energy }
+      trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
+      energy: { ...this.energy },
+      spectrum: [...this.spectrum]
     };
   }
 
@@ -163,6 +186,7 @@ export class MusicVisualizer {
   }
 
   _sample(dt) {
+    this.dropCooldown = Math.max(0, this.dropCooldown - dt);
     const hasAudio = this.analyser && this.freq && this.time && this.sourceAudio && !this.sourceAudio.paused;
     if (hasAudio) {
       this.analyser.getByteFrequencyData(this.freq);
@@ -170,18 +194,26 @@ export class MusicVisualizer {
       const bass = this._avg(this.freq, 0, 18) / 255;
       const mid = this._avg(this.freq, 18, 120) / 255;
       const high = this._avg(this.freq, 120, 360) / 255;
+      this._updateSpectrumFromAnalyser();
       let waveSum = 0;
       for (let i = 0; i < this.time.length; i++) waveSum += Math.abs(this.time[i] - 128);
       const wave = clamp01((waveSum / this.time.length) / 64);
       const instant = bass * 0.72 + mid * 0.18 + high * 0.10;
       this.beatAvg = lerp(this.beatAvg, instant, 0.035);
-      const spike = instant > this.beatAvg * 1.42 && bass > 0.18 ? 1 : 0;
+      const spike = instant > this.beatAvg * 1.38 && bass > 0.18 ? 1 : 0;
+      const bassJump = Math.max(0, bass - this.previousBass);
+      const drop = spike && bassJump > 0.14 && instant > this.beatAvg * 1.62 && this.dropCooldown <= 0 ? 1 : 0;
+      if (spike) this._registerBeat(this.timeSeconds);
+      if (drop) this.dropCooldown = 1.4;
       this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.5);
+      this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.6);
       this.energy.bass = lerp(this.energy.bass, bass, 0.22);
       this.energy.mid = lerp(this.energy.mid, mid, 0.18);
       this.energy.high = lerp(this.energy.high, high, 0.18);
       this.energy.wave = lerp(this.energy.wave, wave, 0.2);
       this.energy.intensity = lerp(this.energy.intensity, instant, 0.16);
+      this.energy.tempo = lerp(this.energy.tempo, clamp01(0.3 + (0.72 / this.beatInterval) * 0.32), 0.08);
+      this.previousBass = bass;
       return;
     }
 
@@ -193,11 +225,13 @@ export class MusicVisualizer {
     this.idleT += dt;
     const idle = 0.2 + Math.sin(this.idleT * 0.85) * 0.05;
     this.energy.beat = Math.max(0, this.energy.beat - dt * 3);
+    this.energy.drop = Math.max(0, this.energy.drop - dt * 2);
     this.energy.bass = lerp(this.energy.bass, idle, 0.02);
     this.energy.mid = lerp(this.energy.mid, idle * 0.75, 0.02);
     this.energy.high = lerp(this.energy.high, idle * 0.5, 0.02);
     this.energy.wave = lerp(this.energy.wave, idle * 0.8, 0.02);
     this.energy.intensity = lerp(this.energy.intensity, idle, 0.02);
+    this.energy.tempo = lerp(this.energy.tempo, 0.35, 0.02);
   }
 
   _sampleTimedTrack(dt) {
@@ -218,14 +252,52 @@ export class MusicVisualizer {
     const high = clamp01(0.12 + profile.high * (0.35 + 0.35 * Math.sin(t * 5.8 + profile.phase)) + snare * 0.28);
     const wave = clamp01(0.16 + bass * 0.38 + mid * 0.28 + high * 0.18);
     const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
+    this._updateTimedSpectrum(t, profile, bass, mid, high);
     const newBeat = beatIndex !== this.lastSyntheticBeat && beatPos < 0.08;
-    if (newBeat) this.lastSyntheticBeat = beatIndex;
+    const drop = newBeat && beatIndex > 0 && beatIndex % 16 === 0;
+    if (newBeat) {
+      this.lastSyntheticBeat = beatIndex;
+      this._registerBeat(t);
+    }
     this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
+    this.energy.drop = Math.max(drop ? 1 : 0, this.energy.drop - dt * 2.6);
     this.energy.bass = lerp(this.energy.bass, bass, 0.24);
     this.energy.mid = lerp(this.energy.mid, mid, 0.20);
     this.energy.high = lerp(this.energy.high, high, 0.20);
     this.energy.wave = lerp(this.energy.wave, wave, 0.22);
     this.energy.intensity = lerp(this.energy.intensity, instant, 0.18);
+    this.energy.tempo = lerp(this.energy.tempo, clamp01((profile.bpm - 82) / 62), 0.12);
+    this.previousBass = bass;
+  }
+
+  _registerBeat(now) {
+    if (this.lastBeatAt > 0) {
+      const interval = now - this.lastBeatAt;
+      if (interval > 0.24 && interval < 1.1) this.beatInterval = lerp(this.beatInterval, interval, 0.22);
+    }
+    this.lastBeatAt = now;
+  }
+
+  _updateSpectrumFromAnalyser() {
+    if (!this.freq?.length) return;
+    for (let i = 0; i < this.spectrum.length; i++) {
+      const p = i / Math.max(1, this.spectrum.length - 1);
+      const start = Math.floor(Math.pow(p, 1.55) * Math.min(330, this.freq.length - 2));
+      const end = Math.max(start + 2, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.55) * Math.min(360, this.freq.length)));
+      this.spectrum[i] = lerp(this.spectrum[i], this._avg(this.freq, start, end) / 255, 0.24);
+    }
+  }
+
+  _updateTimedSpectrum(t, profile, bass, mid, high) {
+    for (let i = 0; i < this.spectrum.length; i++) {
+      const p = i / Math.max(1, this.spectrum.length - 1);
+      const lowWeight = Math.max(0, 1 - p * 1.85);
+      const midWeight = Math.max(0, 1 - Math.abs(p - 0.48) * 2.2);
+      const highWeight = Math.max(0, (p - 0.42) * 1.72);
+      const motion = 0.72 + 0.28 * Math.sin(t * (1.9 + p * 4.2) + profile.phase + i * 0.43);
+      const value = clamp01((bass * lowWeight + mid * midWeight * 0.72 + high * highWeight * 0.65) * motion);
+      this.spectrum[i] = lerp(this.spectrum[i], value, 0.22);
+    }
   }
 
   _avg(arr, start, end) {

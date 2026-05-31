@@ -20,7 +20,15 @@ export class AudioSystem {
       "assets/music/Background/Rift Runner Ambush.mp3",
       "assets/music/Background/Sentinel Overcharge.mp3",
       "assets/music/Background/Void Lane Pursuit.mp3",
-      "assets/music/Background/Anomaly Wavebreak.mp3"
+      "assets/music/Background/Anomaly Wavebreak.mp3",
+      "assets/music/Background/Quantum Lane Pursuit.mp3",
+      "assets/music/Background/Reactor Grid Breaker.mp3",
+      "assets/music/Background/Arcade Core Defense.mp3",
+      "assets/music/Background/Orbital Echo Barrage.mp3",
+      "assets/music/Background/Sentinel Resistance Drive.mp3",
+      "assets/music/Background/Neon Track Vanguard.mp3",
+      "assets/music/Background/Aurora Bastion Reverie.mp3",
+      "assets/music/Background/Voidlane Star Voyage.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -37,7 +45,15 @@ export class AudioSystem {
       "Rift Runner Ambush",
       "Sentinel Overcharge",
       "Void Lane Pursuit",
-      "Anomaly Wavebreak"
+      "Anomaly Wavebreak",
+      "Quantum Lane Pursuit",
+      "Reactor Grid Breaker",
+      "Arcade Core Defense",
+      "Orbital Echo Barrage",
+      "Sentinel Resistance Drive",
+      "Neon Track Vanguard",
+      "Aurora Bastion Reverie",
+      "Voidlane Star Voyage"
     ];
     this.trackIndex = 0;
     this.repeat = true;

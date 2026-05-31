@@ -4,6 +4,7 @@ assets/music/
 videos/
 .wrangler/
 .http-server.log
+.http-server-error.log
 *.mp3
 *.wav
 *.mp4

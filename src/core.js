@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202605310640";
-import { Map } from "./map.js?v=202605310640";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605310640";
-import { Particles } from "./vfx.js?v=202605310640";
-import { Projectile } from "./projectiles.js?v=202605310640";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202605310640";
-import { MusicVisualizer } from "./visualization.js?v=202605310640";
+import { AudioSystem } from "./audio.js?v=202605311408";
+import { Map } from "./map.js?v=202605311408";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605311408";
+import { Particles } from "./vfx.js?v=202605311408";
+import { Projectile } from "./projectiles.js?v=202605311408";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202605311408";
+import { MusicVisualizer } from "./visualization.js?v=202605311408";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -2736,6 +2736,11 @@ class Game {
     return LEVEL_PROFILES[idx] || LEVEL_PROFILES[0];
   }
 
+  _levelEnemyDensity() {
+    const level = Math.max(1, Number(this.levelIndex) || 1);
+    return Math.min(1.9, 1 + (level - 1) * 0.11 + Math.max(0, level - 5) * 0.025);
+  }
+
   _sanitizeWaveScalar(scalar) {
     const s = scalar && typeof scalar === "object" ? scalar : {};
     const num = (v, fallback) => Number.isFinite(Number(v)) ? Number(v) : fallback;
@@ -2763,31 +2768,30 @@ class Game {
       // Give the final boss a musical buildup while keeping its defeat as the win condition.
       const bossScalar = scalar;
       const escortScalar = { ...scalar, hp: scalar.hp * 0.94, reward: scalar.reward * 0.92 };
-      const escorts = [
-        { t: 0.8, type: "RUNNER", scalar: escortScalar },
-        { t: 2.6, type: "ARMORED", scalar: escortScalar },
-        { t: 4.4, type: "SHIELDED", scalar: escortScalar },
-        { t: 6.2, type: "PHASE", scalar: escortScalar },
-        { t: 8.0, type: "REGEN", scalar: escortScalar },
-        { t: 9.8, type: "SHIELD_DRONE", scalar: escortScalar },
-        { t: 11.6, type: this._getBossKey(), scalar: bossScalar, finalBoss: true },
-        { t: 14.0, type: "RUNNER", scalar: escortScalar },
-        { t: 16.4, type: "ARMORED", scalar: escortScalar },
-        { t: 18.8, type: "SHIELDED", scalar: escortScalar }
-      ];
+      const escortTypes = ["RUNNER", "ARMORED", "SHIELDED", "PHASE", "REGEN", "SHIELD_DRONE", "BRUTE", "STEALTH"];
+      const escortCount = Math.min(54, 24 + Math.max(0, this.levelIndex - 1) * 3);
+      const escorts = Array.from({ length: escortCount }, (_, n) => ({
+        t: 0.7 + n * 1.12,
+        type: escortTypes[n % escortTypes.length],
+        scalar: escortScalar,
+        eliteTag: n >= 10 && n % 4 === 0 ? pick(["HARDENED", "VOLATILE", "PHASELINK"]) : null
+      }));
+      escorts.push({ t: 1.5 + escortCount * 1.12, type: this._getBossKey(), scalar: bossScalar, finalBoss: true });
       return escorts;
     }
-    const earlyCounts = [0, 10, 13, 16, 19];
+    const earlyCounts = [0, 14, 18, 22, 27];
     const baseCount = wave <= 4
       ? earlyCounts[wave]
-      : Math.round(16 + Math.floor(i * 1.9) + Math.max(0, i - 9) * 0.75 + Math.max(0, i - 13) * 0.85);
-    const spacing = (wave === 1) ? 1.38
-      : (wave === 2 ? 1.30
-      : (wave === 3 ? 1.22
-      : (wave === 4 ? 1.14
-      : Math.max(0.72, 1.08 - i * 0.021))));
-    const earlyCountMul = (wave <= 5 ? 0.94 : 1) * profile.count;
-    const earlySpacingMul = (wave <= 5 ? 1.06 : 1) * profile.spacing;
+      : Math.round(22 + Math.floor(i * 2.7) + Math.max(0, i - 9) * 0.95 + Math.max(0, i - 13) * 1.15);
+    const spacing = (wave === 1) ? 1.15
+      : (wave === 2 ? 1.08
+      : (wave === 3 ? 1.02
+      : (wave === 4 ? 0.98
+      : Math.max(0.54, 0.94 - i * 0.018))));
+    const profileCountFlavor = 1 + (profile.count - 1) * 0.25;
+    const earlyCountMul = profileCountFlavor * this._levelEnemyDensity();
+    const levelCountBonus = Math.min(20, Math.max(0, this.levelIndex - 1));
+    const earlySpacingMul = (wave <= 5 ? 1.02 : 1) * profile.spacing;
     const spawns = [];
 
     const types = ["RUNNER", "BRUTE"];
@@ -2821,7 +2825,7 @@ class Game {
       return pool[pool.length - 1].t;
     };
 
-    for (let n = 0; n < Math.max(1, Math.floor(baseCount * earlyCountMul)); n++) {
+    for (let n = 0; n < Math.max(1, Math.floor(baseCount * earlyCountMul) + levelCountBonus); n++) {
       let type = pickWeighted();
       if (i >= 12 && n % 7 === 0) type = "ARMORED";
       if (i >= 12 && n % 9 === 0) type = "SHIELDED";
@@ -2840,11 +2844,16 @@ class Game {
 
     if (i % 5 === 0) {
       const flowEnd = spawns.length ? spawns[spawns.length - 1].t : 12;
-      spawns.push({ t: flowEnd * 0.24, type: "BRUTE", scalar });
-      if (i >= 6) spawns.push({ t: flowEnd * 0.42, type: "ARMORED", scalar });
-      if (i >= 10) spawns.push({ t: flowEnd * 0.58, type: "SHIELDED", scalar });
-      if (i >= 12) spawns.push({ t: flowEnd * 0.72, type: "REGEN", scalar });
-      spawns.push({ t: Math.max(4.2, flowEnd * 0.84), type: "BOSS_PROJECTOR", scalar, miniboss: true });
+      const escortTypes = ["BRUTE", "ARMORED", "SHIELDED", "PHASE", "REGEN", "SHIELD_DRONE"];
+      const escortCount = Math.min(16, (i >= 15 ? 8 : i >= 10 ? 6 : 4) + Math.max(0, this.levelIndex - 1));
+      for (let n = 0; n < escortCount; n++) {
+        spawns.push({
+          t: flowEnd * (0.18 + n * (0.58 / Math.max(1, escortCount - 1))),
+          type: escortTypes[n % escortTypes.length],
+          scalar
+        });
+      }
+      spawns.push({ t: Math.max(4.2, flowEnd * 0.86), type: "BOSS_PROJECTOR", scalar, miniboss: true });
     }
 
     spawns.sort((a, b) => a.t - b.t);
@@ -3513,6 +3522,8 @@ class Game {
     this.audio.playLimited("kill", 80);
     const dramaticKill = enemy._overkillHit || enemy.elite || enemy.isBoss || enemy.isFinalBoss;
     this.map?.triggerKillPulse?.(enemy.x, enemy.y, dramaticKill);
+    const largeEnemyKill = enemy.r >= 15 || enemy.isBoss || enemy.isFinalBoss;
+    if (largeEnemyKill) this.map?.triggerLargeKillPulse?.(enemy.x, enemy.y);
     if ((enemy.isBoss || enemy.isMiniBoss || enemy.isFinalBoss) && [5, 10, 15].includes(this.wave)) {
       this.map?.triggerBossKillPulse?.(enemy.x, enemy.y);
     }

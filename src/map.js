@@ -30,6 +30,8 @@ export class Map {
     this._musicLastDrop = 0;
     this._musicLastSpawn = 0;
     this._lastKillPulseT = 0;
+    this._lastLargeKillPulseT = 0;
+    this._lastMusicGrid = null;
     this._musicSeed = 7331;
     this._initPadlockSprite();
     if (mapData) this.loadGeneratedMap(mapData);
@@ -516,6 +518,41 @@ export class Map {
     if (this.musicWaves.length > 8) this.musicWaves.splice(0, this.musicWaves.length - 8);
   }
 
+  triggerLargeKillPulse(x, y) {
+    const now = performance.now() * 0.001;
+    if (now - this._lastLargeKillPulseT < 0.22) return;
+    this._lastLargeKillPulseT = now;
+    const m = this._lastMusicGrid || this._musicGridState(null);
+    const palette = this._musicPalette(m);
+    const musicHue = palette.hues[Math.floor(this._musicRand() * palette.hues.length)] || palette.hues[0];
+    const beatAmp = this._musicLastBeat > 0.22 ? 0.12 : 0;
+    this.musicWaves.push({
+      kind: "largeKill",
+      x,
+      y,
+      age: 0,
+      life: 2.35,
+      speed: 182 + m.tempo * 34,
+      width: this.gridSize * 0.72,
+      amp: 0.62 + beatAmp,
+      hue: 2,
+      state: 5
+    });
+    this.musicWaves.push({
+      kind: "largeKillEcho",
+      x,
+      y,
+      age: -0.16,
+      life: 2.15,
+      speed: 205 + m.tempo * 40,
+      width: this.gridSize * 0.42,
+      amp: 0.42 + beatAmp * 0.7,
+      hue: musicHue,
+      state: 3
+    });
+    if (this.musicWaves.length > 10) this.musicWaves.splice(0, this.musicWaves.length - 10);
+  }
+
   triggerBossKillPulse(x, y) {
     const hues = [42, 188, 302];
     const beatAmp = this._musicLastBeat > 0.22 ? 0.12 : 0;
@@ -581,6 +618,7 @@ export class Map {
 
   _updateTileEnergy(m, perf) {
     this._ensureTileEnergy();
+    this._lastMusicGrid = m;
     const now = Number.isFinite(m.time) ? m.time : performance.now() * 0.001;
     const dt = this._musicLastT ? clamp(now - this._musicLastT, 0.001, 0.06) : 0.016;
     this._musicLastT = now;
@@ -622,7 +660,8 @@ export class Map {
     for (const wave of this.musicWaves) wave.age += dt;
     this.musicWaves = this.musicWaves.filter((wave) => wave.age < wave.life && wave.age * wave.speed < maxDist);
 
-    const stride = perf < 0.7 ? 3 : 2;
+    const hasLargeKillWave = this.musicWaves.some((wave) => wave.kind === "largeKill" && wave.age >= 0);
+    const stride = perf < 0.7 ? 3 : hasLargeKillWave ? 1 : 2;
     const waveMove = now * (1.7 + m.tempo * 0.8);
     const sparkCutoff = 0.92 - activity * 0.14 - m.high * 0.08;
     for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy += stride) {
@@ -649,7 +688,9 @@ export class Map {
           const fade = 1 - wave.age / wave.life;
           const strength = ring * ring * fade * wave.amp;
           add += strength;
-          hue = wave.hue;
+          hue = wave.kind === "largeKill"
+            ? (2 + Math.min(18, wave.age * 8))
+            : wave.hue;
           state = wave.state;
         }
 
@@ -667,7 +708,7 @@ export class Map {
         this.activeTileEnergy.add(idx);
       }
     }
-    const maxActive = perf < 0.7 ? 72 : 128;
+    const maxActive = perf < 0.7 ? 72 : hasLargeKillWave ? 196 : 150;
     if (this.activeTileEnergy.size > maxActive) {
       const drop = this.activeTileEnergy.size - maxActive;
       let removed = 0;
@@ -692,9 +733,10 @@ export class Map {
       const fade = clamp(1 - wave.age / wave.life, 0, 1);
       const radius = wave.age * wave.speed;
       if (fade <= 0.01 || radius <= 1) continue;
-      gfx.globalAlpha = clamp(fade * wave.amp * (wave.kind === "bossKill" ? 0.62 : 0.42), 0, 0.30);
+      const isLargeKill = wave.kind === "largeKill" || wave.kind === "largeKillEcho";
+      gfx.globalAlpha = clamp(fade * wave.amp * (wave.kind === "bossKill" ? 0.62 : isLargeKill ? 0.56 : 0.42), 0, 0.32);
       gfx.strokeStyle = `hsla(${wave.hue}, 100%, 68%, 0.96)`;
-      gfx.lineWidth = wave.kind === "bossKill" ? 1.65 : 1.05;
+      gfx.lineWidth = wave.kind === "bossKill" ? 1.65 : isLargeKill ? 1.4 : 1.05;
       gfx.beginPath();
       gfx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
       gfx.stroke();
@@ -974,6 +1016,7 @@ export class Map {
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
     this._drawGridEqualizer(gfx, musicGrid, perf);
+    this._drawGridSpectrumCells(gfx, musicGrid, perf);
     this._drawGlobalMapVisuals(gfx, musicGrid, perf);
     this._drawIntegratedRings(gfx, perf);
 
@@ -1136,9 +1179,10 @@ export class Map {
     }
 
     gfx.restore();
-    if (musicGrid.progression >= 0.42) this._drawSynthGridSweep(gfx, musicGrid, perf);
-    if (musicGrid.progression >= 0.58) this._drawGridSequencer(gfx, musicGrid, perf);
-    if (musicGrid.progression >= 0.72 && musicGrid.activity > 0.48) this._drawCircuitFlow(gfx, musicGrid, perf);
+    this._drawGridBeatRipple(gfx, musicGrid, perf);
+    if (musicGrid.progression >= 0.22) this._drawSynthGridSweep(gfx, musicGrid, perf);
+    if (musicGrid.progression >= 0.34) this._drawGridSequencer(gfx, musicGrid, perf);
+    if (musicGrid.progression >= 0.48 && musicGrid.activity > 0.40) this._drawCircuitFlow(gfx, musicGrid, perf);
 
     // Path with layered glow
     const pts = this.pathPts;

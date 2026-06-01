@@ -579,6 +579,7 @@ export class Enemy {
     this._lastHitBy = null;
     this._marked = 0;
     this._markedT = 0;
+    this.empT = 0;
     this._noSplit = false;
     this._noSplitT = 0;
     this.scalar = waveScalar;
@@ -666,6 +667,7 @@ export class Enemy {
       this._markedT -= dt;
       if (this._markedT <= 0) this._marked = 0;
     }
+    if (this.empT > 0) this.empT = Math.max(0, this.empT - dt);
     if (this._noSplitT > 0) {
       this._noSplitT -= dt;
       if (this._noSplitT <= 0) this._noSplit = false;
@@ -691,8 +693,9 @@ export class Enemy {
     this.pulse += dt * 2.0;
   }
 
-  takeHit(game, amount, dmgType, sourceKey = null) {
+  takeHit(game, amount, dmgType, sourceKey = null, sourceTurret = null) {
     if (this._dead) return;
+    if (sourceTurret) this._lastHitBy = sourceTurret;
     const hpBeforeHit = this.hp;
     this.hitFlashDur = rand(0.08, 0.12);
     this.hitFlashT = this.hitFlashDur;

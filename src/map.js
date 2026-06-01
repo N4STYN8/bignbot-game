@@ -487,6 +487,9 @@ export class Map {
       || wave?.kind === "largeKillEcho"
       || wave?.kind === "empPulse"
       || wave?.kind === "empEcho"
+      || wave?.kind === "empKill"
+      || wave?.kind === "pulseBurstKill"
+      || wave?.kind === "overchargeKill"
       || wave?.kind === "miniBossKill"
       || wave?.kind === "mainBossKill";
   }
@@ -615,6 +618,48 @@ export class Map {
     this._trimMusicWaves(8);
   }
 
+  triggerAbilityActivationPulse(kind, x, y) {
+    const pulseBurst = kind === "pulseBurst";
+    const hue = pulseBurst ? 282 : 44;
+    this.musicWaves.push({
+      kind: pulseBurst ? "pulseBurstKill" : "overchargeKill",
+      x,
+      y,
+      age: 0,
+      life: pulseBurst ? 1.9 : 2.4,
+      speed: pulseBurst ? 196 : 224,
+      width: this.gridSize * (pulseBurst ? 0.48 : 0.58),
+      amp: pulseBurst ? 0.68 : 0.78,
+      hue,
+      state: 7
+    });
+    this._trimMusicWaves(8);
+  }
+
+  triggerAbilityKillPulse(x, y, kind, strong = false) {
+    const isEmp = kind === "emp";
+    const pulseBurst = kind === "pulseBurst";
+    const waveKind = isEmp ? "empKill" : pulseBurst ? "pulseBurstKill" : "overchargeKill";
+    const hue = isEmp ? 198 : pulseBurst ? 286 : 44;
+    const beatAmp = this._musicLastBeat > 0.22 ? 0.12 : 0;
+    const count = strong ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      this.musicWaves.push({
+        kind: waveKind,
+        x,
+        y,
+        age: -i * 0.15,
+        life: isEmp ? 2.8 : strong ? 2.45 : 1.8,
+        speed: (isEmp ? 248 : pulseBurst ? 226 : 238) + i * 22,
+        width: this.gridSize * (isEmp ? 0.58 : 0.44),
+        amp: (strong ? 0.78 : 0.58) + beatAmp,
+        hue,
+        state: isEmp ? 6 : 7
+      });
+    }
+    this._trimMusicWaves(8);
+  }
+
   triggerBossKillPulse(x, y, mainBoss = false) {
     const hues = mainBoss ? [42, 52, 34] : [276, 292, 264];
     const beatAmp = this._musicLastBeat > 0.22 ? 0.12 : 0;
@@ -730,9 +775,10 @@ export class Map {
     this.musicWaves = this.musicWaves.filter((wave) => wave.age < wave.life && wave.age * wave.speed < maxDist);
 
     const hasLargeKillWave = this.musicWaves.some((wave) => wave.kind === "largeKill" && wave.age >= 0);
-    const hasEmpWave = this.musicWaves.some((wave) => (wave.kind === "empPulse" || wave.kind === "empEcho") && wave.age >= 0);
+    const hasEmpWave = this.musicWaves.some((wave) => (wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "empKill") && wave.age >= 0);
     const hasBossKillWave = this.musicWaves.some((wave) => (wave.kind === "miniBossKill" || wave.kind === "mainBossKill") && wave.age >= 0);
-    const hasGridEventWave = hasLargeKillWave || hasEmpWave || hasBossKillWave;
+    const hasAbilityKillWave = this.musicWaves.some((wave) => (wave.kind === "pulseBurstKill" || wave.kind === "overchargeKill") && wave.age >= 0);
+    const hasGridEventWave = hasLargeKillWave || hasEmpWave || hasBossKillWave || hasAbilityKillWave;
     const stride = hasGridEventWave ? 1 : perf < 0.7 ? 3 : 2;
     const waveMove = now * (1.7 + m.tempo * 0.8);
     const sparkCutoff = 0.92 - activity * 0.14 - m.high * 0.08;
@@ -757,7 +803,7 @@ export class Map {
         let state = sweep > bassBreath ? 2 : 1;
 
         for (const wave of this.musicWaves) {
-          const gridEventWave = wave.kind === "largeKill" || wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "miniBossKill" || wave.kind === "mainBossKill";
+          const gridEventWave = wave.kind === "largeKill" || wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "empKill" || wave.kind === "pulseBurstKill" || wave.kind === "overchargeKill" || wave.kind === "miniBossKill" || wave.kind === "mainBossKill";
           if (!buildable && !gridEventWave) continue;
           const radius = wave.age * wave.speed;
           const d = Math.hypot(x - wave.x, y - wave.y);
@@ -771,10 +817,15 @@ export class Map {
             redShock = Math.max(redShock, strength);
             hue = 2 + Math.min(10, wave.age * 4);
             state = 5;
-          } else if (wave.kind === "empPulse" || wave.kind === "empEcho") {
+          } else if (wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "empKill") {
             empCharge = Math.max(empCharge, strength);
-            hue = wave.kind === "empPulse" ? 192 : 212;
+            hue = wave.kind === "empPulse" ? 192 : wave.kind === "empKill" ? 198 : 212;
             state = 6;
+          } else if (wave.kind === "pulseBurstKill" || wave.kind === "overchargeKill") {
+            bossCharge = Math.max(bossCharge, strength);
+            bossHue = wave.hue;
+            hue = wave.hue;
+            state = 7;
           } else if (wave.kind === "miniBossKill" || wave.kind === "mainBossKill") {
             bossCharge = Math.max(bossCharge, strength);
             bossHue = wave.hue;
@@ -838,10 +889,11 @@ export class Map {
       if (fade <= 0.01 || radius <= 1) continue;
       const isLargeKill = wave.kind === "largeKill" || wave.kind === "largeKillEcho";
       const isBossKill = wave.kind === "miniBossKill" || wave.kind === "mainBossKill";
-      const isEmp = wave.kind === "empPulse" || wave.kind === "empEcho";
-      gfx.globalAlpha = clamp(fade * wave.amp * (isBossKill ? 0.82 : isLargeKill ? 0.78 : isEmp ? 0.72 : 0.42), 0, isBossKill ? 0.56 : isLargeKill ? 0.52 : isEmp ? 0.48 : 0.32);
+      const isEmp = wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "empKill";
+      const isAbilityKill = wave.kind === "pulseBurstKill" || wave.kind === "overchargeKill";
+      gfx.globalAlpha = clamp(fade * wave.amp * (isBossKill ? 0.82 : isLargeKill ? 0.78 : isEmp ? 0.72 : isAbilityKill ? 0.68 : 0.42), 0, isBossKill ? 0.56 : isLargeKill ? 0.52 : isEmp ? 0.48 : isAbilityKill ? 0.46 : 0.32);
       gfx.strokeStyle = `hsla(${wave.hue}, 100%, 68%, 0.96)`;
-      gfx.lineWidth = isBossKill ? 2.35 : isLargeKill ? 2.1 : isEmp ? 1.8 : 1.05;
+      gfx.lineWidth = isBossKill ? 2.35 : isLargeKill ? 2.1 : isEmp ? 1.8 : isAbilityKill ? 1.65 : 1.05;
       gfx.beginPath();
       gfx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
       gfx.stroke();

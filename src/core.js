@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202605312147";
-import { Map } from "./map.js?v=202605312147";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605312147";
-import { Particles } from "./vfx.js?v=202605312147";
-import { Projectile } from "./projectiles.js?v=202605312147";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202605312147";
-import { MusicVisualizer } from "./visualization.js?v=202605312147";
+import { AudioSystem } from "./audio.js?v=202605312155";
+import { Map } from "./map.js?v=202605312155";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605312155";
+import { Particles } from "./vfx.js?v=202605312155";
+import { Projectile } from "./projectiles.js?v=202605312155";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202605312155";
+import { MusicVisualizer } from "./visualization.js?v=202605312155";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -2818,6 +2818,7 @@ class Game {
         let shields = 0;
         for (const e of this.enemies) {
           if (!e || e._dead) continue;
+          e.empT = Math.max(Number(e.empT) || 0, 4.6);
           if (this._clearEnemyShield(e)) {
             shields++;
             this.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.9)");
@@ -2869,6 +2870,7 @@ class Game {
           boom: false
         });
         this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
+        this.map?.triggerAbilityActivationPulse?.("pulseBurst", this.selectedTurret.x, this.selectedTurret.y);
         this.audio.playLimited("upgrade", 220);
         toast("PULSE BURST: turret damage x2 and fire rate x4 for 30s");
         break;
@@ -2887,6 +2889,7 @@ class Game {
           boom: false
         });
         this.particles.spawn(W * 0.5, H * 0.5, 16, "muzzle");
+        this.map?.triggerAbilityActivationPulse?.("overcharge", W * 0.5, H * 0.5);
         this.audio.playLimited("upgrade", 220);
         toast("OVERCHARGE: all turrets fire faster for 30s");
         break;
@@ -3789,9 +3792,17 @@ class Game {
     }
     this.audio.playLimited("kill", 80);
     const dramaticKill = enemy._overkillHit || enemy.elite || enemy.isBoss || enemy.isFinalBoss;
-    this.map?.triggerKillPulse?.(enemy.x, enemy.y, dramaticKill);
+    const abilityKill = (Number(enemy.empT) || 0) > 0
+      ? "emp"
+      : enemy._lastHitBy?.pulseBoostT > 0
+        ? "pulseBurst"
+        : this.globalOverchargeT > 0 && enemy._lastHitBy
+          ? "overcharge"
+          : null;
+    if (abilityKill) this.map?.triggerAbilityKillPulse?.(enemy.x, enemy.y, abilityKill, dramaticKill);
+    else this.map?.triggerKillPulse?.(enemy.x, enemy.y, dramaticKill);
     const largeEnemyKill = enemy.r >= 15 && !enemy.isBoss && !enemy.isFinalBoss;
-    if (largeEnemyKill) this.map?.triggerLargeKillPulse?.(enemy.x, enemy.y);
+    if (largeEnemyKill && !abilityKill) this.map?.triggerLargeKillPulse?.(enemy.x, enemy.y);
     if (enemy.isBoss || enemy.isFinalBoss) {
       this.map?.triggerBossKillPulse?.(enemy.x, enemy.y, !!enemy.isFinalBoss);
     }

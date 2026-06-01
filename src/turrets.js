@@ -1,5 +1,5 @@
-import { DAMAGE } from "./enemies.js?v=202605312147";
-import { Projectile } from "./projectiles.js?v=202605312147";
+import { DAMAGE } from "./enemies.js?v=202605312155";
+import { Projectile } from "./projectiles.js?v=202605312155";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
 
@@ -889,7 +889,7 @@ export class Turret {
             if (current.shield > 0) dealt *= this.vsShield;
             else dealt *= this.vsHp;
 
-            current.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
+            current.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey, this);
 
             if (this.slowOnHit) current.applySlow(this.slowOnHit.pct, this.slowOnHit.dur);
 
@@ -927,7 +927,7 @@ export class Turret {
               for (const e of game.enemies) {
                 if (e.hp <= 0) continue;
                 if (dist2(cx, cy, e.x, e.y) <= 60 * 60) {
-                  e.takeHit(game, dmgBase * 0.55, DAMAGE.ENGY, this.typeKey);
+                  e.takeHit(game, dmgBase * 0.55, DAMAGE.ENGY, this.typeKey, this);
                   e.applySlow(0.12, 0.9);
                 }
               }
@@ -955,7 +955,7 @@ export class Turret {
             if (dot >= th) {
               // damage and slow
               const dealt = dmgBase * (e.shield > 0 ? this.vsShield : this.vsHp);
-              e.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
+              e.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey, this);
               e.applySlow(this.slowPct, 1.4);
               if (this.chillMark) {
                 e._marked = Math.max(e._marked || 0, this.chillMark);
@@ -1031,7 +1031,7 @@ export class Turret {
           // chill mark increases damage taken (from Frost) – apply here too
           if (target._markedT > 0) dealt *= (1 + target._marked);
 
-          target.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey);
+          target.takeHit(game, dealt, DAMAGE.ENGY, this.typeKey, this);
 
           if (this.burn) target.applyDot(this.burn.dps, this.burn.dur);
 
@@ -1045,7 +1045,7 @@ export class Turret {
               if (d2v < best && d2v < 120 * 120) { best = d2v; second = e; }
             }
             if (second) {
-              second.takeHit(game, dealt * 0.5, DAMAGE.ENGY, this.typeKey);
+              second.takeHit(game, dealt * 0.5, DAMAGE.ENGY, this.typeKey, this);
               game.beams.push({ ax: this.x, ay: this.y, bx: second.x, by: second.y, t: 0.08, col: "rgba(154,108,255,0.75)" });
             }
           }
@@ -1055,7 +1055,7 @@ export class Turret {
             for (const e of game.enemies) {
               if (e.hp <= 0) continue;
               if (dist2(this.x, this.y, e.x, e.y) <= (this.range * 0.65) * (this.range * 0.65)) {
-                e.takeHit(game, this.auraDps * dt, DAMAGE.ENGY, this.typeKey);
+                e.takeHit(game, this.auraDps * dt, DAMAGE.ENGY, this.typeKey, this);
               }
             }
           }
@@ -1120,6 +1120,7 @@ export class Turret {
     if (game && game.globalOverchargeT > 0) {
       const pulse = 0.6 + 0.4 * Math.sin(t * 4 + this.x * 0.02 + this.y * 0.02);
       gfx.save();
+      gfx.globalCompositeOperation = "lighter";
       const g = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 64 + pulse * 12);
       g.addColorStop(0, "rgba(255,207,91,0.65)");
       g.addColorStop(1, "rgba(0,0,0,0)");
@@ -1129,12 +1130,28 @@ export class Turret {
       gfx.strokeStyle = "rgba(255,207,91,0.85)";
       gfx.lineWidth = 2;
       gfx.beginPath(); gfx.arc(this.x, this.y, 40 + pulse * 6, 0, Math.PI * 2); gfx.stroke();
+      gfx.lineWidth = 1.2;
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 30 + pulse * 4, t * 2.8, t * 2.8 + Math.PI * 1.34);
+      gfx.stroke();
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 48 + pulse * 4, -t * 2.1, -t * 2.1 + Math.PI * 1.12);
+      gfx.stroke();
+      for (let i = 0; i < 4; i++) {
+        const a = t * 2.4 + i * Math.PI * 0.5;
+        gfx.globalAlpha = 0.5 + pulse * 0.35;
+        gfx.fillStyle = i % 2 ? "rgba(255,244,184,0.96)" : "rgba(255,173,62,0.94)";
+        gfx.beginPath();
+        gfx.arc(this.x + Math.cos(a) * 47, this.y + Math.sin(a) * 47, 2.2, 0, Math.PI * 2);
+        gfx.fill();
+      }
       gfx.restore();
     }
 
     if (this.pulseBoostT > 0) {
       const p2 = 0.6 + 0.4 * Math.sin(t * 5 + this.x * 0.03 + this.y * 0.03);
       gfx.save();
+      gfx.globalCompositeOperation = "lighter";
       const g2 = gfx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 52 + p2 * 10);
       g2.addColorStop(0, "rgba(154,108,255,0.6)");
       g2.addColorStop(1, "rgba(0,0,0,0)");
@@ -1144,6 +1161,21 @@ export class Turret {
       gfx.strokeStyle = "rgba(154,108,255,0.85)";
       gfx.lineWidth = 1.5;
       gfx.beginPath(); gfx.arc(this.x, this.y, 32 + p2 * 5, 0, Math.PI * 2); gfx.stroke();
+      gfx.lineWidth = 1.1;
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 42 + p2 * 4, t * 3.5, t * 3.5 + Math.PI * 1.2);
+      gfx.stroke();
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 25 + p2 * 3, -t * 4.2, -t * 4.2 + Math.PI * 1.5);
+      gfx.stroke();
+      for (let i = 0; i < 3; i++) {
+        const a = -t * 3.2 + i * Math.PI * 2 / 3;
+        gfx.globalAlpha = 0.56 + p2 * 0.30;
+        gfx.fillStyle = i === 0 ? "rgba(242,220,255,0.98)" : "rgba(186,112,255,0.94)";
+        gfx.beginPath();
+        gfx.arc(this.x + Math.cos(a) * 38, this.y + Math.sin(a) * 38, 2, 0, Math.PI * 2);
+        gfx.fill();
+      }
       gfx.restore();
     }
 

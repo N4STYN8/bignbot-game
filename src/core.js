@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202605311453";
-import { Map } from "./map.js?v=202605311453";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605311453";
-import { Particles } from "./vfx.js?v=202605311453";
-import { Projectile } from "./projectiles.js?v=202605311453";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202605311453";
-import { MusicVisualizer } from "./visualization.js?v=202605311453";
+import { AudioSystem } from "./audio.js?v=202605312145";
+import { Map } from "./map.js?v=202605312145";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605312145";
+import { Particles } from "./vfx.js?v=202605312145";
+import { Projectile } from "./projectiles.js?v=202605312145";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202605312145";
+import { MusicVisualizer } from "./visualization.js?v=202605312145";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -21,6 +21,13 @@ const leaderboardCloseEl = document.getElementById("leaderboardClose");
 const leaderboardBodyEl = document.getElementById("leaderboardBody");
 const landingLeaderboardBtnEl = document.getElementById("landingLeaderboardBtn");
 const landingPilotStatusEl = document.getElementById("landingPilotStatus");
+const tutorialModalEl = document.getElementById("tutorialModal");
+const tutorialTitleEl = document.getElementById("tutorialTitle");
+const tutorialStepEl = document.getElementById("tutorialStep");
+const tutorialBodyEl = document.getElementById("tutorialBody");
+const tutorialOkEl = document.getElementById("tutorialOk");
+const tutorialSpotlightEl = document.getElementById("tutorialSpotlight");
+const tutorialCardEl = tutorialModalEl?.querySelector(".tutorialCard");
 const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
 const PROFILE_KEY = "orbit_echo_profile_v1";
 const LEADERBOARD_KEY = "orbit_echo_leaderboard_v1";
@@ -57,6 +64,56 @@ const NEW_PLAYER_WAVE_TIPS = {
   3: "Tip: Power tiles boost damage, range, and fire rate once unlocked.",
   4: "Tip: Press 1, 2, or 3 for abilities when a wave starts getting heavy.",
   5: "Tip: Press V to change the music-reactive grid style."
+};
+const FIRST_WAVE_TUTORIAL = [
+  {
+    title: "Build The Defence",
+    body: "Start with Pulse Spindle. Select it here, then click a glowing build tile beside the track. Pulse Spindle is your unlimited baseline tower; specialist turrets have light placement caps.",
+    target: ".buildItem[data-key=\"PULSE\"]",
+    placement: "right"
+  },
+  {
+    title: "Hold The Path",
+    body: "Enemies follow the bright track across the battlefield toward your core. Place turrets beside the path. Corrupted red tiles must be cleansed before building.",
+    targetType: "path",
+    placement: "right"
+  },
+  {
+    title: "Abilities And Music",
+    body: "Use 1, 2, and 3 for EMP Pulse, Pulse Burst, and Overcharge. Press V at any time to cycle the music-reactive battlefield visualization.",
+    target: "#abilitiesBar",
+    placement: "top"
+  },
+  {
+    title: "Power Tiles",
+    body: "Locked gold power tiles can be purchased. Turrets placed on an unlocked power tile receive boosted damage, range, and fire rate.",
+    targetType: "powerTile",
+    placement: "right"
+  },
+  {
+    title: "Save Your Pilot",
+    body: "Open Pilot / Leaderboard to create a username and password. Your pilot profile records leaderboard progress. Your current run also saves automatically so Load Saved Game can continue it later.",
+    target: "#leaderboardBtn",
+    placement: "bottom"
+  },
+  {
+    title: "Launch Wave One",
+    body: "You are ready. Press START when your first defences are placed. The tutorial will close now so you can build before launching the wave.",
+    target: "#startBtn",
+    placement: "bottom"
+  }
+];
+const TURRET_BUILD_LIMITS = {
+  PULSE: Infinity,
+  ARC: 5,
+  FROST: 5,
+  LENS: 5,
+  MORTAR: 4,
+  VENOM: 5,
+  NEEDLE: 4,
+  AURA: 3,
+  DRONE: 3,
+  TRAP: 5
 };
 const LEVEL_PROFILES = [
   {
@@ -263,6 +320,11 @@ class Game {
     this.leaderboard = [];
     this._playRecordedThisSession = false;
     this.newPlayerTipsSeen = this._loadNewPlayerTipsSeen();
+    this.firstWaveTutorialShown = false;
+    this.tutorialOpen = false;
+    this._tutorialQueue = [];
+    this._tutorialIndex = 0;
+    this._tutorialExpandedBuildPanel = false;
     this.globalOverchargeT = 0;
     this._transitioning = false;
     this.gameState = GAME_STATE.GAMEPLAY;
@@ -340,6 +402,143 @@ class Game {
     this.newPlayerTipsSeen.add(wave);
     this._saveNewPlayerTipsSeen();
     setTimeout(() => toast(tip), 1150);
+  }
+
+  _startFirstWaveTutorial() {
+    if (this.firstWaveTutorialShown || this.wave > 1 || !tutorialModalEl) return;
+    this.firstWaveTutorialShown = true;
+    this.tutorialOpen = true;
+    if (leftPanel?.classList.contains("collapsed")) {
+      leftPanel.classList.remove("collapsed");
+      this._tutorialExpandedBuildPanel = true;
+    }
+    this._tutorialQueue = FIRST_WAVE_TUTORIAL.slice();
+    this._tutorialIndex = 0;
+    this._renderTutorialStep();
+  }
+
+  _renderTutorialStep() {
+    const step = this._tutorialQueue[this._tutorialIndex];
+    if (!step) {
+      this._closeTutorial();
+      return;
+    }
+    if (tutorialTitleEl) tutorialTitleEl.textContent = step.title;
+    if (tutorialStepEl) tutorialStepEl.textContent = `${this._tutorialIndex + 1} / ${this._tutorialQueue.length}`;
+    if (tutorialBodyEl) tutorialBodyEl.textContent = step.body;
+    if (tutorialOkEl) tutorialOkEl.textContent = this._tutorialIndex === this._tutorialQueue.length - 1 ? "Enter Battle" : "OK";
+    tutorialModalEl.dataset.placement = step.placement || "center";
+    tutorialModalEl.classList.remove("hidden");
+    tutorialModalEl.setAttribute("aria-hidden", "false");
+    this._positionTutorialSpotlight();
+  }
+
+  _positionTutorialSpotlight() {
+    if (!tutorialSpotlightEl || !tutorialCardEl || !this.tutorialOpen) return;
+    const step = this._tutorialQueue[this._tutorialIndex];
+    const rect = this._tutorialTargetRect(step);
+    if (!rect) {
+      tutorialSpotlightEl.classList.add("hidden");
+      return;
+    }
+    const pad = step?.targetType ? 10 : 8;
+    const left = Math.max(4, rect.left - pad);
+    const top = Math.max(4, rect.top - pad);
+    const width = Math.max(20, Math.min(window.innerWidth - left - 4, rect.width + pad * 2));
+    const height = Math.max(20, Math.min(window.innerHeight - top - 4, rect.height + pad * 2));
+    tutorialSpotlightEl.style.left = `${left}px`;
+    tutorialSpotlightEl.style.top = `${top}px`;
+    tutorialSpotlightEl.style.width = `${width}px`;
+    tutorialSpotlightEl.style.height = `${height}px`;
+    tutorialSpotlightEl.classList.remove("hidden");
+    this._positionTutorialCard({ left, top, width, height }, step?.placement);
+  }
+
+  _tutorialTargetRect(step) {
+    if (step?.targetType === "powerTile") {
+      const idx = this.map?.powerCells?.[0];
+      if (!Number.isFinite(idx)) return null;
+      const gx = idx % this.map.cols;
+      const gy = Math.floor(idx / this.map.cols);
+      return this._tutorialWorldRect(gx, gy, 1, 1);
+    }
+    if (step?.targetType === "path") {
+      const points = this.map?.pathPts || [];
+      if (!points.length) return null;
+      const point = points[Math.min(points.length - 1, Math.max(0, Math.floor(points.length * 0.35)))];
+      const gx = Math.floor(point[0] / this.map.gridSize);
+      const gy = Math.floor(point[1] / this.map.gridSize);
+      return this._tutorialWorldRect(gx - 1, gy - 1, 3, 3);
+    }
+    return step?.target ? document.querySelector(step.target)?.getBoundingClientRect() : null;
+  }
+
+  _tutorialWorldRect(gx, gy, cellsWide = 1, cellsHigh = 1) {
+    const topLeft = this.worldToScreen(gx * this.map.gridSize, gy * this.map.gridSize);
+    const bottomRight = this.worldToScreen((gx + cellsWide) * this.map.gridSize, (gy + cellsHigh) * this.map.gridSize);
+    const canvasRect = canvas.getBoundingClientRect();
+    return {
+      left: canvasRect.left + Math.min(topLeft.x, bottomRight.x),
+      top: canvasRect.top + Math.min(topLeft.y, bottomRight.y),
+      width: Math.abs(bottomRight.x - topLeft.x),
+      height: Math.abs(bottomRight.y - topLeft.y)
+    };
+  }
+
+  _positionTutorialCard(spotlight, preferred = "right") {
+    const margin = 16;
+    const gap = 18;
+    const cardWidth = Math.min(440, Math.max(280, window.innerWidth - margin * 2));
+    tutorialCardEl.style.width = `${cardWidth}px`;
+    const cardHeight = tutorialCardEl.offsetHeight || 170;
+    const candidates = {
+      right: { left: spotlight.left + spotlight.width + gap, top: spotlight.top + spotlight.height * 0.5 - cardHeight * 0.5 },
+      left: { left: spotlight.left - cardWidth - gap, top: spotlight.top + spotlight.height * 0.5 - cardHeight * 0.5 },
+      bottom: { left: spotlight.left + spotlight.width * 0.5 - cardWidth * 0.5, top: spotlight.top + spotlight.height + gap },
+      top: { left: spotlight.left + spotlight.width * 0.5 - cardWidth * 0.5, top: spotlight.top - cardHeight - gap }
+    };
+    const order = [preferred, "right", "left", "bottom", "top"].filter((value, index, values) => values.indexOf(value) === index);
+    const fits = (pos) => pos.left >= margin
+      && pos.top >= margin
+      && pos.left + cardWidth <= window.innerWidth - margin
+      && pos.top + cardHeight <= window.innerHeight - margin;
+    const clampCandidate = (pos) => ({
+      left: clamp(pos.left, margin, Math.max(margin, window.innerWidth - cardWidth - margin)),
+      top: clamp(pos.top, margin, Math.max(margin, window.innerHeight - cardHeight - margin))
+    });
+    const overlapArea = (pos) => {
+      const overlapW = Math.max(0, Math.min(pos.left + cardWidth, spotlight.left + spotlight.width) - Math.max(pos.left, spotlight.left));
+      const overlapH = Math.max(0, Math.min(pos.top + cardHeight, spotlight.top + spotlight.height) - Math.max(pos.top, spotlight.top));
+      return overlapW * overlapH;
+    };
+    const selected = order.map((key) => candidates[key]).find(fits)
+      || order.map((key) => clampCandidate(candidates[key])).sort((a, b) => overlapArea(a) - overlapArea(b))[0]
+      || clampCandidate(candidates.right);
+    tutorialCardEl.style.left = `${selected.left}px`;
+    tutorialCardEl.style.top = `${selected.top}px`;
+  }
+
+  _advanceTutorial() {
+    if (!this.tutorialOpen) return;
+    this._tutorialIndex++;
+    this._renderTutorialStep();
+  }
+
+  _closeTutorial() {
+    tutorialModalEl?.classList.add("hidden");
+    tutorialModalEl?.setAttribute("aria-hidden", "true");
+    tutorialSpotlightEl?.classList.add("hidden");
+    tutorialSpotlightEl?.removeAttribute("style");
+    tutorialCardEl?.removeAttribute("style");
+    tutorialModalEl?.removeAttribute("data-placement");
+    this.tutorialOpen = false;
+    this._tutorialQueue = [];
+    this._tutorialIndex = 0;
+    if (this._tutorialExpandedBuildPanel && leftPanel && !leftPanel.classList.contains("pinned") && !this.buildKey) {
+      leftPanel.classList.add("collapsed");
+    }
+    this._tutorialExpandedBuildPanel = false;
+    this.updateHUD();
   }
 
   _syncMusicHud() {
@@ -461,7 +660,20 @@ class Game {
       try { return !!localStorage.getItem(SAVE_KEY); } catch (err) { return false; }
     };
     const refreshLoadState = () => {
-      if (loadBtn) loadBtn.disabled = !hasSave();
+      const saved = hasSave();
+      const actions = loadBtn?.parentElement;
+      if (loadBtn) {
+        loadBtn.disabled = !saved;
+        loadBtn.classList.toggle("primary", saved);
+        loadBtn.classList.toggle("ghost", !saved);
+      }
+      if (playBtn) {
+        playBtn.textContent = saved ? "Start New Game" : "Play";
+        playBtn.classList.toggle("primary", !saved);
+        playBtn.classList.toggle("ghost", saved);
+      }
+      if (actions && saved && loadBtn) actions.prepend(loadBtn);
+      if (actions && !saved && playBtn) actions.prepend(playBtn);
     };
     refreshLoadState();
     this._syncLeaderboardProfileUi();
@@ -493,11 +705,13 @@ class Game {
 
     playBtn?.addEventListener("click", () => {
       showConfirm("Start New Game", "Start a new game? Your current run progress will be replaced.", () => {
+        this.firstWaveTutorialShown = false;
         this.audio.randomizeStartingTrack();
         this.audio.unlock();
         this._hideLandingMenu();
         requestAnimationFrame(() => {
           this._syncLayoutAfterMenuClose();
+          this._startFirstWaveTutorial();
         });
       });
     });
@@ -1349,6 +1563,7 @@ class Game {
       closeConfirm();
       if (cb) cb();
     });
+    tutorialOkEl?.addEventListener("click", () => this._advanceTutorial());
     confirmModal?.addEventListener("click", (ev) => {
       if (ev.target === confirmModal) closeConfirm();
     });
@@ -1658,7 +1873,7 @@ class Game {
   isUiBlocked() {
     const overlayOpen = overlay && !overlay.classList.contains("hidden");
     const settingsOpen = settingsModal && !settingsModal.classList.contains("hidden");
-    return this.menuOpen || overlayOpen || settingsOpen || this.statsOpen || this._transitioning || this.gameState !== GAME_STATE.GAMEPLAY;
+    return this.menuOpen || overlayOpen || settingsOpen || this.statsOpen || this.tutorialOpen || this._transitioning || this.gameState !== GAME_STATE.GAMEPLAY;
   }
 
   isPaused() {
@@ -2081,6 +2296,24 @@ class Game {
     return TOWER_UNLOCKS[key] || 1;
   }
 
+  getTurretBuildLimit(key) {
+    return TURRET_BUILD_LIMITS[key] ?? 5;
+  }
+
+  getTurretBuildCount(key) {
+    return this.turrets.reduce((count, turret) => count + (turret.typeKey === key ? 1 : 0), 0);
+  }
+
+  isTurretBuildCapped(key) {
+    const limit = this.getTurretBuildLimit(key);
+    return Number.isFinite(limit) && this.getTurretBuildCount(key) >= limit;
+  }
+
+  turretBuildLimitLabel(key) {
+    const limit = this.getTurretBuildLimit(key);
+    return Number.isFinite(limit) ? `${this.getTurretBuildCount(key)}/${limit}` : "Unlimited";
+  }
+
   isTowerUnlocked(key) {
     const wave = Math.max(1, this.wave || 1);
     return wave >= this.getUnlockWave(key);
@@ -2107,8 +2340,12 @@ class Game {
       const unlocked = this.isTowerUnlocked(key);
       const cost = TURRET_TYPES[key]?.cost || 0;
       const affordable = this.gold >= cost;
+      const capped = this.isTurretBuildCapped(key);
       item.classList.toggle("locked", !unlocked);
       item.classList.toggle("poor", unlocked && !affordable);
+      item.classList.toggle("capped", unlocked && capped);
+      const capTag = item.querySelector(".turretCap");
+      if (capTag) capTag.textContent = key === "PULSE" ? "No cap" : `Cap ${this.turretBuildLimitLabel(key)}`;
       const lockTag = item.querySelector(".lockTag");
       if (lockTag) {
         lockTag.textContent = `Unlocks at Wave ${unlockWave}`;
@@ -2261,6 +2498,7 @@ class Game {
           <div class="buildCost">
             <span class="tag">${t.role}</span>
             <span>${t.cost}g</span>
+            <span class="turretCap"></span>
           </div>
           <div class="lockTag">Unlocks at Wave ${this.getUnlockWave(key)}</div>
         </div>
@@ -2272,6 +2510,10 @@ class Game {
           return;
         }
         if (!this.isTowerUnlocked(key)) return;
+        if (this.isTurretBuildCapped(key)) {
+          toast(`${t.name} limit reached (${this.turretBuildLimitLabel(key)}).`);
+          return;
+        }
         if (this.gold < t.cost) {
           toast("Not enough gold.");
           return;
@@ -2387,7 +2629,7 @@ class Game {
     }
 
     const controlsLocked = this.gameState !== GAME_STATE.GAMEPLAY;
-    startBtn.disabled = this.menuOpen || this.gameOver || this.gameWon || this.statsOpen || this._transitioning || controlsLocked;
+    startBtn.disabled = this.menuOpen || this.gameOver || this.gameWon || this.statsOpen || this.tutorialOpen || this._transitioning || controlsLocked;
     startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
     if (this.abilities && abilityScanCd) {
@@ -2699,13 +2941,10 @@ class Game {
   }
 
   onResize() {
-    this.map.onResize();
-    for (const t of this.turrets) {
-      if (t.gx != null) {
-        const w = this.map.worldFromCell(t.gx, t.gy);
-        t.x = w.x; t.y = w.y;
-      }
-    }
+    // Canvas dimensions may change, but a live battlefield must remain immutable.
+    // Rebuilding here changes the path beneath placed turrets and active enemies.
+    this._syncMusicHudGeometry();
+    this._positionTutorialSpotlight();
     this._updateTurretHudPosition();
   }
 
@@ -2777,7 +3016,8 @@ class Game {
         scalar: escortScalar,
         eliteTag: n >= 10 && n % 4 === 0 ? pick(["HARDENED", "VOLATILE", "PHASELINK"]) : null
       }));
-      escorts.push({ t: 1.5 + escortCount * 1.12, type: this._getBossKey(), scalar: bossScalar, finalBoss: true });
+      escorts.push({ t: 10, type: this._getBossKey(), scalar: bossScalar, finalBoss: true });
+      escorts.sort((a, b) => a.t - b.t);
       return escorts;
     }
     const earlyCounts = [0, 14, 18, 22, 27];
@@ -2894,7 +3134,8 @@ class Game {
       this.spawnQueue = this.spawnQueue.concat(newSpawns);
     }
     toast(`Wave ${this.wave} launched`);
-    this._showNewPlayerWaveTip(this.wave);
+    if (this.wave === 1) this._startFirstWaveTutorial();
+    else this._showNewPlayerWaveTip(this.wave);
     const spawn = this.map?.pathPts?.[0];
     if (spawn) {
       this._spawnEnergyBurst(spawn[0], spawn[1], {
@@ -3174,6 +3415,7 @@ class Game {
     this._resetWaveStats();
     // CODEX CHANGE: Combo state is intentionally not persisted in saves.
     this._resetComboState();
+    this.firstWaveTutorialShown = true;
     return true;
   }
 
@@ -3201,6 +3443,17 @@ class Game {
     this.waveActive = false;
     this.intermission = 0;
     this.finalBossDefeated = false;
+    this.firstWaveTutorialShown = false;
+    this.tutorialOpen = false;
+    this._tutorialQueue = [];
+    this._tutorialIndex = 0;
+    this._tutorialExpandedBuildPanel = false;
+    tutorialModalEl?.classList.add("hidden");
+    tutorialModalEl?.setAttribute("aria-hidden", "true");
+    tutorialSpotlightEl?.classList.add("hidden");
+    tutorialSpotlightEl?.removeAttribute("style");
+    tutorialCardEl?.removeAttribute("style");
+    tutorialModalEl?.removeAttribute("data-placement");
     this.gameOver = false;
     this.gameWon = false;
     this._gameOverPrompted = false;
@@ -3829,6 +4082,11 @@ class Game {
       }
       if (this.isCellOccupied(cell.gx, cell.gy)) { toast("Tile occupied."); return; }
       const t = TURRET_TYPES[this.buildKey];
+      if (this.isTurretBuildCapped(this.buildKey)) {
+        toast(`${t.name} limit reached (${this.turretBuildLimitLabel(this.buildKey)}).`);
+        this.clearBuildMode();
+        return;
+      }
       if (this.gold < t.cost) {
         toast("Not enough gold.");
         this.clearBuildMode();
@@ -3840,6 +4098,8 @@ class Game {
       if (cell.v === 3) turret.applyPowerBoost();
       turret.gx = cell.gx; turret.gy = cell.gy;
       this.turrets.push(turret);
+      this._refreshBuildList();
+      if (this.isTurretBuildCapped(this.buildKey)) this.clearBuildMode();
       if (this.waveStats && this.hasStarted && this.wave > 0) {
         this.waveStats.towersBuilt += 1;
       }
@@ -4099,6 +4359,7 @@ class Game {
     if (this.runStats) this.runStats.gold += refund;
     if (this.playerStats) this.playerStats.gold += refund;
     this.turrets = this.turrets.filter(x => x !== t);
+    this._refreshBuildList();
     this.selectTurret(null);
     this.particles.spawn(t.x, t.y, 10, "boom");
     this.audio.play("sell");
@@ -4441,6 +4702,7 @@ class Game {
       if (inBounds) {
         const buildValid = (cell.v === 1 || cell.v === 3)
           && !this.isCellOccupied(cell.gx, cell.gy)
+          && !this.isTurretBuildCapped(this.buildKey)
           && !this._isCellCorrupted(cell.gx, cell.gy)
           && (cell.v !== 3 || this._isPowerTileUnlocked(cell.gx, cell.gy));
         const w = this.map.worldFromCell(cell.gx, cell.gy);

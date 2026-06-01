@@ -24,6 +24,8 @@ export class Map {
     this.tileState = [];
     this.tileShockEnergy = [];
     this.tileEmpEnergy = [];
+    this.tileBossEnergy = [];
+    this.tileBossHue = [];
     this.activeTileEnergy = new Set();
     this.musicWaves = [];
     this.globalMusicPulses = [];
@@ -446,12 +448,14 @@ export class Map {
 
   _ensureTileEnergy(reset = false) {
     const n = Math.max(0, this.cols * this.rows);
-    if (!reset && this.tileEnergy?.length === n && this.tileHue?.length === n && this.tileState?.length === n && this.tileShockEnergy?.length === n && this.tileEmpEnergy?.length === n) return;
+    if (!reset && this.tileEnergy?.length === n && this.tileHue?.length === n && this.tileState?.length === n && this.tileShockEnergy?.length === n && this.tileEmpEnergy?.length === n && this.tileBossEnergy?.length === n && this.tileBossHue?.length === n) return;
     this.tileEnergy = new Array(n).fill(0);
     this.tileHue = new Array(n).fill(190);
     this.tileState = new Array(n).fill(0);
     this.tileShockEnergy = new Array(n).fill(0);
     this.tileEmpEnergy = new Array(n).fill(0);
+    this.tileBossEnergy = new Array(n).fill(0);
+    this.tileBossHue = new Array(n).fill(276);
     this.activeTileEnergy = new Set();
     this.musicWaves = [];
     this.globalMusicPulses = [];
@@ -612,7 +616,7 @@ export class Map {
   }
 
   triggerBossKillPulse(x, y, mainBoss = false) {
-    const hues = mainBoss ? [42, 52, 34] : [276, 196, 318];
+    const hues = mainBoss ? [42, 52, 34] : [276, 292, 264];
     const beatAmp = this._musicLastBeat > 0.22 ? 0.12 : 0;
     for (let i = 0; i < hues.length; i++) {
       this.musicWaves.push({
@@ -689,9 +693,11 @@ export class Map {
       // Large-enemy corruption should follow the expanding edge, not accumulate into a filled disk.
       const shockNext = Math.max(0, (this.tileShockEnergy[i] || 0) - dt * 1.72);
       const empNext = Math.max(0, (this.tileEmpEnergy[i] || 0) - dt * 0.19);
+      const bossNext = Math.max(0, (this.tileBossEnergy[i] || 0) - dt * 0.72);
       this.tileShockEnergy[i] = shockNext;
       this.tileEmpEnergy[i] = empNext;
-      if (next <= 0.01 && shockNext <= 0.01 && empNext <= 0.01) {
+      this.tileBossEnergy[i] = bossNext;
+      if (next <= 0.01 && shockNext <= 0.01 && empNext <= 0.01 && bossNext <= 0.01) {
         this.tileState[i] = 0;
         this.activeTileEnergy.delete(i);
       }
@@ -725,7 +731,8 @@ export class Map {
 
     const hasLargeKillWave = this.musicWaves.some((wave) => wave.kind === "largeKill" && wave.age >= 0);
     const hasEmpWave = this.musicWaves.some((wave) => (wave.kind === "empPulse" || wave.kind === "empEcho") && wave.age >= 0);
-    const hasGridEventWave = hasLargeKillWave || hasEmpWave;
+    const hasBossKillWave = this.musicWaves.some((wave) => (wave.kind === "miniBossKill" || wave.kind === "mainBossKill") && wave.age >= 0);
+    const hasGridEventWave = hasLargeKillWave || hasEmpWave || hasBossKillWave;
     const stride = hasGridEventWave ? 1 : perf < 0.7 ? 3 : 2;
     const waveMove = now * (1.7 + m.tempo * 0.8);
     const sparkCutoff = 0.92 - activity * 0.14 - m.high * 0.08;
@@ -744,11 +751,13 @@ export class Map {
         let add = buildable ? sweep + bassBreath : 0;
         let redShock = 0;
         let empCharge = 0;
+        let bossCharge = 0;
+        let bossHue = 276;
         let hue = palette.hues[(gx * 2 + gy * 3 + Math.floor(now * (0.45 + activity * 0.35))) % palette.hues.length];
         let state = sweep > bassBreath ? 2 : 1;
 
         for (const wave of this.musicWaves) {
-          const gridEventWave = wave.kind === "largeKill" || wave.kind === "empPulse" || wave.kind === "empEcho";
+          const gridEventWave = wave.kind === "largeKill" || wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "miniBossKill" || wave.kind === "mainBossKill";
           if (!buildable && !gridEventWave) continue;
           const radius = wave.age * wave.speed;
           const d = Math.hypot(x - wave.x, y - wave.y);
@@ -766,6 +775,11 @@ export class Map {
             empCharge = Math.max(empCharge, strength);
             hue = wave.kind === "empPulse" ? 192 : 212;
             state = 6;
+          } else if (wave.kind === "miniBossKill" || wave.kind === "mainBossKill") {
+            bossCharge = Math.max(bossCharge, strength);
+            bossHue = wave.hue;
+            hue = wave.hue;
+            state = 7;
           } else if (redShock <= 0.01) {
             hue = wave.hue;
             state = wave.state;
@@ -783,6 +797,8 @@ export class Map {
         this.tileEnergy[idx] = clamp(Math.max(this.tileEnergy[idx], 0) + add, 0, cap);
         this.tileShockEnergy[idx] = Math.max(this.tileShockEnergy[idx] || 0, redShock);
         this.tileEmpEnergy[idx] = Math.max(this.tileEmpEnergy[idx] || 0, empCharge);
+        this.tileBossEnergy[idx] = Math.max(this.tileBossEnergy[idx] || 0, bossCharge);
+        if (bossCharge > 0.01) this.tileBossHue[idx] = bossHue;
         this.tileHue[idx] = hue;
         this.tileState[idx] = state;
         this.activeTileEnergy.add(idx);
@@ -790,6 +806,7 @@ export class Map {
     }
     const hasGridEventActivity = hasGridEventWave || [...this.activeTileEnergy].some((idx) =>
       (this.tileShockEnergy[idx] || 0) > 0.01 || (this.tileEmpEnergy[idx] || 0) > 0.01
+      || (this.tileBossEnergy[idx] || 0) > 0.01
     );
     const maxActive = hasGridEventActivity ? this.cols * this.rows : perf < 0.7 ? 72 : 150;
     if (this.activeTileEnergy.size > maxActive) {
@@ -801,6 +818,7 @@ export class Map {
         this.tileState[idx] = 0;
         this.tileShockEnergy[idx] = 0;
         this.tileEmpEnergy[idx] = 0;
+        this.tileBossEnergy[idx] = 0;
         if (++removed >= drop) break;
       }
     }
@@ -841,7 +859,9 @@ export class Map {
         if ((v === 1 || v === 3) && this._isBuildableCorrupted(gx, gy, idx, v)) continue;
         const shockRed = clamp(this.tileShockEnergy[idx] || 0, 0, 1);
         const empCharge = clamp(this.tileEmpEnergy[idx] || 0, 0, 1);
-        if (shockRed <= 0.01 && empCharge <= 0.01) continue;
+        const bossCharge = clamp(this.tileBossEnergy[idx] || 0, 0, 1);
+        const bossHue = this.tileBossHue[idx] ?? 276;
+        if (shockRed <= 0.01 && empCharge <= 0.01 && bossCharge <= 0.01) continue;
         const x = gx * this.gridSize;
         const y = gy * this.gridSize;
 
@@ -891,6 +911,29 @@ export class Map {
             gfx.lineTo(x + 3 + spark, y + this.gridSize * 0.5 - 3);
             gfx.lineTo(x + 5 + spark, y + this.gridSize * 0.5 + 2);
             gfx.lineTo(x + 8 + spark, y + this.gridSize * 0.5 - 1);
+            gfx.stroke();
+            gfx.restore();
+          }
+        }
+
+        if (bossCharge > 0.01) {
+          const bossPulse = 0.86 + 0.14 * Math.sin(t * 7.2 + gx * 0.48 + gy * 0.36);
+          gfx.fillStyle = `hsla(${bossHue}, 100%, 58%, ${clamp(0.12 + bossCharge * 0.50 * bossPulse, 0, 0.62)})`;
+          gfx.fillRect(x + 1, y + 1, this.gridSize - 2, this.gridSize - 2);
+          gfx.strokeStyle = `hsla(${bossHue}, 100%, 82%, ${clamp(0.22 + bossCharge * 0.68, 0, 0.92)})`;
+          gfx.lineWidth = 1.7;
+          gfx.strokeRect(x + 1.5, y + 1.5, this.gridSize - 3, this.gridSize - 3);
+
+          if (perf >= 0.7) {
+            gfx.save();
+            gfx.globalCompositeOperation = "lighter";
+            gfx.globalAlpha = clamp(0.08 + bossCharge * 0.30, 0, 0.42);
+            gfx.strokeStyle = `hsla(${bossHue}, 100%, 92%, 0.96)`;
+            gfx.lineWidth = 1;
+            gfx.beginPath();
+            gfx.moveTo(x + 3, y + this.gridSize - 4);
+            gfx.lineTo(x + this.gridSize * 0.5, y + 3);
+            gfx.lineTo(x + this.gridSize - 3, y + this.gridSize - 4);
             gfx.stroke();
             gfx.restore();
           }

@@ -1331,6 +1331,14 @@ body{
   opacity:0.55;
   filter: grayscale(0.15);
 }
+.buildItem.capped{
+  border-color:rgba(255,207,91,.45);
+}
+.turretCap{
+  color:var(--muted);
+  font-size:10px;
+  text-transform:uppercase;
+}
 .buildItem .lockTag{
   margin-top:6px;
   font-size:11px;
@@ -1979,6 +1987,59 @@ body{
   justify-content:flex-end;
   gap:8px;
   margin-top:14px;
+}
+.tutorialCard{
+  position:absolute;
+  pointer-events:auto;
+  width:min(560px, 92vw);
+  border-color:rgba(98,242,255,.86);
+  box-shadow:0 18px 60px rgba(0,0,0,.58), 0 0 28px rgba(98,242,255,.30), inset 0 0 18px rgba(98,242,255,.06);
+}
+.tutorialModal{
+  display:block;
+  padding:24px;
+  background:transparent;
+  backdrop-filter:none;
+  pointer-events:none;
+}
+.tutorialSpotlight{
+  position:fixed;
+  z-index:59;
+  pointer-events:none;
+  border:3px solid rgba(134,250,255,1);
+  border-radius:12px;
+  box-shadow:
+    0 0 0 9999px rgba(3,6,14,.42),
+    0 0 16px rgba(98,242,255,.96),
+    0 0 40px rgba(98,242,255,.72),
+    inset 0 0 20px rgba(98,242,255,.34);
+  transition:left .2s ease, top .2s ease, width .2s ease, height .2s ease;
+  animation:tutorialSpotlightPulse 1.05s ease-in-out infinite;
+}
+.tutorialSpotlight.hidden{
+  display:none;
+}
+@keyframes tutorialSpotlightPulse{
+  0%,100%{
+    filter:brightness(1);
+    box-shadow:0 0 0 9999px rgba(3,6,14,.42), 0 0 16px rgba(98,242,255,.96), 0 0 40px rgba(98,242,255,.72), inset 0 0 20px rgba(98,242,255,.34);
+  }
+  50%{
+    filter:brightness(1.28);
+    box-shadow:0 0 0 9999px rgba(3,6,14,.42), 0 0 26px rgba(98,242,255,1), 0 0 62px rgba(98,242,255,.90), inset 0 0 28px rgba(98,242,255,.52);
+  }
+}
+.tutorialStep{
+  color:var(--warn);
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.08em;
+}
+.tutorialBody{
+  min-height:68px;
+  color:rgba(239,245,255,.94);
+  font-size:14px;
+  line-height:1.55;
 }
 .leaderboardCard{
   width:min(720px, 94vw);

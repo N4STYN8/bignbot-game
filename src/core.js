@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606012230";
-import { Map } from "./map.js?v=202606012230";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606012230";
-import { Particles } from "./vfx.js?v=202606012230";
-import { Projectile } from "./projectiles.js?v=202606012230";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606012230";
-import { MusicVisualizer } from "./visualization.js?v=202606012230";
+import { AudioSystem } from "./audio.js?v=202606020705";
+import { Map } from "./map.js?v=202606020705";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606020705";
+import { Particles } from "./vfx.js?v=202606020705";
+import { Projectile } from "./projectiles.js?v=202606020705";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606020705";
+import { MusicVisualizer } from "./visualization.js?v=202606020705";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -868,7 +868,10 @@ class Game {
   }
 
   _isCellCorrupted(gx, gy) {
-    return this._getTileState(gx, gy, false)?.corrupted === true;
+    const state = this._getTileState(gx, gy, false);
+    const idx = gy * this.map.cols + gx;
+    const v = this.map.cells?.[idx] ?? 0;
+    return state?.corrupted === true && this.map.isCorruptionSafeCell(gx, gy, v);
   }
 
   _isPowerTileUnlocked(gx, gy) {
@@ -886,6 +889,9 @@ class Game {
     const cols = this.map.cols | 0;
     const rows = this.map.rows | 0;
     if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return false;
+
+    // Keep the full corrupted square clear of the rendered track, including bends.
+    if (!this.map.isCorruptionSafeCell(gx, gy, v)) return false;
 
     // Random candidate band must be no more than 3 tiles from track.
     // Use Manhattan distance so "3 tiles away" is intuitive.
@@ -4242,6 +4248,7 @@ class Game {
     this.gold -= cost;
     state.corrupted = false;
     this.map.tilesByCell[this._tileKey(gx, gy)] = state;
+    this.map.clearTileVisualEnergy?.(gx, gy);
     this.audio.play("upgrade");
     const w = this.map.worldFromCell(gx, gy);
     this.particles.spawn(w.x, w.y, 8, "muzzle");

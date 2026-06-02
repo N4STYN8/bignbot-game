@@ -328,6 +328,29 @@ export class Map {
     };
   }
 
+  isCorruptionSafeCell(gx, gy, tileType = null) {
+    const idx = gy * this.cols + gx;
+    const v = tileType ?? this.cells[idx];
+    if (v !== 1 || !this.segs?.length) return false;
+    const center = this.worldFromCell(gx, gy);
+    const halfDiagonal = this.gridSize * Math.SQRT2 * 0.5;
+    const trackClearance = TRACK_RADIUS + halfDiagonal + 3;
+    return distanceToSegmentsSquared(center.x, center.y, this.segs) >= trackClearance * trackClearance;
+  }
+
+  clearTileVisualEnergy(gx, gy) {
+    const idx = gy * this.cols + gx;
+    if (idx < 0 || idx >= this.cells.length) return;
+    this.tileEnergy[idx] = 0;
+    this.tileHue[idx] = 190;
+    this.tileState[idx] = 0;
+    this.tileShockEnergy[idx] = 0;
+    this.tileEmpEnergy[idx] = 0;
+    this.tileBossEnergy[idx] = 0;
+    this.tileBossHue[idx] = 276;
+    this.activeTileEnergy.delete(idx);
+  }
+
   // Path position by distance along path
   posAt(d) {
     d = clamp(d, 0, this.totalLen);
@@ -372,7 +395,7 @@ export class Map {
   _isBuildableCorrupted(gx, gy, idx, tileType) {
     if (tileType !== 1 && tileType !== 3) return false;
     const tile = this._getTileStateForCell(gx, gy, idx);
-    return !!tile && tile.corrupted === true;
+    return !!tile && tile.corrupted === true && this.isCorruptionSafeCell(gx, gy, tileType);
   }
 
   _isPowerTileLocked(gx, gy, idx, tileType) {

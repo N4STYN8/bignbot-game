@@ -35,6 +35,8 @@
             <div class="pill"><span class="k">Wave</span> <span id="wave" class="v">0</span><span class="slash">/</span><span id="waveMax" class="v">30</span></div>
             <div class="pill"><span class="k">Next</span> <span id="nextIn" class="v">-</span></div>
             <div id="anomalyPill" class="pill"><span class="k">Anomaly</span> <span id="anomalyLabel" class="v">-</span></div>
+            <div id="objectivePill" class="pill objectivePill"><span class="k">Objective</span> <span id="objectiveLabel" class="v">-</span></div>
+            <div id="mapFeaturePill" class="pill mapFeaturePill"><span class="k">Feature</span> <span id="mapFeatureLabel" class="v">-</span></div>
           </div>
 
           <div class="controls">
@@ -46,8 +48,8 @@
           </div>
 
           <div class="versionStamp" aria-label="Build version">
-            <span class="versionValue">v2026.05.31.2155</span>
-            <span class="versionDate">2026-05-31 21:55 -04:00</span>
+            <span class="versionValue">v2026.06.01.2218</span>
+            <span class="versionDate">2026-06-01 22:18 -04:00</span>
           </div>
         </div>
 
@@ -97,35 +99,53 @@
         </div>
 
         <div id="abilitiesBar" class="abilitiesBar">
-          <div class="abilitiesTitle">Abilities</div>
+          <div class="abilitiesHeader">
+            <div class="abilitiesTitle">Abilities</div>
+            <div class="powerTokenBank" title="Earn one Power Token whenever you clear a level. Save tokens or spend them to upgrade abilities.">
+              <span class="material-symbols-rounded" aria-hidden="true">bolt</span>
+              <span id="powerTokenCount">0</span>
+            </div>
+          </div>
           <div class="abilitiesRow">
-            <button id="abilityScanBtn" class="abilityBtn" data-ability="scan">
-              <div class="abilityTop">
-                <span class="abilityKey">1</span>
-                <span class="abilityName">EMP Pulse</span>
-              </div>
-              <div class="abilityMeta">
-                <span id="abilityScanCd" class="abilityCooldown">Ready</span>
-              </div>
-            </button>
-            <button id="abilityPulseBtn" class="abilityBtn" data-ability="pulse">
-              <div class="abilityTop">
-                <span class="abilityKey">2</span>
-                <span class="abilityName">Pulse Burst</span>
-              </div>
-              <div class="abilityMeta">
-                <span id="abilityPulseCd" class="abilityCooldown">Ready</span>
-              </div>
-            </button>
-            <button id="abilityOverBtn" class="abilityBtn" data-ability="overcharge">
-              <div class="abilityTop">
-                <span class="abilityKey">3</span>
-                <span class="abilityName">Overcharge</span>
-              </div>
-              <div class="abilityMeta">
-                <span id="abilityOverCd" class="abilityCooldown">Ready</span>
-              </div>
-            </button>
+            <div class="abilitySlot">
+              <button id="abilityScanBtn" class="abilityBtn" data-ability="scan">
+                <div class="abilityTop">
+                  <span class="abilityKey">1</span>
+                  <span class="abilityName">EMP Pulse</span>
+                </div>
+                <div class="abilityMeta">
+                  <span id="abilityScanCd" class="abilityCooldown">Ready</span>
+                  <span id="abilityScanRank" class="abilityRank">LV 0</span>
+                </div>
+              </button>
+              <button class="abilityUpgradeBtn" data-upgrade-ability="scan" aria-label="Upgrade EMP Pulse" title="Upgrade EMP Pulse">+</button>
+            </div>
+            <div class="abilitySlot">
+              <button id="abilityPulseBtn" class="abilityBtn" data-ability="pulse">
+                <div class="abilityTop">
+                  <span class="abilityKey">2</span>
+                  <span class="abilityName">Pulse Burst</span>
+                </div>
+                <div class="abilityMeta">
+                  <span id="abilityPulseCd" class="abilityCooldown">Ready</span>
+                  <span id="abilityPulseRank" class="abilityRank">LV 0</span>
+                </div>
+              </button>
+              <button class="abilityUpgradeBtn" data-upgrade-ability="pulse" aria-label="Upgrade Pulse Burst" title="Upgrade Pulse Burst">+</button>
+            </div>
+            <div class="abilitySlot">
+              <button id="abilityOverBtn" class="abilityBtn" data-ability="overcharge">
+                <div class="abilityTop">
+                  <span class="abilityKey">3</span>
+                  <span class="abilityName">Overcharge</span>
+                </div>
+                <div class="abilityMeta">
+                  <span id="abilityOverCd" class="abilityCooldown">Ready</span>
+                  <span id="abilityOverRank" class="abilityRank">LV 0</span>
+                </div>
+              </button>
+              <button class="abilityUpgradeBtn" data-upgrade-ability="overcharge" aria-label="Upgrade Overcharge" title="Upgrade Overcharge">+</button>
+            </div>
           </div>
         </div>
 
@@ -566,7 +586,7 @@
   <script>
     window.ORBIT_ECHO_LEADERBOARD_API = "https://orbit-echo-leaderboard.nathan-scally.workers.dev";
   </script>
-  <script type="module" src="src/core.js?v=202605312155"></script>
+  <script type="module" src="src/core.js?v=202606012218"></script>
 </body>
 </html>
 

@@ -1,5 +1,5 @@
-import { DAMAGE } from "./enemies.js?v=202605312155";
-import { Projectile } from "./projectiles.js?v=202605312155";
+import { DAMAGE } from "./enemies.js?v=202606012218";
+import { Projectile } from "./projectiles.js?v=202606012218";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
 
@@ -484,6 +484,7 @@ export class Turret {
     this.pulseBoostT = 0;
     this.targetMode = "FIRST";
     this.boosted = false;
+    this.mapFeatureBoosted = false;
     this._powerMul = { dmg: 1, range: 1, fireRate: 1 };
 
     this.costSpent = base.cost;
@@ -497,6 +498,14 @@ export class Turret {
     this.range *= this._powerMul.range;
     // Fire stat is interval in seconds, so faster fire rate means lower interval.
     this.fire /= this._powerMul.fireRate;
+    this.visual.glow = Math.max(this.visual.glow || 0, 1);
+  }
+
+  applyMapFeatureBoost() {
+    if (this.mapFeatureBoosted) return;
+    this.mapFeatureBoosted = true;
+    this.dmg *= 1.20;
+    this.range *= 1.12;
     this.visual.glow = Math.max(this.visual.glow || 0, 1);
   }
 
@@ -611,9 +620,10 @@ export class Turret {
       const realDt = game._realDt || dt;
       this.pulseBoostT = Math.max(0, this.pulseBoostT - realDt);
     }
-    const pulseRateMul = this.pulseBoostT > 0 ? 4 : 1;
-    const pulseDmgMul = this.pulseBoostT > 0 ? 2 : 1;
-    const globalMul = game.globalOverchargeT > 0 ? 1.35 : 1;
+    const pulsePower = game.getPulseBurstMultipliers?.() || { rate: 4, dmg: 2 };
+    const pulseRateMul = this.pulseBoostT > 0 ? pulsePower.rate : 1;
+    const pulseDmgMul = this.pulseBoostT > 0 ? pulsePower.dmg : 1;
+    const globalMul = game.globalOverchargeT > 0 ? (game.getOverchargeRateMultiplier?.() || 1.35) : 1;
 
     // Aura Grove special handling
     if (this.typeKey === "AURA") {

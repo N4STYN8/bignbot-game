@@ -28,7 +28,13 @@ export class AudioSystem {
       "assets/music/Background/Sentinel Resistance Drive.mp3",
       "assets/music/Background/Neon Track Vanguard.mp3",
       "assets/music/Background/Aurora Bastion Reverie.mp3",
-      "assets/music/Background/Voidlane Star Voyage.mp3"
+      "assets/music/Background/Voidlane Star Voyage.mp3",
+      "assets/music/Background/Hyperlane Resonance.mp3",
+      "assets/music/Background/Corrupted Grid Signal.mp3",
+      "assets/music/Background/Ion Storm Pursuit.mp3",
+      "assets/music/Background/Bastion Core Surge.mp3",
+      "assets/music/Background/Final Lane Ascension.mp3",
+      "assets/music/Background/Nova Bastion Afterglow.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -53,7 +59,13 @@ export class AudioSystem {
       "Sentinel Resistance Drive",
       "Neon Track Vanguard",
       "Aurora Bastion Reverie",
-      "Voidlane Star Voyage"
+      "Voidlane Star Voyage",
+      "Hyperlane Resonance",
+      "Corrupted Grid Signal",
+      "Ion Storm Pursuit",
+      "Bastion Core Surge",
+      "Final Lane Ascension",
+      "Nova Bastion Afterglow"
     ];
     this.trackIndex = 0;
     this.repeat = true;

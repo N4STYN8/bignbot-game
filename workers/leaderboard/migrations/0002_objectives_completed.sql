@@ -1,0 +1,1 @@
+ALTER TABLE scores ADD COLUMN objectives_completed INTEGER NOT NULL DEFAULT 0;

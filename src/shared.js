@@ -284,6 +284,33 @@ export const ENV_PRESETS = [
   }
 ];
 
+export const MAP_FEATURES = [
+  {
+    key: "AMPLIFIER_NODES",
+    name: "Amplifier Nodes",
+    desc: "Build on cyan node tiles for +20% damage and +12% range.",
+    color: "rgba(98,242,255,0.92)"
+  },
+  {
+    key: "CRYO_PATCHES",
+    name: "Cryo Patches",
+    desc: "Blue lane patches slow ground enemies while they cross them.",
+    color: "rgba(160,240,255,0.92)"
+  },
+  {
+    key: "SALVAGE_RELAYS",
+    name: "Salvage Relays",
+    desc: "Kills inside gold relay zones award +35% bonus gold.",
+    color: "rgba(255,207,91,0.95)"
+  },
+  {
+    key: "PHASE_LANES",
+    name: "Phase Lanes",
+    desc: "Violet lane patches accelerate enemies while they cross them.",
+    color: "rgba(202,132,255,0.92)"
+  }
+];
+
 export function makeRNG(seed) {
   let t = seed >>> 0;
   return function rng() {
@@ -627,6 +654,22 @@ export function generateMap(seed, envId) {
     if (!ok) continue;
     poolsN.push([(cx - bounds.x) / bounds.w, (cy - bounds.y) / bounds.h, r]);
   }
+  const featureBase = MAP_FEATURES[(rng() * MAP_FEATURES.length) | 0] || MAP_FEATURES[0];
+  const featureZoneCount = randInt(rng, 3, 5);
+  const zones = [];
+  for (let i = 0; i < featureZoneCount; i++) {
+    zones.push({
+      u: clamp((i + 0.7 + rng() * 0.6) / featureZoneCount, 0.08, 0.92),
+      span: lerp(0.035, 0.065, rng())
+    });
+  }
+  const feature = {
+    key: featureBase.key,
+    name: featureBase.name,
+    desc: featureBase.desc,
+    color: featureBase.color,
+    zones
+  };
   return {
     seed,
     envId: env.id,
@@ -640,6 +683,7 @@ export function generateMap(seed, envId) {
     pathN,
     powerTilesN,
     poolsN,
+    feature,
     pathPoints: pathPts,
     trackSegments: segData.segs,
     blockedCells,

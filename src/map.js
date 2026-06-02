@@ -11,6 +11,8 @@ export class Map {
     this.cells = [];
     this.powerCells = [];
     this.powerTilesN = [];
+    this.feature = null;
+    this.featureCells = new Set();
     this.pathN = [];
     this.pathPts = [];
     this.segs = [];
@@ -56,6 +58,7 @@ export class Map {
     this.pathN = mapData.pathN || [];
     this.powerTilesN = mapData.powerTilesN || [];
     this.poolsN = mapData.poolsN || [];
+    this.feature = mapData.feature || null;
     this.boundsN = mapData.boundsN || null;
     this.env = mapData.env || ENV_PRESETS[mapData.envId || 0] || ENV_PRESETS[0];
     this._rebuild();
@@ -93,6 +96,7 @@ export class Map {
     this.rows = Math.max(6, Math.floor(H / this.gridSize));
     this.cells = new Array(this.cols * this.rows).fill(1);
     this.powerCells = [];
+    this.featureCells = new Set();
     this.poolsN = this.poolsN || [];
 
     const snapToCellCenter = (v) => (Math.floor(v / this.gridSize) + 0.5) * this.gridSize;
@@ -303,6 +307,7 @@ export class Map {
         addSpreadCandidates(relaxed, powerCellMinDist * 0.72, POWER_NEAR_MAX);
       }
     }
+    this._rebuildFeatureCells();
     this._ensureTileEnergy(true);
   }
 
@@ -419,6 +424,79 @@ export class Map {
       time,
       tempo: 0.72 + songTempo * 0.88 + intensity * 0.96 + bass * 0.44
     };
+  }
+
+  _rebuildFeatureCells() {
+    this.featureCells = new Set();
+    if (!this.feature?.zones?.length) return;
+    const buildNodes = this.feature.key === "AMPLIFIER_NODES";
+    for (let gy = 0; gy < this.rows; gy++) {
+      for (let gx = 0; gx < this.cols; gx++) {
+        const idx = gy * this.cols + gx;
+        const v = this.cells[idx];
+        if (buildNodes ? v !== 1 : v !== 2) continue;
+        const w = this.worldFromCell(gx, gy);
+        let nearestU = 0;
+        let nearestD = Infinity;
+        for (const s of this.segs) {
+          const vx = s.bx - s.ax;
+          const vy = s.by - s.ay;
+          const len2 = vx * vx + vy * vy || 1;
+          const t = clamp(((w.x - s.ax) * vx + (w.y - s.ay) * vy) / len2, 0, 1);
+          const qx = s.ax + vx * t;
+          const qy = s.ay + vy * t;
+          const d = dist2(w.x, w.y, qx, qy);
+          if (d < nearestD) {
+            nearestD = d;
+            nearestU = ((s.cum || 0) + (s.len || 0) * t) / Math.max(1, this.totalLen);
+          }
+        }
+        if (buildNodes && (nearestD < 32 * 32 || nearestD > 92 * 92)) continue;
+        if (this.feature.zones.some((zone) => Math.abs(nearestU - zone.u) <= zone.span)) {
+          this.featureCells.add(idx);
+        }
+      }
+    }
+  }
+
+  featureAtCell(gx, gy) {
+    const idx = gy * this.cols + gx;
+    return this.featureCells.has(idx) ? this.feature : null;
+  }
+
+  featureAtPathD(pathD) {
+    if (!this.feature?.zones?.length) return null;
+    const u = clamp((Number(pathD) || 0) / Math.max(1, this.totalLen), 0, 1);
+    return this.feature.zones.some((zone) => Math.abs(u - zone.u) <= zone.span) ? this.feature : null;
+  }
+
+  _drawMapFeature(gfx) {
+    if (!this.feature || !this.featureCells.size) return;
+    const t = performance.now() * 0.001;
+    const color = this.feature.color || "rgba(154,108,255,0.92)";
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    for (const idx of this.featureCells) {
+      const gx = idx % this.cols;
+      const gy = Math.floor(idx / this.cols);
+      const x = gx * this.gridSize;
+      const y = gy * this.gridSize;
+      if (this.feature.key === "AMPLIFIER_NODES" && this._isBuildableCorrupted(gx, gy, idx, this.cells[idx])) continue;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + gx * 0.7 + gy * 0.5);
+      gfx.globalAlpha = 0.10 + pulse * 0.10;
+      gfx.fillStyle = color;
+      gfx.fillRect(x + 5, y + 5, this.gridSize - 10, this.gridSize - 10);
+      gfx.globalAlpha = 0.24 + pulse * 0.18;
+      gfx.strokeStyle = color;
+      gfx.lineWidth = 1.2;
+      gfx.strokeRect(x + 4.5, y + 4.5, this.gridSize - 9, this.gridSize - 9);
+      gfx.globalAlpha = 0.42 + pulse * 0.20;
+      gfx.beginPath();
+      gfx.moveTo(x + 9, y + this.gridSize * 0.5);
+      gfx.lineTo(x + this.gridSize - 9, y + this.gridSize * 0.5);
+      gfx.stroke();
+    }
+    gfx.restore();
   }
 
   _musicHue(m, offset = 0) {
@@ -1473,6 +1551,7 @@ export class Map {
     gfx.stroke();
     gfx.restore();
     this._drawPathEqualizer(gfx, musicGrid, perf);
+    this._drawMapFeature(gfx);
 
     // Flow-field lane energy ribbons
     const ribbonCount = perf < 0.7 ? 6 : 10;

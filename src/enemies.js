@@ -675,7 +675,24 @@ export class Enemy {
 
     // movement
     const slowFactor = (1 - this.slow);
-    this.pathD += this.speed * slowFactor * dt;
+    const mapFeature = !this.flying ? game.map?.featureAtPathD?.(this.pathD) : null;
+    const featureSpeedMul = mapFeature?.key === "CRYO_PATCHES"
+      ? 0.72
+      : (mapFeature?.key === "PHASE_LANES" ? 1.28 : 1);
+    let nextPathD = this.pathD + this.speed * slowFactor * featureSpeedMul * dt;
+    if (!this.flying && this.r >= 13) {
+      let nearestAhead = null;
+      for (const other of game.enemies) {
+        if (!other || other === this || other._dead || other.flying || other.r < 13) continue;
+        if (other.pathD <= this.pathD) continue;
+        if (!nearestAhead || other.pathD < nearestAhead.pathD) nearestAhead = other;
+      }
+      if (nearestAhead) {
+        const convoyGap = Math.max(24, (this.r + nearestAhead.r) * 0.86);
+        nextPathD = Math.min(nextPathD, Math.max(0, nearestAhead.pathD - convoyGap));
+      }
+    }
+    this.pathD = nextPathD;
     const p = game.map.posAt(this.pathD);
     this.x = p.x; this.y = p.y; this.ang = p.ang;
 
@@ -1010,6 +1027,22 @@ export class Enemy {
         gfx.lineTo(this.r * 0.2, -this.r * 1.35);
         gfx.stroke();
       }
+    }
+
+    if (this.objectivePriority) {
+      gfx.globalAlpha = 0.92;
+      gfx.strokeStyle = "rgba(255,207,91,0.98)";
+      gfx.lineWidth = 2.2;
+      gfx.beginPath();
+      gfx.arc(0, 0, this.r * 1.62, t * 1.8, t * 1.8 + Math.PI * 1.42);
+      gfx.stroke();
+      gfx.beginPath();
+      gfx.moveTo(0, -this.r * 2.15);
+      gfx.lineTo(this.r * 0.34, -this.r * 1.68);
+      gfx.lineTo(-this.r * 0.34, -this.r * 1.68);
+      gfx.closePath();
+      gfx.fillStyle = "rgba(255,207,91,0.98)";
+      gfx.fill();
     }
 
     // hit flash

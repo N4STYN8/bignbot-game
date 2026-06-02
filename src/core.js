@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202605312155";
-import { Map } from "./map.js?v=202605312155";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202605312155";
-import { Particles } from "./vfx.js?v=202605312155";
-import { Projectile } from "./projectiles.js?v=202605312155";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202605312155";
-import { MusicVisualizer } from "./visualization.js?v=202605312155";
+import { AudioSystem } from "./audio.js?v=202606012218";
+import { Map } from "./map.js?v=202606012218";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606012218";
+import { Particles } from "./vfx.js?v=202606012218";
+import { Projectile } from "./projectiles.js?v=202606012218";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606012218";
+import { MusicVisualizer } from "./visualization.js?v=202606012218";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -19,6 +19,15 @@ const leaderboardBtnEl = document.getElementById("leaderboardBtn");
 const leaderboardModalEl = document.getElementById("leaderboardModal");
 const leaderboardCloseEl = document.getElementById("leaderboardClose");
 const leaderboardBodyEl = document.getElementById("leaderboardBody");
+const objectivePillEl = document.getElementById("objectivePill");
+const objectiveLabelEl = document.getElementById("objectiveLabel");
+const mapFeaturePillEl = document.getElementById("mapFeaturePill");
+const mapFeatureLabelEl = document.getElementById("mapFeatureLabel");
+const powerTokenCountEl = document.getElementById("powerTokenCount");
+const abilityScanRankEl = document.getElementById("abilityScanRank");
+const abilityPulseRankEl = document.getElementById("abilityPulseRank");
+const abilityOverRankEl = document.getElementById("abilityOverRank");
+const abilityUpgradeBtns = [...document.querySelectorAll("[data-upgrade-ability]")];
 const landingLeaderboardBtnEl = document.getElementById("landingLeaderboardBtn");
 const landingPilotStatusEl = document.getElementById("landingPilotStatus");
 const tutorialModalEl = document.getElementById("tutorialModal");
@@ -172,6 +181,32 @@ const LEVEL_PROFILES = [
     weights: { STEALTH: 1.38, PHASE: 1.32, FLYING: 1.16, RUNNER: 1.10 }
   }
 ];
+const LEVEL_OBJECTIVES = [
+  {
+    key: "CORE_INTEGRITY",
+    name: "Core Integrity",
+    desc: "Finish the level with no more than 2 leaks.",
+    reward: (level) => 120 + level * 18
+  },
+  {
+    key: "TIMED_ASSAULT",
+    name: "Timed Assault",
+    desc: "Clear the level before the assault timer expires.",
+    reward: (level) => 145 + level * 20
+  },
+  {
+    key: "PRIORITY_HUNT",
+    name: "Priority Hunt",
+    desc: "Destroy marked priority targets before they escape.",
+    reward: (level) => 135 + level * 19
+  },
+  {
+    key: "BOSS_INTERCEPT",
+    name: "Boss Intercept",
+    desc: "Destroy every boss before it crosses the checkpoint.",
+    reward: (level) => 165 + level * 22
+  }
+];
 
 // CODEX CHANGE: Helper keeps combo window tiers centralized for quick balancing.
 function comboWindowForCount(count) {
@@ -291,6 +326,8 @@ class Game {
       pulse: { cd: ABILITY_COOLDOWN, t: 0 },
       overcharge: { cd: OVERCHARGE_COOLDOWN, t: 0 }
     };
+    this.abilityPowerTokens = 0;
+    this.abilityUpgrades = { scan: 0, pulse: 0, overcharge: 0 };
     // CODEX CHANGE: Echo Cascade runtime state (excluded from save/load on purpose).
     this.comboCount = 0;
     this.comboTimer = 0;
@@ -326,6 +363,7 @@ class Game {
     this._tutorialIndex = 0;
     this._tutorialExpandedBuildPanel = false;
     this.globalOverchargeT = 0;
+    this.levelObjective = this._createLevelObjective();
     this._transitioning = false;
     this.gameState = GAME_STATE.GAMEPLAY;
     this.menuOpen = false;
@@ -405,7 +443,7 @@ class Game {
   }
 
   _startFirstWaveTutorial() {
-    if (this.firstWaveTutorialShown || this.wave > 1 || !tutorialModalEl) return;
+    if (this.firstWaveTutorialShown || this.levelIndex > 1 || this.wave > 1 || !tutorialModalEl) return;
     this.firstWaveTutorialShown = true;
     this.tutorialOpen = true;
     if (leftPanel?.classList.contains("collapsed")) {
@@ -1060,6 +1098,8 @@ class Game {
   advanceLevel() {
     if (this._transitioning) return;
     this._transitioning = true;
+    this._completeLevelObjective();
+    this._grantAbilityPowerToken();
     if (this.runStats) {
       this.mapStats = this.mapStats || [];
       const snap = this._snapshotRunStats();
@@ -1155,6 +1195,8 @@ class Game {
     c.nextLevelData = prep;
     c.phase = "reveal";
     c.nextLevel = prep.nextLevel;
+    this._completeLevelObjective();
+    this._grantAbilityPowerToken();
 
     if (this.runStats) {
       this.mapStats = this.mapStats || [];
@@ -1436,6 +1478,9 @@ class Game {
     abilityOverBtn?.addEventListener("click", () => {
       this.audio?.playLimited("abilities_btn", 70);
       this.useAbility("overcharge");
+    });
+    abilityUpgradeBtns.forEach((btn) => {
+      btn.addEventListener("click", () => this.upgradeAbility(btn.dataset.upgradeAbility));
     });
     const abilityBtns = [abilityScanBtn, abilityPulseBtn, abilityOverBtn].filter(Boolean);
     abilityBtns.forEach((btn) => {
@@ -1924,11 +1969,82 @@ class Game {
   }
 
   _newRunStats() {
-    return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, dmgByType: {} };
+    return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0, dmgByType: {} };
   }
 
   _newPlayerStats() {
-    return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 };
+    return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0 };
+  }
+
+  _createLevelObjective(saved = null) {
+    if (saved?.key) {
+      const base = LEVEL_OBJECTIVES.find((entry) => entry.key === saved.key);
+      if (base) return {
+        ...saved,
+        key: base.key,
+        name: base.name,
+        desc: base.desc,
+        reward: Math.max(1, Number(saved.reward) || base.reward(this.levelIndex))
+      };
+    }
+    const rng = makeRNG(((this.mapSeed || 1) ^ (this.levelIndex * 15485863)) >>> 0);
+    const base = LEVEL_OBJECTIVES[Math.floor(rng() * LEVEL_OBJECTIVES.length)] || LEVEL_OBJECTIVES[0];
+    const level = Math.max(1, this.levelIndex | 0);
+    return {
+      key: base.key,
+      name: base.name,
+      desc: base.desc,
+      reward: base.reward(level),
+      elapsed: 0,
+      timeLimit: 720 + Math.min(240, Math.max(0, level - 1) * 18),
+      leaks: 0,
+      prioritySpawned: 0,
+      priorityKilled: 0,
+      priorityEscaped: 0,
+      priorityGoal: Math.min(16, 6 + Math.floor(level * 1.5)),
+      bossKills: 0,
+      bossMisses: 0,
+      complete: false,
+      failed: false,
+      rewarded: false
+    };
+  }
+
+  _objectiveProgressText() {
+    const o = this.levelObjective;
+    if (!o) return "-";
+    if (o.complete) return `${o.name}: COMPLETE`;
+    if (o.failed) return `${o.name}: MISSED`;
+    if (o.key === "CORE_INTEGRITY") return `${o.name}: ${o.leaks || 0}/2 LEAKS`;
+    if (o.key === "TIMED_ASSAULT") return `${o.name}: ${Math.max(0, Math.ceil((o.timeLimit || 0) - (o.elapsed || 0)))}s`;
+    if (o.key === "PRIORITY_HUNT") return `${o.name}: ${o.priorityKilled || 0}/${o.priorityGoal || 0}`;
+    if (o.key === "BOSS_INTERCEPT") return `${o.name}: ${o.bossKills || 0} INTERCEPTED`;
+    return o.name;
+  }
+
+  _completeLevelObjective() {
+    const o = this.levelObjective;
+    if (!o || o.rewarded) return false;
+    if (o.key === "CORE_INTEGRITY") o.failed = (o.leaks || 0) > 2;
+    if (o.key === "TIMED_ASSAULT") o.failed = (o.elapsed || 0) > (o.timeLimit || 0);
+    if (o.key === "PRIORITY_HUNT") o.failed = (o.priorityEscaped || 0) > 0 || (o.priorityKilled || 0) < (o.priorityGoal || 0);
+    if (o.key === "BOSS_INTERCEPT") o.failed = (o.bossMisses || 0) > 0 || (o.bossKills || 0) < 1;
+    o.complete = !o.failed;
+    o.rewarded = true;
+    if (!o.complete) {
+      toast(`OBJECTIVE MISSED: ${o.name}`);
+      return false;
+    }
+    const reward = Math.max(1, Number(o.reward) || 1);
+    this.gold += reward;
+    if (this.runStats) this.runStats.gold += reward;
+    if (this.runStats) this.runStats.objectivesCompleted = (this.runStats.objectivesCompleted || 0) + 1;
+    if (this.playerStats) {
+      this.playerStats.gold += reward;
+      this.playerStats.objectivesCompleted = (this.playerStats.objectivesCompleted || 0) + 1;
+    }
+    toast(`OBJECTIVE COMPLETE: ${o.name} +${reward}g`);
+    return true;
   }
 
   _profileHash(name, password) {
@@ -1957,6 +2073,7 @@ class Game {
       kills: 0,
       gold: 0,
       bosses: 0,
+      objectivesCompleted: 0,
       updatedAt: Date.now()
     };
   }
@@ -1976,6 +2093,7 @@ class Game {
         kills: Math.max(0, Number(e.kills) | 0),
         gold: Math.max(0, Number(e.gold) | 0),
         bosses: Math.max(0, Number(e.bosses) | 0),
+        objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
         updatedAt: Math.max(0, Number(e.updatedAt) || 0)
       })) : [];
 
@@ -2014,7 +2132,8 @@ class Game {
         mapsCleared: entry.mapsCleared || 0,
         kills: entry.kills || 0,
         gold: entry.gold || 0,
-        bosses: entry.bosses || 0
+        bosses: entry.bosses || 0,
+        objectivesCompleted: entry.objectivesCompleted || 0
       })
     }).then((data) => {
       if (data?.score) this._refreshRemoteLeaderboard();
@@ -2058,6 +2177,7 @@ class Game {
     entry.kills = Math.max(entry.kills || 0, p.kills || 0);
     entry.gold = Math.max(entry.gold || 0, p.gold || 0);
     entry.bosses = Math.max(entry.bosses || 0, p.bosses || 0);
+    entry.objectivesCompleted = Math.max(entry.objectivesCompleted || 0, p.objectivesCompleted || 0);
     entry.updatedAt = Date.now();
     this._sortLeaderboard();
     this._saveLeaderboardState();
@@ -2178,6 +2298,7 @@ class Game {
         <div class="leaderboardStat">${entry.plays || 0}</div>
         <div class="leaderboardStat">${entry.mapsCleared || 0}</div>
         <div class="leaderboardStat">${entry.kills || 0}</div>
+        <div class="leaderboardStat">${entry.objectivesCompleted || 0}</div>
         <div class="leaderboardStat">${fmt(entry.gold || 0)}</div>
       </div>
     `).join("");
@@ -2194,9 +2315,9 @@ class Game {
       </div>
       <div class="leaderboardTable">
         <div class="leaderboardRow header">
-          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Gold</div>
+          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Objectives</div><div>Gold</div>
         </div>
-        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
+        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
       </div>
       ${this.playerProfile ? `<div class="modalFooter"><button id="leaderboardLogoutBtn" class="btn ghost" type="button">Logout</button></div>` : ""}
     `;
@@ -2229,6 +2350,7 @@ class Game {
           kills: Math.max(0, Number(e.kills) | 0),
           gold: Math.max(0, Number(e.gold) | 0),
           bosses: Math.max(0, Number(e.bosses) | 0),
+          objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
           updatedAt: Date.parse(e.updatedAt || "") || 0
         }));
         this._renderLeaderboardModal();
@@ -2255,6 +2377,7 @@ class Game {
       gold: src.gold,
       towersBuilt: src.towersBuilt,
       bosses: src.bosses,
+      objectivesCompleted: src.objectivesCompleted || 0,
       dmgByType: { ...src.dmgByType }
     };
   }
@@ -2273,14 +2396,16 @@ class Game {
       acc.gold += h.gold || 0;
       acc.towersBuilt += h.towersBuilt || 0;
       acc.bosses += h.bosses || 0;
+      acc.objectivesCompleted += h.objectivesCompleted || 0;
       return acc;
-    }, { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0 });
+    }, { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0 });
     this.playerStats.mapsCleared = Math.max(this.playerStats.mapsCleared || 0, history.length);
     this.playerStats.kills = Math.max(this.playerStats.kills || 0, totals.kills);
     this.playerStats.leaks = Math.max(this.playerStats.leaks || 0, totals.leaks);
     this.playerStats.gold = Math.max(this.playerStats.gold || 0, totals.gold);
     this.playerStats.towersBuilt = Math.max(this.playerStats.towersBuilt || 0, totals.towersBuilt);
     this.playerStats.bosses = Math.max(this.playerStats.bosses || 0, totals.bosses);
+    this.playerStats.objectivesCompleted = Math.max(this.playerStats.objectivesCompleted || 0, totals.objectivesCompleted);
   }
 
   recordDamage(sourceKey, amount) {
@@ -2378,7 +2503,8 @@ class Game {
       `<div class="tiny">Total Leaks: ${p.leaks}</div>`,
       `<div class="tiny">Total Gold: ${fmt(p.gold)}</div>`,
       `<div class="tiny">Towers Built: ${p.towersBuilt}</div>`,
-      `<div class="tiny">Bosses Defeated: ${p.bosses}</div>`
+      `<div class="tiny">Bosses Defeated: ${p.bosses}</div>`,
+      `<div class="tiny">Objectives Completed: ${p.objectivesCompleted || 0}</div>`
     ].join("");
     const dmgEntries = Object.entries(stats.dmgByType || {})
       .map(([k, v]) => ({ k, v }))
@@ -2397,6 +2523,7 @@ class Game {
           <div class="statsRow"><div class="k">Level</div><div class="v">${this.levelIndex}</div></div>
           <div class="statsRow"><div class="k">Kills</div><div class="v">${stats.kills}</div></div>
           <div class="statsRow"><div class="k">Bosses Defeated</div><div class="v">${stats.bosses || 0}</div></div>
+          <div class="statsRow"><div class="k">Objective</div><div class="v">${this._objectiveProgressText()}</div></div>
           <div class="statsRow"><div class="k">Leaks</div><div class="v">${stats.leaks}</div></div>
           <div class="statsRow"><div class="k">Gold Earned</div><div class="v">${fmt(stats.gold)}</div></div>
           <div class="statsRow"><div class="k">Towers Built</div><div class="v">${stats.towersBuilt}</div></div>
@@ -2566,6 +2693,14 @@ class Game {
     waveEl.textContent = String(this.wave);
     waveMaxEl.textContent = String(this.waveMax);
     if (levelValEl) levelValEl.textContent = String(this.levelIndex);
+    if (objectiveLabelEl) objectiveLabelEl.textContent = this._objectiveProgressText();
+    if (objectivePillEl) {
+      objectivePillEl.classList.toggle("objectiveComplete", !!this.levelObjective?.complete);
+      objectivePillEl.classList.toggle("objectiveFailed", !!this.levelObjective?.failed);
+      objectivePillEl.title = this.levelObjective?.desc || "";
+    }
+    if (mapFeatureLabelEl) mapFeatureLabelEl.textContent = this.map?.feature?.name || "-";
+    if (mapFeaturePillEl) mapFeaturePillEl.title = this.map?.feature?.desc || "Unique map feature";
     if (envValEl) envValEl.textContent = this.map?.env?.name || "—";
     if (seedValEl) seedValEl.textContent = this.mapSeed != null ? String(this.mapSeed) : "—";
 
@@ -2633,19 +2768,24 @@ class Game {
     startBtn.textContent = this.hasStarted ? "SKIP" : "START";
 
     if (this.abilities && abilityScanCd) {
+      this._refreshAbilityCooldowns();
       const scan = this.abilities.scan;
       const pulse = this.abilities.pulse;
       const over = this.abilities.overcharge;
+      const scanLevel = this._abilityUpgradeLevel("scan");
+      const pulseLevel = this._abilityUpgradeLevel("pulse");
+      const overLevel = this._abilityUpgradeLevel("overcharge");
+      const pulsePower = this.getPulseBurstMultipliers();
       if (abilityScanBtn) {
-        abilityScanBtn.dataset.tooltip = "EMP Pulse: Instantly destroys all enemy shields.";
+        abilityScanBtn.dataset.tooltip = `EMP Pulse LV ${scanLevel}: destroys shields and energizes EMP kill waves for ${(4.6 + scanLevel * 0.8).toFixed(1)}s. ${scan.cd}s cooldown.`;
         abilityScanBtn.removeAttribute("title");
       }
       if (abilityPulseBtn) {
-        abilityPulseBtn.dataset.tooltip = "Pulse Burst: Select a turret to double damage and 4x fire rate for 30s. No selection = red flash.";
+        abilityPulseBtn.dataset.tooltip = `Pulse Burst LV ${pulseLevel}: select a turret for x${pulsePower.dmg.toFixed(2)} damage and x${pulsePower.rate.toFixed(2)} fire rate for ${30 + pulseLevel * 3}s. ${pulse.cd}s cooldown.`;
         abilityPulseBtn.removeAttribute("title");
       }
       if (abilityOverBtn) {
-        abilityOverBtn.dataset.tooltip = "Overcharge: Boost all turret fire rates for 30s. 90s cooldown.";
+        abilityOverBtn.dataset.tooltip = `Overcharge LV ${overLevel}: all turret fire rates x${this.getOverchargeRateMultiplier().toFixed(2)} for ${30 + overLevel * 3}s. ${over.cd}s cooldown.`;
         abilityOverBtn.removeAttribute("title");
       }
       const scanPct = scan.t > 0 ? clamp(scan.t / scan.cd, 0, 1) : 0;
@@ -2669,6 +2809,16 @@ class Game {
       abilityScanBtn.disabled = scan.t > 0 || controlsLocked;
       abilityPulseBtn.disabled = pulse.t > 0 || controlsLocked;
       abilityOverBtn.disabled = over.t > 0 || controlsLocked;
+      if (powerTokenCountEl) powerTokenCountEl.textContent = String(this.abilityPowerTokens || 0);
+      if (abilityScanRankEl) abilityScanRankEl.textContent = `LV ${scanLevel}`;
+      if (abilityPulseRankEl) abilityPulseRankEl.textContent = `LV ${pulseLevel}`;
+      if (abilityOverRankEl) abilityOverRankEl.textContent = `LV ${overLevel}`;
+      abilityUpgradeBtns.forEach((btn) => {
+        const key = btn.dataset.upgradeAbility;
+        const cost = this._abilityUpgradeCost(key);
+        btn.disabled = (this.abilityPowerTokens || 0) < cost;
+        btn.title = `Upgrade ${key === "scan" ? "EMP Pulse" : key === "pulse" ? "Pulse Burst" : "Overcharge"} to LV ${this._abilityUpgradeLevel(key) + 1} (${cost} Power Token${cost === 1 ? "" : "s"})`;
+      });
     }
 
     if (anomalyLabel) {
@@ -2696,6 +2846,52 @@ class Game {
 
   getAbilityState(key) {
     return this.abilities ? this.abilities[key] : null;
+  }
+
+  _abilityUpgradeLevel(key) {
+    return Math.max(0, Number(this.abilityUpgrades?.[key]) | 0);
+  }
+
+  _abilityUpgradeCost(key) {
+    return 1 + this._abilityUpgradeLevel(key);
+  }
+
+  _refreshAbilityCooldowns() {
+    if (!this.abilities) return;
+    this.abilities.scan.cd = Math.max(48, ABILITY_COOLDOWN - this._abilityUpgradeLevel("scan") * 4);
+    this.abilities.pulse.cd = Math.max(54, ABILITY_COOLDOWN - this._abilityUpgradeLevel("pulse") * 3);
+    this.abilities.overcharge.cd = Math.max(54, OVERCHARGE_COOLDOWN - this._abilityUpgradeLevel("overcharge") * 3);
+  }
+
+  _grantAbilityPowerToken() {
+    this.abilityPowerTokens = Math.max(0, Number(this.abilityPowerTokens) | 0) + 1;
+    setTimeout(() => toast(`POWER TOKEN EARNED: ${this.abilityPowerTokens} banked`), 520);
+  }
+
+  upgradeAbility(key) {
+    if (!["scan", "pulse", "overcharge"].includes(key)) return false;
+    const cost = this._abilityUpgradeCost(key);
+    if ((this.abilityPowerTokens || 0) < cost) {
+      toast(`NEED ${cost} POWER TOKENS`);
+      return false;
+    }
+    this.abilityPowerTokens -= cost;
+    this.abilityUpgrades[key] = this._abilityUpgradeLevel(key) + 1;
+    this._refreshAbilityCooldowns();
+    this.audio?.playLimited("upgrade", 120);
+    toast(`${key === "scan" ? "EMP PULSE" : key === "pulse" ? "PULSE BURST" : "OVERCHARGE"} UPGRADED TO LV ${this.abilityUpgrades[key]}`);
+    this.updateHUD();
+    this._save();
+    return true;
+  }
+
+  getPulseBurstMultipliers() {
+    const level = this._abilityUpgradeLevel("pulse");
+    return { rate: 4 + level * 0.22, dmg: 2 + level * 0.18 };
+  }
+
+  getOverchargeRateMultiplier() {
+    return 1.35 + this._abilityUpgradeLevel("overcharge") * 0.06;
   }
 
   spawnText(x, y, text, color = "rgba(234,240,255,0.9)", ttl = 0.9) {
@@ -2814,11 +3010,13 @@ class Game {
     switch (key) {
       case "scan": {
         ability.t = ability.cd;
+        const scanLevel = this._abilityUpgradeLevel("scan");
+        const empDuration = 4.6 + scanLevel * 0.8;
         let found = 0;
         let shields = 0;
         for (const e of this.enemies) {
           if (!e || e._dead) continue;
-          e.empT = Math.max(Number(e.empT) || 0, 4.6);
+          e.empT = Math.max(Number(e.empT) || 0, empDuration);
           if (this._clearEnemyShield(e)) {
             shields++;
             this.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.9)");
@@ -2858,7 +3056,8 @@ class Game {
       }
       case "pulse": {
         ability.t = ability.cd;
-        this.selectedTurret.pulseBoostT = 30;
+        const pulseDuration = 30 + this._abilityUpgradeLevel("pulse") * 3;
+        this.selectedTurret.pulseBoostT = pulseDuration;
         this.explosions.push({
           x: this.selectedTurret.x,
           y: this.selectedTurret.y,
@@ -2872,12 +3071,14 @@ class Game {
         this.particles.spawn(this.selectedTurret.x, this.selectedTurret.y, 10, "muzzle");
         this.map?.triggerAbilityActivationPulse?.("pulseBurst", this.selectedTurret.x, this.selectedTurret.y);
         this.audio.playLimited("upgrade", 220);
-        toast("PULSE BURST: turret damage x2 and fire rate x4 for 30s");
+        const pulsePower = this.getPulseBurstMultipliers();
+        toast(`PULSE BURST: turret damage x${pulsePower.dmg.toFixed(2)} and fire rate x${pulsePower.rate.toFixed(2)} for ${pulseDuration}s`);
         break;
       }
       case "overcharge": {
         ability.t = ability.cd;
-        this.globalOverchargeT = 30;
+        const overchargeDuration = 30 + this._abilityUpgradeLevel("overcharge") * 3;
+        this.globalOverchargeT = overchargeDuration;
         this.explosions.push({
           x: W * 0.5,
           y: H * 0.5,
@@ -2891,7 +3092,7 @@ class Game {
         this.particles.spawn(W * 0.5, H * 0.5, 16, "muzzle");
         this.map?.triggerAbilityActivationPulse?.("overcharge", W * 0.5, H * 0.5);
         this.audio.playLimited("upgrade", 220);
-        toast("OVERCHARGE: all turrets fire faster for 30s");
+        toast(`OVERCHARGE: all turrets fire x${this.getOverchargeRateMultiplier().toFixed(2)} faster for ${overchargeDuration}s`);
         break;
       }
     }
@@ -3004,6 +3205,26 @@ class Game {
     return bosses[(rng() * bosses.length) | 0];
   }
 
+  _spaceHeavySpawns(spawns) {
+    const heavyTypes = new Set(["BRUTE", "ARMORED", "SHIELDED", "REGEN", "BOSS_PROJECTOR"]);
+    const ordered = [...spawns].sort((a, b) => a.t - b.t);
+    let lastHeavyT = -Infinity;
+    for (const spawn of ordered) {
+      if (spawn.finalBoss) {
+        // The main boss entrance is intentionally fixed at 10 seconds on Wave 16.
+        lastHeavyT = Math.max(lastHeavyT, spawn.t);
+        continue;
+      }
+      const heavy = heavyTypes.has(spawn.type) || spawn.eliteTag === "HARDENED";
+      if (!heavy) continue;
+      const gap = spawn.miniboss ? 1.8 : 1.12;
+      spawn.t = Math.max(spawn.t, lastHeavyT + gap);
+      lastHeavyT = spawn.t;
+    }
+    ordered.sort((a, b) => a.t - b.t);
+    return ordered;
+  }
+
   _buildWave(wave, scalar) {
     const i = wave;
     const profile = this._levelProfile();
@@ -3020,8 +3241,7 @@ class Game {
         eliteTag: n >= 10 && n % 4 === 0 ? pick(["HARDENED", "VOLATILE", "PHASELINK"]) : null
       }));
       escorts.push({ t: 10, type: this._getBossKey(), scalar: bossScalar, finalBoss: true });
-      escorts.sort((a, b) => a.t - b.t);
-      return escorts;
+      return this._spaceHeavySpawns(escorts);
     }
     const earlyCounts = [0, 14, 18, 22, 27];
     const baseCount = wave <= 4
@@ -3100,8 +3320,7 @@ class Game {
       spawns.push({ t: Math.max(4.2, flowEnd * 0.86), type: "BOSS_PROJECTOR", scalar, miniboss: true });
     }
 
-    spawns.sort((a, b) => a.t - b.t);
-    return spawns;
+    return this._spaceHeavySpawns(spawns);
   }
 
   startWave() {
@@ -3168,6 +3387,15 @@ class Game {
       e._dotDurMul = 0.85;
     }
     e._id = this._id++;
+    const objective = this.levelObjective;
+    if (objective?.key === "PRIORITY_HUNT" && !objective.complete && !objective.failed && !e.isBoss && typeKey !== "MINI") {
+      objective._eligibleSpawnCount = (objective._eligibleSpawnCount || 0) + 1;
+      const remaining = Math.max(0, (objective.priorityGoal || 0) - (objective.prioritySpawned || 0));
+      if (remaining > 0 && objective._eligibleSpawnCount % 7 === 0) {
+        e.objectivePriority = true;
+        objective.prioritySpawned = (objective.prioritySpawned || 0) + 1;
+      }
+    }
     const p = this.map.posAt(safeStartD);
     e.x = p.x; e.y = p.y; e.ang = p.ang;
     this.enemies.push(e);
@@ -3188,10 +3416,12 @@ class Game {
           boundsN: this.mapData.boundsN || null,
           pathN: this.mapData.pathN,
           powerTilesN: this.mapData.powerTilesN,
-          poolsN: this.mapData.poolsN
+          poolsN: this.mapData.poolsN,
+          feature: this.mapData.feature || null
         } : null,
         mapStats: this.mapStats || [],
         playerStats: this.playerStats || this._newPlayerStats(),
+        levelObjective: this.levelObjective,
         gold: this.gold,
         lives: this.lives,
         wave: this.wave,
@@ -3210,6 +3440,8 @@ class Game {
         spawnT: this.spawnT,
         waveScalar: this.waveScalar,
         globalOverchargeT: this.globalOverchargeT,
+        abilityPowerTokens: this.abilityPowerTokens || 0,
+        abilityUpgrades: { ...(this.abilityUpgrades || {}) },
         corruptedTiles: Object.values(this.map.tilesByCell || {}).map(t => ({
           gx: t.gx,
           gy: t.gy,
@@ -3246,6 +3478,7 @@ class Game {
           markedT: e._markedT || 0,
           noSplit: e._noSplit || false,
           noSplitT: e._noSplitT || 0,
+          objectivePriority: !!e.objectivePriority,
           scalar: e.scalar
         })),
         traps: this.traps.map(tr => ({
@@ -3287,7 +3520,8 @@ class Game {
           leaks: data.playerStats.leaks || 0,
           gold: data.playerStats.gold || 0,
           towersBuilt: data.playerStats.towersBuilt || 0,
-          bosses: data.playerStats.bosses || 0
+          bosses: data.playerStats.bosses || 0,
+          objectivesCompleted: data.playerStats.objectivesCompleted || 0
         };
       }
       if (typeof data.levelIndex === "number" && Number.isFinite(data.levelIndex)) {
@@ -3305,7 +3539,8 @@ class Game {
           boundsN: data.mapData.boundsN && typeof data.mapData.boundsN === "object" ? data.mapData.boundsN : null,
           pathN: data.mapData.pathN,
           powerTilesN: Array.isArray(data.mapData.powerTilesN) ? data.mapData.powerTilesN : [],
-          poolsN: Array.isArray(data.mapData.poolsN) ? data.mapData.poolsN : []
+          poolsN: Array.isArray(data.mapData.poolsN) ? data.mapData.poolsN : [],
+          feature: data.mapData.feature || null
         };
       } else if (typeof data.mapSeed === "number") {
         mapData = generateMap(data.mapSeed, data.envId || 0);
@@ -3352,6 +3587,14 @@ class Game {
       this.spawnT = data.spawnT || 0;
       this.waveScalar = this._sanitizeWaveScalar(data.waveScalar || this.waveScalar);
       this.globalOverchargeT = data.globalOverchargeT || 0;
+      this.abilityPowerTokens = Math.max(0, Number(data.abilityPowerTokens) | 0);
+      this.abilityUpgrades = {
+        scan: Math.max(0, Number(data.abilityUpgrades?.scan) | 0),
+        pulse: Math.max(0, Number(data.abilityUpgrades?.pulse) | 0),
+        overcharge: Math.max(0, Number(data.abilityUpgrades?.overcharge) | 0)
+      };
+      this._refreshAbilityCooldowns();
+      this.levelObjective = this._createLevelObjective(data.levelObjective || null);
 
       if (Array.isArray(data.turrets)) {
         this.turrets = [];
@@ -3367,6 +3610,7 @@ class Game {
             t.applyUpgrade(tier, idx, false);
           }
           if (s.boosted) t.applyPowerBoost();
+          if (this.map.featureAtCell?.(t.gx, t.gy)?.key === "AMPLIFIER_NODES") t.applyMapFeatureBoost();
           t.flash = 0;
           if (typeof s.charges === "number") t.charges = s.charges;
           this.turrets.push(t);
@@ -3392,6 +3636,7 @@ class Game {
           e._markedT = s.markedT || 0;
           e._noSplit = !!s.noSplit;
           e._noSplitT = s.noSplitT || 0;
+          e.objectivePriority = !!s.objectivePriority;
           e._id = this._id++;
           this.enemies.push(e);
         }
@@ -3446,7 +3691,9 @@ class Game {
     this.waveActive = false;
     this.intermission = 0;
     this.finalBossDefeated = false;
-    this.firstWaveTutorialShown = false;
+    // Preserve onboarding state across retries and later levels. Starting a
+    // brand-new game explicitly clears this flag in the landing-menu flow.
+    this.firstWaveTutorialShown = !!this.firstWaveTutorialShown;
     this.tutorialOpen = false;
     this._tutorialQueue = [];
     this._tutorialIndex = 0;
@@ -3489,6 +3736,7 @@ class Game {
     // CODEX CHANGE: Reset Echo Cascade on new runs/retries.
     this._resetComboState();
     this.runStats = this._newRunStats();
+    this.levelObjective = this._createLevelObjective();
     this.mapStats = this.mapStats || [];
     this.playerStats = this.playerStats || this._newPlayerStats();
     this._refreshBuildList();
@@ -3729,7 +3977,13 @@ class Game {
     const fallbackReward = Math.max(1, Math.floor(baseReward * scalarReward));
     const rewardRaw = Number(enemy.reward);
     const rewardBase = Number.isFinite(rewardRaw) && rewardRaw > 0 ? Math.max(1, Math.floor(rewardRaw)) : fallbackReward;
-    const reward = this._applyEchoCascadeOnKill(enemy, rewardBase);
+    let reward = this._applyEchoCascadeOnKill(enemy, rewardBase);
+    if (this.map?.featureAtPathD?.(enemy.pathD)?.key === "SALVAGE_RELAYS") {
+      const salvageBonus = Math.max(1, Math.floor(reward * 0.35));
+      reward += salvageBonus;
+      enemy._salvageBonusGold = salvageBonus;
+      this.spawnText(enemy.x, enemy.y - 36, `SALVAGE +${salvageBonus}g`, "rgba(255,207,91,0.98)", 1.0);
+    }
     if (!Number.isFinite(this.gold)) this.gold = this._getStartGold();
     this.gold += reward;
     enemy._rewardGranted = true;
@@ -3789,6 +4043,20 @@ class Game {
       this.playerStats.kills += 1;
       this.playerStats.gold += reward;
       if (enemy.isBoss) this.playerStats.bosses += 1;
+    }
+    if (this.levelObjective?.key === "PRIORITY_HUNT" && enemy.objectivePriority) {
+      this.levelObjective.priorityKilled = (this.levelObjective.priorityKilled || 0) + 1;
+      this.spawnText(enemy.x, enemy.y - 32, "PRIORITY DOWN", "rgba(255,207,91,0.98)", 1.2);
+    }
+    if (this.levelObjective?.key === "BOSS_INTERCEPT" && enemy.isBoss) {
+      const checkpoint = (this.map?.totalLen || 1) * 0.72;
+      if ((enemy.pathD || 0) <= checkpoint) {
+        this.levelObjective.bossKills = (this.levelObjective.bossKills || 0) + 1;
+        this.spawnText(enemy.x, enemy.y - 38, "INTERCEPTED", "rgba(109,255,154,0.98)", 1.3);
+      } else {
+        this.levelObjective.bossMisses = (this.levelObjective.bossMisses || 0) + 1;
+        this.levelObjective.failed = true;
+      }
     }
     this.audio.playLimited("kill", 80);
     const dramaticKill = enemy._overkillHit || enemy.elite || enemy.isBoss || enemy.isFinalBoss;
@@ -3852,6 +4120,19 @@ class Game {
     if (this.waveStats) this.waveStats.leaks += 1;
     if (this.runStats) this.runStats.leaks += 1;
     if (this.playerStats) this.playerStats.leaks += 1;
+    if (this.levelObjective?.key === "CORE_INTEGRITY") {
+      this.levelObjective.leaks = (this.levelObjective.leaks || 0) + 1;
+      if (this.levelObjective.leaks > 2) this.levelObjective.failed = true;
+    }
+    if (this.levelObjective?.key === "PRIORITY_HUNT" && enemy.objectivePriority) {
+      this.levelObjective.priorityEscaped = (this.levelObjective.priorityEscaped || 0) + 1;
+      this.levelObjective.failed = true;
+      toast("OBJECTIVE ALERT: priority target escaped");
+    }
+    if (this.levelObjective?.key === "BOSS_INTERCEPT" && enemy.isBoss) {
+      this.levelObjective.bossMisses = (this.levelObjective.bossMisses || 0) + 1;
+      this.levelObjective.failed = true;
+    }
     this.lives -= enemy.isFinalBoss ? this.lives : 1;
     this.particles.spawn(enemy.x, enemy.y, 8, "boom");
     // CODEX CHANGE: Throttle leak SFX so simultaneous leaks do not hard-retrigger and sound broken.
@@ -4107,6 +4388,7 @@ class Game {
       const w = this.map.worldFromCell(cell.gx, cell.gy);
       const turret = new Turret(this.buildKey, w.x, w.y);
       if (cell.v === 3) turret.applyPowerBoost();
+      if (this.map.featureAtCell?.(cell.gx, cell.gy)?.key === "AMPLIFIER_NODES") turret.applyMapFeatureBoost();
       turret.gx = cell.gx; turret.gy = cell.gy;
       this.turrets.push(turret);
       this._refreshBuildList();
@@ -4410,6 +4692,13 @@ class Game {
     // Guard against bad saved/runtime values that can freeze simulation at dtScaled=0.
     if (!Number.isFinite(this.speed) || this.speed <= 0) this.speed = 1;
     const dtScaled = dt * this.speed;
+    if (this.hasStarted && this.levelObjective?.key === "TIMED_ASSAULT" && !this.levelObjective.complete && !this.levelObjective.failed) {
+      this.levelObjective.elapsed = (this.levelObjective.elapsed || 0) + dt;
+      if (this.levelObjective.elapsed > this.levelObjective.timeLimit) {
+        this.levelObjective.failed = true;
+        toast("OBJECTIVE MISSED: assault timer expired");
+      }
+    }
     // CODEX CHANGE: Echo Cascade countdown/collapse (uses dtScaled so speed modes affect chain window).
     if (this.comboCount > 0) {
       this.comboTimer = Math.max(0, this.comboTimer - dtScaled);

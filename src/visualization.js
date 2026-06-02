@@ -48,14 +48,16 @@ export class MusicVisualizer {
     this.time = null;
     this.last = performance.now();
     this.timeSeconds = this.last * 0.001;
-    this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, drop: 0, tempo: 0.5 };
+    this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, snap: 0, drop: 0, tempo: 0.5 };
     this.spectrum = new Array(24).fill(0.18);
     this.beatAvg = 0.12;
     this.previousBass = 0;
+    this.previousHigh = 0;
     this.lastBeatAt = 0;
     this.beatInterval = 0.56;
     this.dropCooldown = 0;
     this.lastSyntheticBeat = -1;
+    this.lastSyntheticSnap = -1;
     this.idleT = 0;
     this.userUnlocked = false;
     this._raf = 0;
@@ -202,10 +204,13 @@ export class MusicVisualizer {
       this.beatAvg = lerp(this.beatAvg, instant, 0.035);
       const spike = instant > this.beatAvg * 1.38 && bass > 0.18 ? 1 : 0;
       const bassJump = Math.max(0, bass - this.previousBass);
+      const highJump = Math.max(0, high - this.previousHigh);
+      const snap = highJump > 0.085 && high > 0.16 ? 1 : 0;
       const drop = spike && bassJump > 0.14 && instant > this.beatAvg * 1.62 && this.dropCooldown <= 0 ? 1 : 0;
       if (spike) this._registerBeat(this.timeSeconds);
       if (drop) this.dropCooldown = 1.4;
       this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.5);
+      this.energy.snap = Math.max(snap, this.energy.snap - dt * 7.5);
       this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.6);
       this.energy.bass = lerp(this.energy.bass, bass, 0.22);
       this.energy.mid = lerp(this.energy.mid, mid, 0.18);
@@ -214,6 +219,7 @@ export class MusicVisualizer {
       this.energy.intensity = lerp(this.energy.intensity, instant, 0.16);
       this.energy.tempo = lerp(this.energy.tempo, clamp01(0.3 + (0.72 / this.beatInterval) * 0.32), 0.08);
       this.previousBass = bass;
+      this.previousHigh = high;
       return;
     }
 
@@ -225,6 +231,7 @@ export class MusicVisualizer {
     this.idleT += dt;
     const idle = 0.2 + Math.sin(this.idleT * 0.85) * 0.05;
     this.energy.beat = Math.max(0, this.energy.beat - dt * 3);
+    this.energy.snap = Math.max(0, this.energy.snap - dt * 5);
     this.energy.drop = Math.max(0, this.energy.drop - dt * 2);
     this.energy.bass = lerp(this.energy.bass, idle, 0.02);
     this.energy.mid = lerp(this.energy.mid, idle * 0.75, 0.02);
@@ -254,12 +261,16 @@ export class MusicVisualizer {
     const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
     this._updateTimedSpectrum(t, profile, bass, mid, high);
     const newBeat = beatIndex !== this.lastSyntheticBeat && beatPos < 0.08;
+    const snapIndex = Math.floor((t / beatLen) * 2);
+    const newSnap = snapIndex !== this.lastSyntheticSnap && offBeatPos < 0.10;
     const drop = newBeat && beatIndex > 0 && beatIndex % 16 === 0;
     if (newBeat) {
       this.lastSyntheticBeat = beatIndex;
       this._registerBeat(t);
     }
+    if (newSnap) this.lastSyntheticSnap = snapIndex;
     this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
+    this.energy.snap = Math.max(newSnap ? 1 : 0, this.energy.snap - dt * 8.2);
     this.energy.drop = Math.max(drop ? 1 : 0, this.energy.drop - dt * 2.6);
     this.energy.bass = lerp(this.energy.bass, bass, 0.24);
     this.energy.mid = lerp(this.energy.mid, mid, 0.20);
@@ -268,6 +279,7 @@ export class MusicVisualizer {
     this.energy.intensity = lerp(this.energy.intensity, instant, 0.18);
     this.energy.tempo = lerp(this.energy.tempo, clamp01((profile.bpm - 82) / 62), 0.12);
     this.previousBass = bass;
+    this.previousHigh = high;
   }
 
   _registerBeat(now) {

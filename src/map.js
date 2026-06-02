@@ -33,6 +33,7 @@ export class Map {
     this.globalMusicPulses = [];
     this._musicLastT = 0;
     this._musicLastBeat = 0;
+    this._musicLastSnap = 0;
     this._musicLastDrop = 0;
     this._musicLastSpawn = 0;
     this._lastKillPulseT = 0;
@@ -387,6 +388,7 @@ export class Map {
     const high = clamp(Number(e.high) || 0, 0, 1);
     const intensity = clamp(Number(e.intensity) || 0, 0, 1);
     const beat = clamp(Number(e.beat) || 0, 0, 1);
+    const snap = clamp(Number(e.snap) || 0, 0, 1);
     const drop = clamp(Number(e.drop) || 0, 0, 1);
     const songTempo = clamp(Number(e.tempo) || 0.5, 0, 1);
     const trackIndex = Math.max(0, Number(music?.trackIndex) || 0);
@@ -409,6 +411,7 @@ export class Map {
       high: clamp(high * amp, 0, 1),
       intensity: clamp(intensity * amp, 0, 1),
       beat,
+      snap,
       drop,
       songTempo,
       trackIndex,
@@ -539,6 +542,7 @@ export class Map {
     this.globalMusicPulses = [];
     this._musicLastT = 0;
     this._musicLastBeat = 0;
+    this._musicLastSnap = 0;
     this._musicLastDrop = 0;
     this._musicLastSpawn = 0;
   }
@@ -592,22 +596,22 @@ export class Map {
     const palette = this._musicPalette(m);
     const origin = (kind === "ripple" || kind === "drop") && this.pathPts?.length
       ? { x: this.pathPts[0][0], y: this.pathPts[0][1] }
-      : this._pickMusicOrigin(kind === "echo");
+      : this._pickMusicOrigin(kind === "echo" || kind === "snap");
     const hue = palette.hues[Math.floor(this._musicRand() * palette.hues.length)] || palette.hues[0];
     const wave = {
       kind,
       x: origin.x,
       y: origin.y,
       age: 0,
-      life: kind === "drop" ? 1.85 : boss ? 1.8 : kind === "echo" ? 1.45 : 1.15,
-      speed: (112 + m.tempo * 72 + m.activity * 58) * (kind === "drop" ? 1.18 : boss ? 1.12 : 1),
-      width: this.gridSize * (kind === "drop" ? 0.58 : kind === "echo" ? 0.46 : 0.34) * (boss ? 1.35 : 1),
-      amp: clamp((kind === "drop" ? 0.48 : kind === "echo" ? 0.26 : 0.20) + m.bass * 0.18 + (boss ? 0.14 : 0), 0.14, 0.68),
+      life: kind === "drop" ? 1.85 : kind === "snap" ? 0.92 : boss ? 1.8 : kind === "echo" ? 1.45 : 1.15,
+      speed: (112 + m.tempo * 72 + m.activity * 58) * (kind === "drop" ? 1.18 : kind === "snap" ? 1.52 : boss ? 1.12 : 1),
+      width: this.gridSize * (kind === "drop" ? 0.58 : kind === "snap" ? 0.18 : kind === "echo" ? 0.46 : 0.34) * (boss ? 1.35 : 1),
+      amp: clamp((kind === "drop" ? 0.48 : kind === "snap" ? 0.30 : kind === "echo" ? 0.26 : 0.20) + (kind === "snap" ? m.high : m.bass) * 0.18 + (boss ? 0.14 : 0), 0.14, 0.68),
       hue,
-      state: kind === "drop" || kind === "echo" ? 3 : kind === "ripple" ? 2 : 1
+      state: kind === "drop" || kind === "echo" || kind === "snap" ? 3 : kind === "ripple" ? 2 : 1
     };
     this.musicWaves.push(wave);
-    this._trimMusicWaves(boss ? 8 : 4);
+    this._trimMusicWaves(boss ? 10 : 7);
   }
 
   triggerKillPulse(x, y, strong = false) {
@@ -828,6 +832,7 @@ export class Map {
     }
 
     const beatRise = m.beat > 0.62 && this._musicLastBeat <= 0.62;
+    const snapRise = m.snap > 0.58 && this._musicLastSnap <= 0.58;
     const dropRise = m.drop > 0.58 && this._musicLastDrop <= 0.58;
     const spawnGap = now - this._musicLastSpawn;
     const passiveGap = clamp(0.85 - activity * 0.52 - m.intensity * 0.18, 0.18, 0.85);
@@ -845,7 +850,9 @@ export class Map {
       this._spawnMusicWave(m, activity > 0.5 ? "pulse" : "echo", false);
       this._musicLastSpawn = now;
     }
+    if (snapRise) this._spawnMusicWave(m, "snap", false);
     this._musicLastBeat = m.beat;
+    this._musicLastSnap = m.snap;
     this._musicLastDrop = m.drop;
 
     const maxDist = Math.hypot(W, H) + this.gridSize * 4;
@@ -958,7 +965,7 @@ export class Map {
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
     gfx.lineCap = "round";
-    const maxRings = perf < 0.7 ? 4 : 7;
+    const maxRings = perf < 0.7 ? 5 : 10;
     const rings = this.musicWaves.slice(-maxRings);
     for (const wave of rings) {
       if (wave.age <= 0) continue;
@@ -969,9 +976,10 @@ export class Map {
       const isBossKill = wave.kind === "miniBossKill" || wave.kind === "mainBossKill";
       const isEmp = wave.kind === "empPulse" || wave.kind === "empEcho" || wave.kind === "empKill";
       const isAbilityKill = wave.kind === "pulseBurstKill" || wave.kind === "overchargeKill";
-      gfx.globalAlpha = clamp(fade * wave.amp * (isBossKill ? 0.82 : isLargeKill ? 0.78 : isEmp ? 0.72 : isAbilityKill ? 0.68 : 0.42), 0, isBossKill ? 0.56 : isLargeKill ? 0.52 : isEmp ? 0.48 : isAbilityKill ? 0.46 : 0.32);
+      const isSnap = wave.kind === "snap";
+      gfx.globalAlpha = clamp(fade * wave.amp * (isBossKill ? 0.82 : isLargeKill ? 0.78 : isEmp ? 0.72 : isAbilityKill ? 0.68 : isSnap ? 0.66 : 0.50), 0, isBossKill ? 0.56 : isLargeKill ? 0.52 : isEmp ? 0.48 : isAbilityKill ? 0.46 : isSnap ? 0.40 : 0.36);
       gfx.strokeStyle = `hsla(${wave.hue}, 100%, 68%, 0.96)`;
-      gfx.lineWidth = isBossKill ? 2.35 : isLargeKill ? 2.1 : isEmp ? 1.8 : isAbilityKill ? 1.65 : 1.05;
+      gfx.lineWidth = isBossKill ? 2.35 : isLargeKill ? 2.1 : isEmp ? 1.8 : isAbilityKill ? 1.65 : isSnap ? 0.9 : 1.15;
       gfx.beginPath();
       gfx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
       gfx.stroke();
@@ -1074,16 +1082,17 @@ export class Map {
   }
 
   _drawGridBeatRipple(gfx, m, perf) {
-    if (!this.pathPts?.length || m.beat <= 0.02) return;
+    if (!this.pathPts?.length || (m.beat <= 0.02 && m.snap <= 0.02)) return;
     const [sx, sy] = this.pathPts[0];
     const maxR = Math.hypot(W, H) + this.gridSize * 3;
     const radius = (m.time * (170 + m.tempo * 120)) % maxR;
-    const band = Math.max(this.gridSize * 1.05, 36);
+    const hit = Math.max(m.beat, m.snap * 0.86);
+    const band = Math.max(this.gridSize * (m.snap > m.beat ? 0.72 : 1.05), 26);
     const skip = perf < 0.7 ? 3 : (m.progression < 0.45 ? 2 : 1);
     const hue = this._musicHue(m, 28);
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
-    gfx.lineWidth = 1.2 + m.beat * 1.2;
+    gfx.lineWidth = 1.2 + hit * 1.2;
     for (let gy = MAP_EDGE_MARGIN; gy < this.rows - MAP_EDGE_MARGIN; gy += skip) {
       for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx += skip) {
         const idx = gy * this.cols + gx;
@@ -1097,7 +1106,7 @@ export class Map {
         const d = Math.hypot(cx - sx, cy - sy);
         const k = Math.max(0, 1 - Math.abs(d - radius) / band);
         if (k <= 0.02) continue;
-        const alpha = clamp((0.025 + k * m.beat * 0.16) * (0.78 + m.progression * 0.42), 0, 0.23);
+        const alpha = clamp((0.025 + k * hit * 0.20) * (0.78 + m.progression * 0.42), 0, 0.28);
         gfx.globalAlpha = alpha;
         gfx.strokeStyle = v === 3
           ? `hsla(${(hue + 58) % 360}, 100%, 64%, 0.90)`
@@ -1151,7 +1160,7 @@ export class Map {
     const colStep = perf < 0.7 ? 2 : 1;
     const rowStep = perf < 0.7 ? 2 : 1;
     const usableRows = Math.max(1, this.rows - MAP_EDGE_MARGIN * 2);
-    const maxHeight = usableRows * (0.10 + m.bass * 0.42 + m.intensity * 0.16 + m.beat * 0.16) * (0.68 + progression * 0.32);
+    const maxHeight = usableRows * (0.16 + m.bass * 0.48 + m.intensity * 0.22 + m.beat * 0.20 + m.snap * 0.08) * (0.72 + progression * 0.32);
     const flow = m.time * (1.7 + m.tempo * 1.6);
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
@@ -1159,7 +1168,7 @@ export class Map {
       const bandIndex = Math.floor((gx - MAP_EDGE_MARGIN) / Math.max(1, this.cols - MAP_EDGE_MARGIN * 2) * m.spectrum.length) % m.spectrum.length;
       const band = m.spectrum[bandIndex] || 0;
       const tide = 0.5 + 0.5 * Math.sin(flow + gx * (palette.style === "rain" ? 0.78 : 0.34));
-      const peak = clamp(maxHeight * (0.34 + band * 0.96 + m.mid * tide * 0.30), 1, usableRows);
+      const peak = clamp(maxHeight * (0.40 + band * 1.10 + m.mid * tide * 0.34), 1, usableRows);
       for (let rise = 0; rise < peak; rise += rowStep) {
         const gy = this.rows - MAP_EDGE_MARGIN - 1 - rise;
         const idx = gy * this.cols + gx;
@@ -1168,10 +1177,10 @@ export class Map {
         if (this._isBuildableCorrupted(gx, gy, idx, v)) continue;
         const edge = clamp(1 - rise / Math.max(1, peak), 0, 1);
         const wave = 0.52 + 0.48 * Math.sin(flow * 0.74 - rise * 0.42 + gx * 0.21);
-        let alpha = (0.022 + band * 0.085 + m.bass * edge * 0.055 + m.mid * wave * 0.035) * (0.72 + progression * 0.34);
+        let alpha = (0.035 + band * 0.14 + m.bass * edge * 0.075 + m.mid * wave * 0.045 + m.snap * 0.035) * (0.74 + progression * 0.34);
         if (palette.style === "rain") alpha *= 0.82 + tide * 0.34;
         if (palette.style === "reactor") alpha *= 0.90 + m.beat * 0.36;
-        alpha = clamp(alpha, 0.018, 0.23);
+        alpha = clamp(alpha, 0.026, 0.32);
         const hue = palette.hues[(gx + rise + Math.floor(flow)) % palette.hues.length];
         const x = gx * this.gridSize;
         const y = gy * this.gridSize;
@@ -1179,7 +1188,7 @@ export class Map {
         gfx.fillStyle = `hsla(${hue}, 100%, ${56 + edge * 12}%, 0.82)`;
         gfx.fillRect(x + 2, y + 2, this.gridSize - 4, this.gridSize - 4);
         if (rise + rowStep >= peak - 1 || (progression >= 0.72 && rise % 4 === 0)) {
-          gfx.globalAlpha = clamp(alpha * 1.18, 0, 0.26);
+          gfx.globalAlpha = clamp(alpha * 1.18, 0, 0.34);
           gfx.strokeStyle = `hsla(${(hue + 28) % 360}, 100%, 74%, 0.94)`;
           gfx.lineWidth = 1;
           gfx.strokeRect(x + 2.5, y + 2.5, this.gridSize - 5, this.gridSize - 5);

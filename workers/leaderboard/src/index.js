@@ -73,6 +73,7 @@ async function playerPayload(env, player, sessionToken = null) {
       bestWave: score?.best_wave || 0,
       mapsCleared: score?.maps_cleared || 0,
       kills: score?.kills || 0,
+      bestCombo: score?.best_combo || 0,
       gold: score?.gold || 0,
       bosses: score?.bosses || 0,
       objectivesCompleted: score?.objectives_completed || 0
@@ -125,34 +126,36 @@ async function saveScore(env, request) {
   const bestWave = clampInt(body?.bestWave, 0, 9999);
   const mapsCleared = clampInt(body?.mapsCleared, 0, 1000000);
   const kills = clampInt(body?.kills, 0, 1000000000);
+  const bestCombo = clampInt(body?.bestCombo, 0, 1000000);
   const gold = clampInt(body?.gold, 0, 1000000000);
   const bosses = clampInt(body?.bosses, 0, 1000000);
   const objectivesCompleted = clampInt(body?.objectivesCompleted, 0, 1000000);
 
   await env.DB.prepare(`
-    INSERT INTO scores (player_id, plays, best_level, best_wave, maps_cleared, kills, gold, bosses, objectives_completed, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO scores (player_id, plays, best_level, best_wave, maps_cleared, kills, best_combo, gold, bosses, objectives_completed, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(player_id) DO UPDATE SET
       plays = MAX(scores.plays, excluded.plays),
       best_level = MAX(scores.best_level, excluded.best_level),
       best_wave = MAX(scores.best_wave, excluded.best_wave),
       maps_cleared = MAX(scores.maps_cleared, excluded.maps_cleared),
       kills = MAX(scores.kills, excluded.kills),
+      best_combo = MAX(scores.best_combo, excluded.best_combo),
       gold = MAX(scores.gold, excluded.gold),
       bosses = MAX(scores.bosses, excluded.bosses),
       objectives_completed = MAX(scores.objectives_completed, excluded.objectives_completed),
       updated_at = CURRENT_TIMESTAMP
-  `).bind(player.id, plays, bestLevel, bestWave, mapsCleared, kills, gold, bosses, objectivesCompleted).run();
+  `).bind(player.id, plays, bestLevel, bestWave, mapsCleared, kills, bestCombo, gold, bosses, objectivesCompleted).run();
 
   return json(await playerPayload(env, player));
 }
 
 async function leaderboard(env) {
   const rows = await env.DB.prepare(`
-    SELECT p.id, p.username, s.plays, s.best_level, s.best_wave, s.maps_cleared, s.kills, s.gold, s.bosses, s.objectives_completed, s.updated_at
+    SELECT p.id, p.username, s.plays, s.best_level, s.best_wave, s.maps_cleared, s.kills, s.best_combo, s.gold, s.bosses, s.objectives_completed, s.updated_at
     FROM scores s
     JOIN players p ON p.id = s.player_id
-    ORDER BY s.best_level DESC, s.best_wave DESC, s.maps_cleared DESC, s.kills DESC, s.gold DESC, s.updated_at DESC
+    ORDER BY s.best_level DESC, s.best_wave DESC, s.maps_cleared DESC, s.kills DESC, s.best_combo DESC, s.gold DESC, s.updated_at DESC
     LIMIT 25
   `).all();
   return json({
@@ -164,6 +167,7 @@ async function leaderboard(env) {
       bestWave: row.best_wave,
       mapsCleared: row.maps_cleared,
       kills: row.kills,
+      bestCombo: row.best_combo,
       gold: row.gold,
       bosses: row.bosses,
       objectivesCompleted: row.objectives_completed,

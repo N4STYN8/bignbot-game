@@ -2208,7 +2208,7 @@ body{
 }
 .leaderboardRow{
   display:grid;
-  grid-template-columns: 48px minmax(136px, 1.3fr) repeat(7, minmax(64px, .65fr));
+  grid-template-columns: 48px minmax(136px, 1.3fr) repeat(8, minmax(60px, .62fr));
   gap:6px;
   align-items:center;
   padding:10px 12px;

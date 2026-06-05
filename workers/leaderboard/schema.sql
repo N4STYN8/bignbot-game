@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS scores (
   best_wave INTEGER NOT NULL DEFAULT 0,
   maps_cleared INTEGER NOT NULL DEFAULT 0,
   kills INTEGER NOT NULL DEFAULT 0,
+  best_combo INTEGER NOT NULL DEFAULT 0,
   gold INTEGER NOT NULL DEFAULT 0,
   bosses INTEGER NOT NULL DEFAULT 0,
   objectives_completed INTEGER NOT NULL DEFAULT 0,
@@ -35,5 +36,6 @@ CREATE INDEX IF NOT EXISTS idx_scores_rank ON scores (
   best_wave DESC,
   maps_cleared DESC,
   kills DESC,
+  best_combo DESC,
   gold DESC
 );

@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606020705";
-import { Map } from "./map.js?v=202606020705";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606020705";
-import { Particles } from "./vfx.js?v=202606020705";
-import { Projectile } from "./projectiles.js?v=202606020705";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606020705";
-import { MusicVisualizer } from "./visualization.js?v=202606020705";
+import { AudioSystem } from "./audio.js?v=202606051824";
+import { Map } from "./map.js?v=202606051824";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606051824";
+import { Particles } from "./vfx.js?v=202606051824";
+import { Projectile } from "./projectiles.js?v=202606051824";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606051824";
+import { MusicVisualizer } from "./visualization.js?v=202606051824";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -57,11 +57,11 @@ const ECHO_CASCADE_WINDOW_TIERS = [
   { min: 1, sec: 1.75 }
 ];
 const ECHO_CASCADE_GOLD_TIERS = [
-  { min: 24, mult: 1.42 },
-  { min: 18, mult: 1.32 },
-  { min: 12, mult: 1.24 },
-  { min: 8, mult: 1.16 },
-  { min: 4, mult: 1.08 },
+  { min: 24, mult: 1.24 },
+  { min: 18, mult: 1.19 },
+  { min: 12, mult: 1.14 },
+  { min: 8, mult: 1.08 },
+  { min: 4, mult: 1.04 },
   { min: 0, mult: 1.0 }
 ];
 const ECHO_CASCADE_FADE_SECS = 0.45;
@@ -77,7 +77,7 @@ const NEW_PLAYER_WAVE_TIPS = {
 const FIRST_WAVE_TUTORIAL = [
   {
     title: "Build The Defence",
-    body: "Start with Pulse Spindle. Select it here, then click a glowing build tile beside the track. Pulse Spindle is your unlimited baseline tower; specialist turrets have light placement caps.",
+    body: "Start with Pulse Spindle. Select it here, then click a glowing build tile beside the track. Pulse Spindle has a high placement cap; specialist turrets have tighter caps.",
     target: ".buildItem[data-key=\"PULSE\"]",
     placement: "right"
   },
@@ -113,7 +113,7 @@ const FIRST_WAVE_TUTORIAL = [
   }
 ];
 const TURRET_BUILD_LIMITS = {
-  PULSE: Infinity,
+  PULSE: 25,
   ARC: 5,
   FROST: 5,
   LENS: 5,
@@ -1975,11 +1975,11 @@ class Game {
   }
 
   _newRunStats() {
-    return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0, dmgByType: {} };
+    return { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0, bestCombo: 0, dmgByType: {} };
   }
 
   _newPlayerStats() {
-    return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0 };
+    return { mapsCleared: 0, kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0, bestCombo: 0 };
   }
 
   _createLevelObjective(saved = null) {
@@ -2077,6 +2077,7 @@ class Game {
       bestWave: 0,
       mapsCleared: 0,
       kills: 0,
+      bestCombo: 0,
       gold: 0,
       bosses: 0,
       objectivesCompleted: 0,
@@ -2097,6 +2098,7 @@ class Game {
         bestWave: Math.max(0, Number(e.bestWave) | 0),
         mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
         kills: Math.max(0, Number(e.kills) | 0),
+        bestCombo: Math.max(0, Number(e.bestCombo) | 0),
         gold: Math.max(0, Number(e.gold) | 0),
         bosses: Math.max(0, Number(e.bosses) | 0),
         objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
@@ -2137,6 +2139,7 @@ class Game {
         bestWave: entry.bestWave || 0,
         mapsCleared: entry.mapsCleared || 0,
         kills: entry.kills || 0,
+        bestCombo: entry.bestCombo || 0,
         gold: entry.gold || 0,
         bosses: entry.bosses || 0,
         objectivesCompleted: entry.objectivesCompleted || 0
@@ -2166,6 +2169,7 @@ class Game {
       || (b.bestWave - a.bestWave)
       || (b.mapsCleared - a.mapsCleared)
       || (b.kills - a.kills)
+      || (b.bestCombo - a.bestCombo)
       || (b.gold - a.gold)
       || (b.updatedAt - a.updatedAt)
     );
@@ -2181,6 +2185,7 @@ class Game {
     entry.bestWave = Math.max(entry.bestWave || 0, this.wave || 0);
     entry.mapsCleared = Math.max(entry.mapsCleared || 0, p.mapsCleared || 0);
     entry.kills = Math.max(entry.kills || 0, p.kills || 0);
+    entry.bestCombo = Math.max(entry.bestCombo || 0, p.bestCombo || 0, this.comboBest || 0);
     entry.gold = Math.max(entry.gold || 0, p.gold || 0);
     entry.bosses = Math.max(entry.bosses || 0, p.bosses || 0);
     entry.objectivesCompleted = Math.max(entry.objectivesCompleted || 0, p.objectivesCompleted || 0);
@@ -2304,6 +2309,7 @@ class Game {
         <div class="leaderboardStat">${entry.plays || 0}</div>
         <div class="leaderboardStat">${entry.mapsCleared || 0}</div>
         <div class="leaderboardStat">${entry.kills || 0}</div>
+        <div class="leaderboardStat">${entry.bestCombo || 0}</div>
         <div class="leaderboardStat">${entry.objectivesCompleted || 0}</div>
         <div class="leaderboardStat">${fmt(entry.gold || 0)}</div>
       </div>
@@ -2321,9 +2327,9 @@ class Game {
       </div>
       <div class="leaderboardTable">
         <div class="leaderboardRow header">
-          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Objectives</div><div>Gold</div>
+          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Combo</div><div>Objectives</div><div>Gold</div>
         </div>
-        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
+        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
       </div>
       ${this.playerProfile ? `<div class="modalFooter"><button id="leaderboardLogoutBtn" class="btn ghost" type="button">Logout</button></div>` : ""}
     `;
@@ -2354,6 +2360,7 @@ class Game {
           bestWave: Math.max(0, Number(e.bestWave) | 0),
           mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
           kills: Math.max(0, Number(e.kills) | 0),
+          bestCombo: Math.max(0, Number(e.bestCombo) | 0),
           gold: Math.max(0, Number(e.gold) | 0),
           bosses: Math.max(0, Number(e.bosses) | 0),
           objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
@@ -2384,6 +2391,7 @@ class Game {
       towersBuilt: src.towersBuilt,
       bosses: src.bosses,
       objectivesCompleted: src.objectivesCompleted || 0,
+      bestCombo: src.bestCombo || 0,
       dmgByType: { ...src.dmgByType }
     };
   }
@@ -2403,8 +2411,9 @@ class Game {
       acc.towersBuilt += h.towersBuilt || 0;
       acc.bosses += h.bosses || 0;
       acc.objectivesCompleted += h.objectivesCompleted || 0;
+      acc.bestCombo = Math.max(acc.bestCombo || 0, h.bestCombo || 0);
       return acc;
-    }, { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0 });
+    }, { kills: 0, leaks: 0, gold: 0, towersBuilt: 0, bosses: 0, objectivesCompleted: 0, bestCombo: 0 });
     this.playerStats.mapsCleared = Math.max(this.playerStats.mapsCleared || 0, history.length);
     this.playerStats.kills = Math.max(this.playerStats.kills || 0, totals.kills);
     this.playerStats.leaks = Math.max(this.playerStats.leaks || 0, totals.leaks);
@@ -2412,6 +2421,7 @@ class Game {
     this.playerStats.towersBuilt = Math.max(this.playerStats.towersBuilt || 0, totals.towersBuilt);
     this.playerStats.bosses = Math.max(this.playerStats.bosses || 0, totals.bosses);
     this.playerStats.objectivesCompleted = Math.max(this.playerStats.objectivesCompleted || 0, totals.objectivesCompleted);
+    this.playerStats.bestCombo = Math.max(this.playerStats.bestCombo || 0, totals.bestCombo || 0, this.comboBest || 0);
   }
 
   recordDamage(sourceKey, amount) {
@@ -2476,7 +2486,7 @@ class Game {
       item.classList.toggle("poor", unlocked && !affordable);
       item.classList.toggle("capped", unlocked && capped);
       const capTag = item.querySelector(".turretCap");
-      if (capTag) capTag.textContent = key === "PULSE" ? "No cap" : `Cap ${this.turretBuildLimitLabel(key)}`;
+      if (capTag) capTag.textContent = `Cap ${this.turretBuildLimitLabel(key)}`;
       const lockTag = item.querySelector(".lockTag");
       if (lockTag) {
         lockTag.textContent = `Unlocks at Wave ${unlockWave}`;
@@ -3164,7 +3174,7 @@ class Game {
     const earlyHp = wave === 1 ? 0.82 : wave === 2 ? 0.92 : 1;
     const earlySpd = wave === 1 ? 0.9 : wave === 2 ? 0.96 : 1;
     const late = Math.max(0, wave - 8);
-    const latePow = Math.pow(late, 1.12) * 0.016;
+    const latePow = Math.pow(late, 1.12) * 0.019;
     const post2 = Math.max(0, wave - 2);
     const post2Boost = 1 + post2 * 0.035;
     const levelHp = 1 + Math.max(0, this.levelIndex - 1) * LEVEL_HP_SCALE;
@@ -3172,12 +3182,12 @@ class Game {
     const levelDef = 1 + Math.max(0, this.levelIndex - 1) * 0.02;
     const levelReward = 1 + Math.max(0, this.levelIndex - 1) * 0.03;
     return {
-      hp: (1 + i * 0.105 + latePow) * earlyHp * 1.32 * post2Boost * levelHp * profile.hp,
+      hp: (1 + i * 0.112 + latePow) * earlyHp * 1.35 * post2Boost * levelHp * profile.hp,
       spd: (1 + i * 0.013) * earlySpd * 1.05 * (1 + post2 * 0.01) * levelSpd * profile.spd,
       armor: (i * 0.0048 + Math.max(0, wave - 12) * 0.0035) * 1.12 * (1 + post2 * 0.012) * levelDef * profile.armor,
       shield: (1 + i * 0.055 + Math.max(0, wave - 12) * 0.015) * 1.07 * (1 + post2 * 0.012) * levelDef * profile.shield,
       regen: (1 + i * 0.035 + Math.max(0, wave - 12) * 0.015) * 1.08 * (1 + post2 * 0.008) * levelDef * profile.regen,
-      reward: (1 + i * 0.05) * 1.15 * levelReward
+      reward: (1 + i * 0.045) * 1.08 * levelReward
     };
   }
 
@@ -3237,7 +3247,7 @@ class Game {
     if (wave === this.waveMax) {
       // Give the final boss a musical buildup while keeping its defeat as the win condition.
       const bossScalar = scalar;
-      const escortScalar = { ...scalar, hp: scalar.hp * 0.94, reward: scalar.reward * 0.92 };
+      const escortScalar = { ...scalar, hp: scalar.hp * 0.98, reward: scalar.reward * 0.88 };
       const escortTypes = ["RUNNER", "ARMORED", "SHIELDED", "PHASE", "REGEN", "SHIELD_DRONE", "BRUTE", "STEALTH"];
       const escortCount = Math.min(54, 24 + Math.max(0, this.levelIndex - 1) * 3);
       const escorts = Array.from({ length: escortCount }, (_, n) => ({
@@ -3249,10 +3259,10 @@ class Game {
       escorts.push({ t: 10, type: this._getBossKey(), scalar: bossScalar, finalBoss: true });
       return this._spaceHeavySpawns(escorts);
     }
-    const earlyCounts = [0, 14, 18, 22, 27];
+    const earlyCounts = [0, 15, 20, 24, 29];
     const baseCount = wave <= 4
       ? earlyCounts[wave]
-      : Math.round(22 + Math.floor(i * 2.7) + Math.max(0, i - 9) * 0.95 + Math.max(0, i - 13) * 1.15);
+      : Math.round(24 + Math.floor(i * 2.9) + Math.max(0, i - 9) * 1.05 + Math.max(0, i - 13) * 1.25);
     const spacing = (wave === 1) ? 1.15
       : (wave === 2 ? 1.08
       : (wave === 3 ? 1.02
@@ -3527,7 +3537,8 @@ class Game {
           gold: data.playerStats.gold || 0,
           towersBuilt: data.playerStats.towersBuilt || 0,
           bosses: data.playerStats.bosses || 0,
-          objectivesCompleted: data.playerStats.objectivesCompleted || 0
+          objectivesCompleted: data.playerStats.objectivesCompleted || 0,
+          bestCombo: data.playerStats.bestCombo || 0
         };
       }
       if (typeof data.levelIndex === "number" && Number.isFinite(data.levelIndex)) {
@@ -3958,6 +3969,8 @@ class Game {
     this.comboTimer = this.comboWindow;
     this.comboMult = comboMultForCount(this.comboCount);
     this.comboBest = Math.max(this.comboBest || 0, this.comboCount);
+    if (this.runStats) this.runStats.bestCombo = Math.max(this.runStats.bestCombo || 0, this.comboCount);
+    if (this.playerStats) this.playerStats.bestCombo = Math.max(this.playerStats.bestCombo || 0, this.comboCount);
     this._comboUiFade = 1;
     const rewardTotal = Math.max(1, Math.round(rewardBase * this.comboMult));
     const rewardBonus = Math.max(0, rewardTotal - rewardBase);

@@ -531,16 +531,16 @@ export class Map {
 
   _musicPalette(m) {
     const palettes = [
-      { name: "Synthwave Equalizer", hues: [292, 316, 338, 190, 206, 232], spark: 184, style: "bars" },
-      { name: "Neon Ocean", hues: [188, 198, 210, 224, 248, 174], spark: 184, style: "tide" },
-      { name: "Plasma Storm", hues: [278, 304, 328, 18, 42, 194], spark: 42, style: "storm" },
-      { name: "Quantum Grid", hues: [116, 142, 166, 190, 224, 270], spark: 160, style: "lattice" },
-      { name: "Orbital Echo Rings", hues: [198, 228, 258, 292, 324, 42], spark: 198, style: "rings" },
-      { name: "Digital Rain", hues: [112, 132, 154, 176, 194, 220], spark: 148, style: "rain" },
-      { name: "Energy Lattice", hues: [42, 66, 164, 188, 212, 292], spark: 52, style: "lattice" },
-      { name: "Cyber Pulse", hues: [338, 6, 28, 190, 224, 284], spark: 32, style: "pulse" },
-      { name: "Aurora Field", hues: [136, 164, 188, 218, 268, 318], spark: 166, style: "aurora" },
-      { name: "Cosmic Reactor", hues: [18, 38, 54, 188, 236, 312], spark: 48, style: "reactor" }
+      { name: "Synthwave Equalizer", hues: [292, 316, 338, 190, 206, 232], spark: 184, style: "bars", solid: 318, accent: 190 },
+      { name: "Neon Ocean", hues: [188, 198, 210, 224, 248, 174], spark: 184, style: "tide", solid: 196, accent: 174 },
+      { name: "Plasma Storm", hues: [278, 304, 328, 18, 42, 194], spark: 42, style: "storm", solid: 328, accent: 38 },
+      { name: "Quantum Grid", hues: [116, 142, 166, 190, 224, 270], spark: 160, style: "lattice", solid: 154, accent: 270 },
+      { name: "Orbital Echo Rings", hues: [198, 228, 258, 292, 324, 42], spark: 198, style: "rings", solid: 226, accent: 42 },
+      { name: "Digital Rain", hues: [112, 132, 154, 176, 194, 220], spark: 148, style: "rain", solid: 138, accent: 194 },
+      { name: "Energy Lattice", hues: [42, 66, 164, 188, 212, 292], spark: 52, style: "lattice", solid: 188, accent: 52 },
+      { name: "Cyber Pulse", hues: [338, 6, 28, 190, 224, 284], spark: 32, style: "pulse", solid: 6, accent: 190 },
+      { name: "Aurora Field", hues: [136, 164, 188, 218, 268, 318], spark: 166, style: "aurora", solid: 188, accent: 318 },
+      { name: "Cosmic Reactor", hues: [18, 38, 54, 188, 236, 312], spark: 48, style: "reactor", solid: 38, accent: 188 }
     ];
     return palettes[((m.mode % palettes.length) + palettes.length) % palettes.length];
   }
@@ -804,12 +804,50 @@ export class Map {
     const activity = clamp(m.activity || 0.1, 0.1, 1);
     for (const pulse of this.globalMusicPulses) pulse.age += 0.016;
     this.globalMusicPulses = this.globalMusicPulses.filter((pulse) => pulse.age < pulse.life);
-    if (!this.globalMusicPulses.length && activity < 0.32) return;
+    const palette = this._musicPalette(m);
+    const t = m.time * (0.35 + m.tempo * 0.18);
 
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
+    const ambientAlpha = clamp(0.025 + m.intensity * 0.055 + m.beat * 0.025, 0, 0.12);
+    if (ambientAlpha > 0.01) {
+      const gap = this.gridSize * (palette.style === "rain" ? 1.25 : palette.style === "lattice" ? 2 : 3);
+      const drift = (m.time * (18 + m.tempo * 24)) % gap;
+      gfx.lineWidth = palette.style === "pulse" ? 1.8 : 1;
+      gfx.globalAlpha = ambientAlpha;
+      gfx.strokeStyle = `hsla(${palette.accent}, 100%, 64%, 0.70)`;
+      if (palette.style === "rain") {
+        for (let x = MAP_EDGE_MARGIN * this.gridSize; x < W; x += gap) {
+          gfx.beginPath();
+          gfx.moveTo(x + drift, 0);
+          gfx.lineTo(x + drift - this.gridSize * 0.35, H);
+          gfx.stroke();
+        }
+      } else if (palette.style === "rings" || palette.style === "reactor") {
+        const cx = W * 0.5;
+        const cy = H * 0.52;
+        for (let r = this.gridSize * 2; r < Math.hypot(W, H); r += this.gridSize * 3.2) {
+          const pulse = 0.5 + 0.5 * Math.sin(m.time * (1.1 + m.tempo) - r * 0.018);
+          gfx.globalAlpha = clamp(ambientAlpha * (0.42 + pulse * 0.75), 0, 0.13);
+          gfx.strokeStyle = `hsla(${(palette.solid + r * 0.025) % 360}, 100%, 60%, 0.72)`;
+          gfx.beginPath();
+          gfx.arc(cx, cy, r + pulse * this.gridSize * 0.35, 0, Math.PI * 2);
+          gfx.stroke();
+        }
+      } else {
+        for (let y = MAP_EDGE_MARGIN * this.gridSize + drift; y < H; y += gap) {
+          gfx.beginPath();
+          gfx.moveTo(0, y);
+          gfx.lineTo(W, y + Math.sin(m.time * 0.9 + y * 0.01) * this.gridSize * 0.8);
+          gfx.stroke();
+        }
+      }
+    }
+    if (!this.globalMusicPulses.length && activity < 0.32) {
+      gfx.restore();
+      return;
+    }
     const lineGap = this.gridSize * 2;
-    const t = m.time * (0.35 + m.tempo * 0.18);
     for (const pulse of this.globalMusicPulses) {
       const k = 1 - pulse.age / pulse.life;
       const alpha = clamp(k * (pulse.kind === "flash" ? 0.10 : 0.065) * (0.75 + activity * 0.5), 0, 0.14);
@@ -822,6 +860,44 @@ export class Map {
         gfx.beginPath();
         gfx.moveTo(x + shift, 0);
         gfx.lineTo(x + shift + H * 0.65 * pulse.dir, H);
+        gfx.stroke();
+      }
+    }
+    gfx.restore();
+  }
+
+  _drawBackFieldWaveform(gfx, m, perf) {
+    if (!m.spectrum?.length || perf < 0.7) return;
+    const palette = this._musicPalette(m);
+    const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
+    const baseY = H - this.gridSize * (1.2 + m.bass * 1.6);
+    const maxH = Math.min(H * 0.52, this.gridSize * (3.2 + m.intensity * 9 + m.beat * 2.5));
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx++) {
+      const bandIndex = Math.floor((gx - MAP_EDGE_MARGIN) / cols * m.spectrum.length) % m.spectrum.length;
+      const band = m.spectrum[bandIndex] || 0;
+      const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + gx * 0.34);
+      const height = clamp(maxH * (0.18 + band * 0.96 + m.bass * 0.24 + phase * 0.08), this.gridSize * 0.4, maxH);
+      const x = gx * this.gridSize + 3;
+      const y = baseY - height;
+      const w = this.gridSize - 6;
+      const hue = (palette.solid + band * 44 + gx * 1.5) % 360;
+      const alpha = clamp(0.07 + band * 0.24 + m.intensity * 0.08 + m.beat * 0.08, 0.08, 0.36);
+      const grad = gfx.createLinearGradient(0, y, 0, baseY);
+      grad.addColorStop(0, `hsla(${hue}, 100%, 68%, ${alpha})`);
+      grad.addColorStop(0.55, `hsla(${palette.accent}, 100%, 54%, ${alpha * 0.60})`);
+      grad.addColorStop(1, `hsla(${hue}, 100%, 42%, 0.02)`);
+      gfx.globalAlpha = 1;
+      gfx.fillStyle = grad;
+      gfx.fillRect(x, y, w, height);
+      if (band > 0.34 || m.beat > 0.2) {
+        gfx.globalAlpha = clamp(alpha * 0.75, 0, 0.22);
+        gfx.strokeStyle = `hsla(${hue}, 100%, 78%, 0.85)`;
+        gfx.lineWidth = 1.2;
+        gfx.beginPath();
+        gfx.moveTo(x, y + 0.5);
+        gfx.lineTo(x + w, y + 0.5);
         gfx.stroke();
       }
     }
@@ -1376,6 +1452,7 @@ export class Map {
     }
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
+    this._drawBackFieldWaveform(gfx, musicGrid, perf);
     this._drawGridEqualizer(gfx, musicGrid, perf);
     this._drawGridSpectrumCells(gfx, musicGrid, perf);
     this._drawGlobalMapVisuals(gfx, musicGrid, perf);

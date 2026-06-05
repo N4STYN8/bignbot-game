@@ -188,7 +188,7 @@ export const POWER_TILE_COUNT = { min: 5, max: 8 };
 export const POWER_NEAR_MIN = 28;
 export const POWER_NEAR_MAX = 70;
 export const POWER_TILE_MIN_DIST = 132;
-export const LEVEL_HP_SCALE = 0.08;
+export const LEVEL_HP_SCALE = 0.09;
 export const LEVEL_SPD_SCALE = 0.03;
 
 export const ENV_PRESETS = [

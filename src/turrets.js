@@ -1,5 +1,5 @@
-import { DAMAGE } from "./enemies.js?v=202606051824";
-import { Projectile } from "./projectiles.js?v=202606051824";
+import { DAMAGE } from "./enemies.js?v=202606051911";
+import { Projectile } from "./projectiles.js?v=202606051911";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
 
@@ -482,6 +482,9 @@ export class Turret {
     this.flash = 0;
     this.recoil = 0;
     this.pulseBoostT = 0;
+    this.disruptJamT = 0;
+    this.disruptSlowT = 0;
+    this.disruptKind = null;
     this.targetMode = "FIRST";
     this.boosted = false;
     this.mapFeatureBoosted = false;
@@ -616,14 +619,23 @@ export class Turret {
     const visualDt = game._realDt || dt;
     if (this.flash > 0) this.flash = Math.max(0, this.flash - visualDt * 2.5);
     if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - visualDt * 5.0);
+    if (this.disruptJamT > 0) this.disruptJamT = Math.max(0, this.disruptJamT - visualDt);
+    if (this.disruptSlowT > 0) this.disruptSlowT = Math.max(0, this.disruptSlowT - visualDt);
+    if (this.disruptJamT <= 0 && this.disruptSlowT <= 0) this.disruptKind = null;
     if (this.pulseBoostT > 0) {
       const realDt = game._realDt || dt;
       this.pulseBoostT = Math.max(0, this.pulseBoostT - realDt);
+    }
+    if (this.disruptJamT > 0) {
+      this.targetId = -1;
+      this.cool = Math.max(this.cool || 0, 0.12);
+      return;
     }
     const pulsePower = game.getPulseBurstMultipliers?.() || { rate: 4, dmg: 2 };
     const pulseRateMul = this.pulseBoostT > 0 ? pulsePower.rate : 1;
     const pulseDmgMul = this.pulseBoostT > 0 ? pulsePower.dmg : 1;
     const globalMul = game.globalOverchargeT > 0 ? (game.getOverchargeRateMultiplier?.() || 1.35) : 1;
+    const disruptRateMul = this.disruptSlowT > 0 ? 0.45 : 1;
 
     // Aura Grove special handling
     if (this.typeKey === "AURA") {
@@ -643,7 +655,7 @@ export class Turret {
         }
       }
       if (this.pulse) {
-        this.pulseT -= dt;
+        this.pulseT -= dt * disruptRateMul;
         if (this.pulseT <= 0) {
           this.pulseT = this.pulseInterval;
           game.explosions.push({
@@ -695,7 +707,7 @@ export class Turret {
         const ox = Math.cos(d.ang) * (26 + d.r);
         const oy = Math.sin(d.ang) * (16 + d.r * 0.7);
 
-        d.cool -= dt * buff.rateMul * skip.rateMul * pulseRateMul * globalMul;
+        d.cool -= dt * buff.rateMul * skip.rateMul * pulseRateMul * globalMul * disruptRateMul;
         if (d.cool <= 0) {
           d.cool = this.droneFire; // drone fire cadence
           // pick target
@@ -736,7 +748,7 @@ export class Turret {
     if (this.typeKey === "TRAP") {
       const skip = game.getSkipBuff();
       this.charges = clamp(this.charges, 0, this.maxCharges);
-      this.cool -= dt * skip.rateMul * pulseRateMul * globalMul;
+      this.cool -= dt * skip.rateMul * pulseRateMul * globalMul * disruptRateMul;
       if (this.cool <= 0) {
         this.cool = this.fire;
         if (this.charges < this.maxCharges) this.charges++;
@@ -773,7 +785,7 @@ export class Turret {
     const buff = this.getBuffedStats(game);
     const skip = game.getSkipBuff();
     const lowGravity = game.waveAnomaly?.key === "LOW_GRAVITY";
-    const fireInterval = this.fire / (buff.rateMul * skip.rateMul * pulseRateMul * globalMul);
+    const fireInterval = this.fire / (buff.rateMul * skip.rateMul * pulseRateMul * globalMul * disruptRateMul);
     this.cool -= dt;
 
     const target = this.acquireTarget(game);
@@ -1184,6 +1196,63 @@ export class Turret {
         gfx.fillStyle = i === 0 ? "rgba(242,220,255,0.98)" : "rgba(186,112,255,0.94)";
         gfx.beginPath();
         gfx.arc(this.x + Math.cos(a) * 38, this.y + Math.sin(a) * 38, 2, 0, Math.PI * 2);
+        gfx.fill();
+      }
+      gfx.restore();
+    }
+
+    if (this.disruptJamT > 0 || this.disruptSlowT > 0) {
+      const jammed = this.disruptJamT > 0;
+      const remain = jammed ? this.disruptJamT : this.disruptSlowT;
+      const pulse = 0.58 + 0.42 * Math.sin(t * (jammed ? 8 : 5) + this.x * 0.02);
+      const ringCol = jammed ? "rgba(98,242,255,0.94)" : "rgba(186,112,255,0.94)";
+      const fillCol = jammed ? "rgba(98,242,255,0.18)" : "rgba(186,112,255,0.16)";
+      const glyph = jammed ? "rgba(220,255,255,0.98)" : "rgba(248,214,255,0.98)";
+      gfx.save();
+      gfx.globalCompositeOperation = "lighter";
+      gfx.globalAlpha = 0.42 + pulse * 0.24;
+      gfx.strokeStyle = ringCol;
+      gfx.lineWidth = jammed ? 2.4 : 1.8;
+      gfx.setLineDash(jammed ? [4, 4] : [8, 5]);
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 24 + pulse * 5, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * clamp(remain / 5, 0, 1));
+      gfx.stroke();
+      gfx.setLineDash([]);
+      gfx.globalAlpha = 0.28 + pulse * 0.12;
+      gfx.fillStyle = fillCol;
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, 18 + pulse * 3, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.globalAlpha = 0.36 + pulse * 0.38;
+      gfx.strokeStyle = glyph;
+      gfx.lineWidth = 2.2;
+      if (jammed) {
+        const s = 13 + pulse * 3;
+        gfx.beginPath();
+        gfx.moveTo(this.x - s, this.y - s);
+        gfx.lineTo(this.x + s, this.y + s);
+        gfx.moveTo(this.x + s, this.y - s);
+        gfx.lineTo(this.x - s, this.y + s);
+        gfx.stroke();
+      } else {
+        const s = 15 + pulse * 3;
+        gfx.beginPath();
+        gfx.moveTo(this.x - s, this.y);
+        gfx.lineTo(this.x - s * 0.35, this.y);
+        gfx.lineTo(this.x - s * 0.14, this.y - s * 0.62);
+        gfx.lineTo(this.x + s * 0.12, this.y + s * 0.62);
+        gfx.lineTo(this.x + s * 0.34, this.y);
+        gfx.lineTo(this.x + s, this.y);
+        gfx.stroke();
+      }
+      const sparks = jammed ? 5 : 4;
+      for (let i = 0; i < sparks; i++) {
+        const a = t * (jammed ? -4.2 : 3.1) + i * Math.PI * 2 / sparks;
+        const rr = 31 + Math.sin(t * 6 + i) * 4;
+        gfx.globalAlpha = 0.42 + pulse * 0.35;
+        gfx.fillStyle = i % 2 ? ringCol : glyph;
+        gfx.beginPath();
+        gfx.arc(this.x + Math.cos(a) * rr, this.y + Math.sin(a) * rr, jammed ? 2.2 : 1.8, 0, Math.PI * 2);
         gfx.fill();
       }
       gfx.restore();

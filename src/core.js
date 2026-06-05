@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606051824";
-import { Map } from "./map.js?v=202606051824";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606051824";
-import { Particles } from "./vfx.js?v=202606051824";
-import { Projectile } from "./projectiles.js?v=202606051824";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606051824";
-import { MusicVisualizer } from "./visualization.js?v=202606051824";
+import { AudioSystem } from "./audio.js?v=202606051911";
+import { Map } from "./map.js?v=202606051911";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606051911";
+import { Particles } from "./vfx.js?v=202606051911";
+import { Projectile } from "./projectiles.js?v=202606051911";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606051911";
+import { MusicVisualizer } from "./visualization.js?v=202606051911";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -297,6 +297,8 @@ class Game {
     this.arcs = [];
     this.cones = [];
     this.lingering = [];
+    this.disruptionClouds = [];
+    this.disruptionShots = [];
   }
 
   // CODEX CHANGE: Keep constructor-readable, single-source defaults for run/session/input state.
@@ -892,6 +894,12 @@ class Game {
 
     // Keep the full corrupted square clear of the rendered track, including bends.
     if (!this.map.isCorruptionSafeCell(gx, gy, v)) return false;
+    if (this.map.featureAtCell?.(gx, gy)) return false;
+
+    const center = this.map.worldFromCell(gx, gy);
+    const trackD = Math.sqrt(distanceToSegmentsSquared(center.x, center.y, this.map.segs || []));
+    const maxTrackD = TRACK_RADIUS + this.map.gridSize * 3;
+    if (trackD > maxTrackD) return false;
 
     // Random candidate band must be no more than 3 tiles from track.
     // Use Manhattan distance so "3 tiles away" is intuitive.
@@ -1166,6 +1174,8 @@ class Game {
     this.beams = [];
     this.arcs = [];
     this.cones = [];
+    this.disruptionClouds = [];
+    this.disruptionShots = [];
     const targetCam = { x: enemy.x - W * 0.5, y: enemy.y - H * 0.5 };
     this.bossCinematic = {
       timer: 0,
@@ -1229,6 +1239,8 @@ class Game {
     this.beams = [];
     this.arcs = [];
     this.cones = [];
+    this.disruptionClouds = [];
+    this.disruptionShots = [];
     this.particles.list = [];
     this.shakeT = 0;
     this.shakeMag = 0;
@@ -1296,6 +1308,8 @@ class Game {
     decay(this.screenFlashes);
     decay(this.decals);
     decay(this.lingering);
+    decay(this.disruptionClouds);
+    decay(this.disruptionShots);
     this.particles.update(dtScaled);
     for (let i = this.floatText.length - 1; i >= 0; i--) {
       const ft = this.floatText[i];
@@ -1303,6 +1317,87 @@ class Game {
       ft.y -= ft.vy * dtScaled;
       if (ft.t <= 0) this.floatText.splice(i, 1);
     }
+  }
+
+  spawnTurretDisruptionCloud(enemy, kind = "jam") {
+    if (!enemy || !this.turrets?.length || !this.map) return false;
+    const radius = this.map.gridSize * 1.55;
+    const candidates = [];
+    for (const t of this.turrets) {
+      if (!t || t.disruptJamT > 0) continue;
+      const reach = Math.max(260, this.map.gridSize * (6 + Math.min(4, this.wave * 0.12)));
+      if (dist2(enemy.x, enemy.y, t.x, t.y) > reach * reach) continue;
+      let cluster = 0;
+      for (const other of this.turrets) {
+        if (!other || other === t) continue;
+        if (dist2(t.x, t.y, other.x, other.y) <= radius * radius) cluster++;
+      }
+      candidates.push({ turret: t, score: cluster * 3 + Math.random() * 2 + (t.level || 0) * 0.35 });
+    }
+    if (!candidates.length) return false;
+    candidates.sort((a, b) => b.score - a.score);
+    const target = candidates[Math.min(candidates.length - 1, Math.floor(Math.random() * Math.min(3, candidates.length)))].turret;
+    const affected = [];
+    for (const t of this.turrets) {
+      if (!t || dist2(target.x, target.y, t.x, t.y) > radius * radius) continue;
+      if (kind === "slow") {
+        t.disruptSlowT = Math.max(t.disruptSlowT || 0, 5);
+        t.disruptKind = "slow";
+      } else {
+        t.disruptJamT = Math.max(t.disruptJamT || 0, 5);
+        t.disruptKind = "jam";
+        t.cool = Math.max(t.cool || 0, 0.18);
+      }
+      affected.push(t);
+    }
+    if (!affected.length) return false;
+    const col = kind === "slow" ? "rgba(186,112,255,0.88)" : "rgba(98,242,255,0.88)";
+    const alt = kind === "slow" ? "rgba(255,120,220,0.62)" : "rgba(109,255,210,0.62)";
+    this.disruptionClouds.push({
+      x: target.x,
+      y: target.y,
+      r: radius,
+      t: 5,
+      dur: 5,
+      kind,
+      col,
+      alt
+    });
+    this.disruptionShots.push({
+      ax: enemy.x,
+      ay: enemy.y,
+      bx: target.x,
+      by: target.y,
+      t: 0.42,
+      dur: 0.42,
+      kind,
+      col,
+      alt
+    });
+    this.arcs.push({ ax: enemy.x, ay: enemy.y, bx: target.x, by: target.y, t: 0.28, col });
+    this.explosions.push({
+      x: target.x,
+      y: target.y,
+      r: 12,
+      t: 0.32,
+      dur: 0.32,
+      max: radius,
+      col,
+      boom: false
+    });
+    this.screenFlashes.push({
+      x: target.x,
+      y: target.y,
+      r: radius * 0.55,
+      t: 0.18,
+      dur: 0.18,
+      max: radius * 1.1,
+      col: kind === "slow" ? "rgba(186,112,255,0.24)" : "rgba(98,242,255,0.24)"
+    });
+    this.particles.spawn(target.x, target.y, kind === "slow" ? 10 : 12, "muzzle", alt);
+    this.spawnText(target.x, target.y - 22, kind === "slow" ? "STATIC SLOW" : "JAMMED", col, 1.05);
+    this.audio?.playLimited?.("turret_arc", 260);
+    return true;
   }
 
   _spawnEnergyBurst(x, y, opts = {}) {
@@ -3693,6 +3788,8 @@ class Game {
     this.arcs = [];
     this.cones = [];
     this.lingering = [];
+    this.disruptionClouds = [];
+    this.disruptionShots = [];
     this.explosions = [];
     this.screenFlashes = [];
     this.delayedEnemyFx = [];
@@ -4358,6 +4455,52 @@ class Game {
     this._save();
   }
 
+  _openFeatureTileHud(cell) {
+    const feature = cell ? this.map.featureAtCell?.(cell.gx, cell.gy) : null;
+    if (!feature) return false;
+    this.selectedTurret = null;
+    this.selectedEnemy = null;
+    this.selectedTileCell = { gx: cell.gx, gy: cell.gy, v: cell.v };
+    sellBtn.disabled = true;
+    if (turretHudSellBtn) {
+      turretHudSellBtn.disabled = true;
+      turretHudSellBtn.style.display = "none";
+    }
+    selSub.textContent = "Map Feature";
+    const isBuildNode = feature.key === "AMPLIFIER_NODES";
+    const behavior = isBuildNode
+      ? "Build a turret here to apply the node boost immediately."
+      : "This lane effect applies automatically while enemies cross it.";
+    const hudHtml = `
+      <div class="selHeaderRow">
+        <div class="selName">${feature.name || "Map Feature"}</div>
+        <div class="selLevel">Cell ${cell.gx},${cell.gy}</div>
+      </div>
+      <div class="statGrid">
+        <div class="statCard"><div class="k">Type</div><div class="v">${isBuildNode ? "Build Node" : "Lane Effect"}</div></div>
+        <div class="statCard"><div class="k">Status</div><div class="v">Active</div></div>
+        <div class="statCard"><div class="k">Build</div><div class="v">${isBuildNode ? "Boosted" : "Blocked"}</div></div>
+        <div class="statCard"><div class="k">Color</div><div class="v">Blue Feature</div></div>
+      </div>
+      <div class="upgrades">
+        <div class="upTitle">Effect</div>
+        <div class="modRow">
+          <div class="modChoice">
+            <div class="modTop">
+              <div class="modName">${feature.name || "Feature Tile"}</div>
+              <div class="modCost">AUTO</div>
+            </div>
+            <div class="modDesc">${feature.desc || "Special map tile."} ${behavior}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    turretHud?.classList.remove("hidden");
+    this._updateTurretHudPosition();
+    return true;
+  }
+
   onClick(x, y) {
     if (this.isUiBlocked()) return;
     // select turret if clicked
@@ -4441,6 +4584,7 @@ class Game {
       this._openCorruptedTileHud(cell);
       return;
     }
+    if (this._openFeatureTileHud(cell)) return;
 
     // select enemy if clicked
     let clickedEnemy = null;
@@ -4968,7 +5112,7 @@ class Game {
         || this.enemies.some((e) => e && e.hp > 0 && (e.isBoss || e.isMiniBoss || e.isFinalBoss));
       musicState.bossCinematic = this.gameState === GAME_STATE.BOSS_CINEMATIC;
     }
-    this.map.drawBase(gfx, musicState);
+    this.map.drawBase(gfx, musicState, this.turrets);
 
     if (this.corePulseT > 0) {
       const end = this.map.pathPts[this.map.pathPts.length - 1];
@@ -5173,6 +5317,75 @@ class Game {
       gfx.strokeStyle = "rgba(98,242,255,0.45)";
       gfx.lineWidth = 2;
       gfx.beginPath(); gfx.arc(tr.x, tr.y, tr.r, 0, Math.PI * 2); gfx.stroke();
+      gfx.restore();
+    }
+
+    // enemy disruption shots
+    for (const shot of this.disruptionShots) {
+      const p = 1 - clamp(shot.t / (shot.dur || 0.42), 0, 1);
+      const ease = 1 - Math.pow(1 - p, 2.4);
+      const x = lerp(shot.ax, shot.bx, ease);
+      const y = lerp(shot.ay, shot.by, ease);
+      const dx = shot.bx - shot.ax;
+      const dy = shot.by - shot.ay;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+      const tail = Math.min(80, len * 0.28);
+      const jitter = Math.sin(performance.now() * 0.045 + x * 0.04) * 4;
+      const nx = -uy * jitter;
+      const ny = ux * jitter;
+      gfx.save();
+      gfx.globalCompositeOperation = "lighter";
+      const grad = gfx.createLinearGradient(x - ux * tail, y - uy * tail, x, y);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(0.35, shot.alt || shot.col || "rgba(98,242,255,0.35)");
+      grad.addColorStop(1, shot.col || "rgba(98,242,255,0.95)");
+      gfx.strokeStyle = grad;
+      gfx.lineCap = "round";
+      gfx.globalAlpha = 0.72;
+      gfx.lineWidth = shot.kind === "slow" ? 5 : 6;
+      gfx.beginPath();
+      gfx.moveTo(x - ux * tail + nx, y - uy * tail + ny);
+      gfx.lineTo(x + nx * 0.25, y + ny * 0.25);
+      gfx.stroke();
+      gfx.globalAlpha = 0.95;
+      gfx.fillStyle = shot.col || "rgba(98,242,255,0.95)";
+      gfx.beginPath();
+      gfx.arc(x, y, shot.kind === "slow" ? 5.5 : 6.5, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.globalAlpha = 0.42;
+      gfx.strokeStyle = shot.alt || shot.col || "rgba(255,255,255,0.85)";
+      gfx.lineWidth = 1.3;
+      gfx.beginPath();
+      gfx.arc(x, y, 13 + Math.sin(performance.now() * 0.018) * 3, 0, Math.PI * 2);
+      gfx.stroke();
+      gfx.restore();
+    }
+
+    // enemy disruption clouds
+    for (const dc of this.disruptionClouds) {
+      const life = clamp(dc.t / (dc.dur || 5), 0, 1);
+      const pulse = 0.72 + 0.28 * Math.sin(performance.now() * 0.006 + dc.x * 0.015);
+      gfx.save();
+      gfx.globalCompositeOperation = "lighter";
+      const grad = gfx.createRadialGradient(dc.x, dc.y, dc.r * 0.12, dc.x, dc.y, dc.r);
+      grad.addColorStop(0, dc.alt || dc.col || "rgba(98,242,255,0.35)");
+      grad.addColorStop(0.58, dc.col || "rgba(98,242,255,0.20)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.globalAlpha = clamp(0.10 + life * 0.16, 0, 0.26) * pulse;
+      gfx.fillStyle = grad;
+      gfx.beginPath();
+      gfx.arc(dc.x, dc.y, dc.r, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.globalAlpha = clamp(0.18 + life * 0.22, 0, 0.40);
+      gfx.strokeStyle = dc.col || "rgba(98,242,255,0.75)";
+      gfx.lineWidth = dc.kind === "slow" ? 1.5 : 2;
+      gfx.setLineDash(dc.kind === "slow" ? [7, 6] : [4, 4]);
+      gfx.beginPath();
+      gfx.arc(dc.x, dc.y, dc.r * (0.86 + pulse * 0.06), 0, Math.PI * 2);
+      gfx.stroke();
+      gfx.setLineDash([]);
       gfx.restore();
     }
 

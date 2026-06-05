@@ -585,6 +585,7 @@ export class Enemy {
     this.scalar = waveScalar;
     this._combatTextCd = 0;
     this._dotTextCd = 0;
+    this._disruptShotT = rand(5.5, 10.5);
 
     this.elite = eliteTag ? { tag: eliteTag } : null;
     if (this.elite) {
@@ -695,6 +696,7 @@ export class Enemy {
     this.pathD = nextPathD;
     const p = game.map.posAt(this.pathD);
     this.x = p.x; this.y = p.y; this.ang = p.ang;
+    this._tryTurretDisruption(game, dt);
 
     // if reached end
     if (this.pathD >= game.map.totalLen - 1) {
@@ -708,6 +710,23 @@ export class Enemy {
     if (this.hitFlashT > 0) this.hitFlashT = Math.max(0, this.hitFlashT - dt);
     this.hitFlash = this.hitFlashDur > 0 ? clamp(this.hitFlashT / this.hitFlashDur, 0, 1) : 0;
     this.pulse += dt * 2.0;
+  }
+
+  _tryTurretDisruption(game, dt) {
+    if (!game?.turrets?.length || this.flying || this.hp <= 0) return;
+    const canDisrupt = this.r >= 15 || this.isBoss || this.isFinalBoss || this.elite?.tag === "HARDENED";
+    if (!canDisrupt) return;
+    this._disruptShotT = (this._disruptShotT ?? rand(5.5, 10.5)) - dt;
+    if (this._disruptShotT > 0) return;
+    const waveBoost = clamp((Number(game.wave) || 1) / Math.max(1, Number(game.waveMax) || 16), 0, 1);
+    this._disruptShotT = rand(7.0, 11.5) - waveBoost * 1.4 + (this.isBoss || this.isFinalBoss ? -1.2 : 0);
+    if (game.gameState === GAME_STATE.BOSS_CINEMATIC) return;
+    const baseChance = this.isBoss || this.isFinalBoss ? 0.74 : this.elite ? 0.46 : 0.34;
+    if (Math.random() > baseChance) return;
+    const kind = Math.random() < (this.isBoss || this.isFinalBoss ? 0.52 : 0.44) ? "jam" : "slow";
+    if (game.spawnTurretDisruptionCloud?.(this, kind)) {
+      this.pulse += 0.8;
+    }
   }
 
   takeHit(game, amount, dmgType, sourceKey = null, sourceTurret = null) {

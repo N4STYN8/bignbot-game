@@ -866,33 +866,60 @@ export class Map {
     gfx.restore();
   }
 
-  _drawBackFieldWaveform(gfx, m, perf) {
+  _drawBackFieldWaveform(gfx, m, perf, turrets = []) {
     if (!m.spectrum?.length || perf < 0.7) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    const baseY = H - this.gridSize * (1.2 + m.bass * 1.6);
-    const maxH = Math.min(H * 0.52, this.gridSize * (3.2 + m.intensity * 9 + m.beat * 2.5));
+    const baseY = H - this.gridSize * (0.95 + m.bass * 1.05);
+    const maxH = Math.min(H * 0.34, this.gridSize * (2.2 + m.intensity * 5.4 + m.beat * 1.35));
+    const spectrum = m.spectrum;
+    const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
+    const relayColumns = Array.isArray(turrets)
+      ? [...new Set(turrets
+        .map((t) => Number.isFinite(t?.gx) ? t.gx : Math.floor((t?.x || 0) / this.gridSize))
+        .filter((gx) => gx >= MAP_EDGE_MARGIN && gx < this.cols - MAP_EDGE_MARGIN))]
+        .sort((a, b) => a - b)
+      : [];
+    const relayCursor = MAP_EDGE_MARGIN + ((m.time * (3.2 + m.tempo * 2.8)) % 1) * cols;
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
     for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx++) {
-      const bandIndex = Math.floor((gx - MAP_EDGE_MARGIN) / cols * m.spectrum.length) % m.spectrum.length;
-      const band = m.spectrum[bandIndex] || 0;
-      const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + gx * 0.34);
-      const height = clamp(maxH * (0.18 + band * 0.96 + m.bass * 0.24 + phase * 0.08), this.gridSize * 0.4, maxH);
+      const pos = (gx - MAP_EDGE_MARGIN) / Math.max(1, cols - 1);
+      const bandIndex = Math.floor(pos * (spectrum.length - 1));
+      const mirrorIndex = Math.floor((1 - pos) * (spectrum.length - 1));
+      const localBand = (sampleBand(bandIndex - 1) + sampleBand(bandIndex) * 2 + sampleBand(bandIndex + 1)) / 4;
+      const mirrorBand = (sampleBand(mirrorIndex - 1) + sampleBand(mirrorIndex) * 2 + sampleBand(mirrorIndex + 1)) / 4;
+      const centerLift = 1 - Math.abs(pos - 0.5) * 0.55;
+      const band = clamp(localBand * 0.45 + mirrorBand * 0.38 + m.intensity * 0.17, 0, 1);
+      const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + Math.abs(pos - 0.5) * 5.2);
+      const height = clamp(maxH * (0.14 + band * 0.62 * centerLift + m.bass * 0.16 + phase * 0.04), this.gridSize * 0.32, maxH);
       const x = gx * this.gridSize + 3;
       const y = baseY - height;
       const w = this.gridSize - 6;
-      const hue = (palette.solid + band * 44 + gx * 1.5) % 360;
+      let relay = null;
+      if (relayColumns.length) {
+        for (const col of relayColumns) {
+          if (col > gx) break;
+          if (relayCursor >= col) relay = col;
+        }
+      }
+      const relayPulse = relay === null
+        ? 0
+        : clamp(1 - Math.abs(gx - relayCursor) / Math.max(2.5, cols * 0.18), 0.18, 1);
+      const relayHue = (42 + Math.sin(m.time * 2.4 + (relay || 0) * 0.27) * 28 + m.high * 44) % 360;
+      const hue = relay === null
+        ? (palette.solid + band * 44 + gx * 1.5) % 360
+        : (relayHue * 0.72 + (palette.accent + band * 28) * 0.28) % 360;
       const alpha = clamp(0.07 + band * 0.24 + m.intensity * 0.08 + m.beat * 0.08, 0.08, 0.36);
       const grad = gfx.createLinearGradient(0, y, 0, baseY);
-      grad.addColorStop(0, `hsla(${hue}, 100%, 68%, ${alpha})`);
-      grad.addColorStop(0.55, `hsla(${palette.accent}, 100%, 54%, ${alpha * 0.60})`);
+      grad.addColorStop(0, `hsla(${hue}, 100%, ${68 + relayPulse * 8}%, ${alpha + relayPulse * 0.06})`);
+      grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : 150}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
       grad.addColorStop(1, `hsla(${hue}, 100%, 42%, 0.02)`);
       gfx.globalAlpha = 1;
       gfx.fillStyle = grad;
       gfx.fillRect(x, y, w, height);
       if (band > 0.34 || m.beat > 0.2) {
-        gfx.globalAlpha = clamp(alpha * 0.75, 0, 0.22);
+        gfx.globalAlpha = clamp(alpha * (0.75 + relayPulse * 0.5), 0, 0.30);
         gfx.strokeStyle = `hsla(${hue}, 100%, 78%, 0.85)`;
         gfx.lineWidth = 1.2;
         gfx.beginPath();
@@ -1426,7 +1453,7 @@ export class Map {
     gfx.restore();
   }
 
-  drawBase(gfx, music = null) {
+  drawBase(gfx, music = null, turrets = []) {
     const area = W * H;
     const perf = area > 7000000 ? 0.5 : area > 3800000 ? 0.7 : 1;
     const gridStep = this.gridSize * (perf < 0.7 ? 2 : 1);
@@ -1452,7 +1479,7 @@ export class Map {
     }
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
-    this._drawBackFieldWaveform(gfx, musicGrid, perf);
+    this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
     this._drawGridEqualizer(gfx, musicGrid, perf);
     this._drawGridSpectrumCells(gfx, musicGrid, perf);
     this._drawGlobalMapVisuals(gfx, musicGrid, perf);

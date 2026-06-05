@@ -60,6 +60,7 @@ export class Map {
     this.powerTilesN = mapData.powerTilesN || [];
     this.poolsN = mapData.poolsN || [];
     this.feature = mapData.feature || null;
+    this.savedFeatureCells = Array.isArray(mapData.featureCells) ? mapData.featureCells.slice() : null;
     this.boundsN = mapData.boundsN || null;
     this.env = mapData.env || ENV_PRESETS[mapData.envId || 0] || ENV_PRESETS[0];
     this._rebuild();
@@ -454,6 +455,32 @@ export class Map {
 
   _rebuildFeatureCells() {
     this.featureCells = new Set();
+    if (Array.isArray(this.savedFeatureCells) && this.savedFeatureCells.length) {
+      for (const saved of this.savedFeatureCells) {
+        let gx = null;
+        let gy = null;
+        if (Array.isArray(saved)) {
+          gx = Number(saved[0]);
+          gy = Number(saved[1]);
+        } else if (saved && typeof saved === "object") {
+          gx = Number(saved.gx);
+          gy = Number(saved.gy);
+        } else {
+          const idx = Number(saved);
+          if (Number.isFinite(idx)) {
+            gx = idx % this.cols;
+            gy = Math.floor(idx / this.cols);
+          }
+        }
+        if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
+        gx = gx | 0;
+        gy = gy | 0;
+        if (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) continue;
+        const idx = gy * this.cols + gx;
+        if (this.cells[idx] === 1 || this.cells[idx] === 2) this.featureCells.add(idx);
+      }
+      return;
+    }
     if (!this.feature?.zones?.length) return;
     const buildNodes = this.feature.key === "AMPLIFIER_NODES";
     for (let gy = 0; gy < this.rows; gy++) {
@@ -870,8 +897,8 @@ export class Map {
     if (!m.spectrum?.length || perf < 0.7) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    const baseY = H - this.gridSize * (0.95 + m.bass * 1.05);
-    const maxH = Math.min(H * 0.34, this.gridSize * (2.2 + m.intensity * 5.4 + m.beat * 1.35));
+    const baseY = H - this.gridSize * (1.05 + m.bass * 1.18);
+    const maxH = Math.min(H * 0.62, this.gridSize * (3.4 + m.intensity * 10.6 + m.beat * 2.8));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
     const relayColumns = Array.isArray(turrets)
@@ -892,7 +919,7 @@ export class Map {
       const centerLift = 1 - Math.abs(pos - 0.5) * 0.55;
       const band = clamp(localBand * 0.45 + mirrorBand * 0.38 + m.intensity * 0.17, 0, 1);
       const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + Math.abs(pos - 0.5) * 5.2);
-      const height = clamp(maxH * (0.14 + band * 0.62 * centerLift + m.bass * 0.16 + phase * 0.04), this.gridSize * 0.32, maxH);
+      const height = clamp(maxH * (0.16 + band * 0.86 * centerLift + m.bass * 0.22 + phase * 0.055), this.gridSize * 0.36, maxH);
       const x = gx * this.gridSize + 3;
       const y = baseY - height;
       const w = this.gridSize - 6;

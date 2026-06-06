@@ -1,5 +1,5 @@
-import { DAMAGE } from "./enemies.js?v=202606052207";
-import { Projectile } from "./projectiles.js?v=202606052207";
+import { DAMAGE } from "./enemies.js?v=202606052235";
+import { Projectile } from "./projectiles.js?v=202606052235";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
 
@@ -1211,6 +1211,10 @@ export class Turret {
       const fillCol = jammed ? "rgba(98,242,255,0.18)" : "rgba(186,112,255,0.16)";
       const glyph = jammed ? "rgba(220,255,255,0.98)" : "rgba(248,214,255,0.98)";
       const flash = clamp((this.disruptFlashT || 0) / 0.9, 0, 1);
+      const remainPct = clamp(remain / 5, 0, 1);
+      const statusRadius = 27 + pulse * 4;
+      const outerRadius = 37 + pulse * 3;
+      const sweepStart = -Math.PI * 0.5 + t * (jammed ? -0.75 : 0.55);
       gfx.save();
       gfx.globalCompositeOperation = "lighter";
       if (flash > 0.01) {
@@ -1226,14 +1230,59 @@ export class Turret {
         gfx.arc(this.x, this.y, 30 + (1 - flash) * 18, 0, Math.PI * 2);
         gfx.fill();
       }
-      gfx.globalAlpha = 0.50 + pulse * 0.28;
-      gfx.strokeStyle = ringCol;
-      gfx.lineWidth = jammed ? 2.4 : 1.8;
-      gfx.setLineDash(jammed ? [4, 4] : [8, 5]);
+
+      const halo = gfx.createRadialGradient(this.x, this.y, 7, this.x, this.y, outerRadius + 22);
+      halo.addColorStop(0, fillCol);
+      halo.addColorStop(0.56, jammed ? "rgba(98,242,255,0.09)" : "rgba(186,112,255,0.08)");
+      halo.addColorStop(1, "rgba(0,0,0,0)");
+      gfx.globalAlpha = 0.36 + pulse * 0.16;
+      gfx.fillStyle = halo;
       gfx.beginPath();
-      gfx.arc(this.x, this.y, 24 + pulse * 5, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * clamp(remain / 5, 0, 1));
+      gfx.arc(this.x, this.y, outerRadius + 18, 0, Math.PI * 2);
+      gfx.fill();
+
+      gfx.globalAlpha = 0.24 + pulse * 0.14;
+      gfx.strokeStyle = jammed ? "rgba(170,252,255,0.62)" : "rgba(237,178,255,0.58)";
+      gfx.lineWidth = 1.2;
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, outerRadius, 0, Math.PI * 2);
+      gfx.stroke();
+
+      const tickCount = 24;
+      const activeTicks = Math.ceil(tickCount * remainPct);
+      for (let i = 0; i < tickCount; i++) {
+        const a = -Math.PI * 0.5 + i * Math.PI * 2 / tickCount;
+        const isActive = i < activeTicks;
+        const tickPulse = isActive ? 0.75 + 0.25 * Math.sin(t * 7 + i * 0.8) : 0.35;
+        const r0 = outerRadius - (isActive ? 5.2 : 3.2);
+        const r1 = outerRadius + (isActive ? 3.5 : 1.4);
+        gfx.globalAlpha = isActive
+          ? clamp(0.28 + tickPulse * 0.42 + flash * 0.22, 0, 0.88)
+          : 0.12;
+        gfx.strokeStyle = isActive ? ringCol : (jammed ? "rgba(98,242,255,0.28)" : "rgba(186,112,255,0.24)");
+        gfx.lineWidth = isActive ? 2.2 : 1;
+        gfx.beginPath();
+        gfx.moveTo(this.x + Math.cos(a) * r0, this.y + Math.sin(a) * r0);
+        gfx.lineTo(this.x + Math.cos(a) * r1, this.y + Math.sin(a) * r1);
+        gfx.stroke();
+      }
+
+      gfx.globalAlpha = 0.58 + pulse * 0.26;
+      gfx.strokeStyle = ringCol;
+      gfx.lineWidth = jammed ? 2.6 : 2.1;
+      gfx.setLineDash(jammed ? [5, 4] : [9, 5]);
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, statusRadius, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * remainPct);
       gfx.stroke();
       gfx.setLineDash([]);
+
+      gfx.globalAlpha = 0.20 + pulse * 0.16;
+      gfx.strokeStyle = glyph;
+      gfx.lineWidth = 1;
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, statusRadius + 6, sweepStart, sweepStart + Math.PI * 0.64);
+      gfx.stroke();
+
       gfx.globalAlpha = 0.34 + pulse * 0.16;
       gfx.fillStyle = fillCol;
       gfx.beginPath();
@@ -1264,8 +1313,8 @@ export class Turret {
       const sparks = jammed ? 5 : 4;
       for (let i = 0; i < sparks; i++) {
         const a = t * (jammed ? -4.2 : 3.1) + i * Math.PI * 2 / sparks;
-        const rr = 31 + Math.sin(t * 6 + i) * 4;
-        gfx.globalAlpha = 0.42 + pulse * 0.35;
+        const rr = 33 + Math.sin(t * 6 + i) * 5;
+        gfx.globalAlpha = 0.46 + pulse * 0.38;
         gfx.fillStyle = i % 2 ? ringCol : glyph;
         gfx.beginPath();
         gfx.arc(this.x + Math.cos(a) * rr, this.y + Math.sin(a) * rr, jammed ? 2.2 : 1.8, 0, Math.PI * 2);

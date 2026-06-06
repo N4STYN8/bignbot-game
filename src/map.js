@@ -994,7 +994,7 @@ export class Map {
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
     const baseY = H - this.gridSize * (0.42 + m.bass * 0.42);
-    const maxH = Math.min(H * 0.86, this.gridSize * (6.2 + m.intensity * 18.5 + m.bass * 8.2 + m.beat * 6.6 + m.drop * 5.2));
+    const maxH = Math.min(H * 0.54, this.gridSize * (3.8 + m.intensity * 10.8 + m.bass * 5.2 + m.beat * 4.2 + m.drop * 3.2));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
     const relayColumns = Array.isArray(turrets)
@@ -1022,11 +1022,11 @@ export class Map {
       const columnBeat = 0.6 + 0.4 * Math.sin(m.time * (7 + m.tempo * 5) + gx * 0.72);
       const height = clamp(maxH * (
         0.10
-        + band * 0.96 * centerLift
-        + bandSnap * 0.42
-        + beatKick * (0.26 + columnBeat * 0.20)
-        + m.mid * 0.10
-        + m.high * 0.06
+        + band * 0.72 * centerLift
+        + bandSnap * 0.30
+        + beatKick * (0.18 + columnBeat * 0.14)
+        + m.mid * 0.075
+        + m.high * 0.045
         + phase * 0.055
       ), this.gridSize * 0.55, maxH);
       const x = gx * this.gridSize + 3;

@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606052137";
-import { Map } from "./map.js?v=202606052137";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052137";
-import { Particles } from "./vfx.js?v=202606052137";
-import { Projectile } from "./projectiles.js?v=202606052137";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052137";
-import { MusicVisualizer } from "./visualization.js?v=202606052137";
+import { AudioSystem } from "./audio.js?v=202606052144";
+import { Map } from "./map.js?v=202606052144";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052144";
+import { Particles } from "./vfx.js?v=202606052144";
+import { Projectile } from "./projectiles.js?v=202606052144";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052144";
+import { MusicVisualizer } from "./visualization.js?v=202606052144";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -1348,12 +1348,12 @@ class Game {
     const radius = this.map.gridSize * 1.55;
     const candidates = [];
     for (const t of this.turrets) {
-      if (!t || t.disruptJamT > 0) continue;
+      if (!t || t.boosted || t.disruptJamT > 0) continue;
       const reach = Math.max(260, this.map.gridSize * (6 + Math.min(4, this.wave * 0.12)));
       if (dist2(enemy.x, enemy.y, t.x, t.y) > reach * reach) continue;
       let cluster = 0;
       for (const other of this.turrets) {
-        if (!other || other === t) continue;
+        if (!other || other === t || other.boosted) continue;
         if (dist2(t.x, t.y, other.x, other.y) <= radius * radius) cluster++;
       }
       candidates.push({ turret: t, score: cluster * 3 + Math.random() * 2 + (t.level || 0) * 0.35 });
@@ -1363,7 +1363,7 @@ class Game {
     const target = candidates[Math.min(candidates.length - 1, Math.floor(Math.random() * Math.min(3, candidates.length)))].turret;
     const affected = [];
     for (const t of this.turrets) {
-      if (!t || dist2(target.x, target.y, t.x, t.y) > radius * radius) continue;
+      if (!t || t.boosted || dist2(target.x, target.y, t.x, t.y) > radius * radius) continue;
       affected.push(t);
     }
     if (!affected.length) return false;
@@ -1400,7 +1400,7 @@ class Game {
     shot.applied = true;
     const affected = Array.isArray(shot.affected) ? shot.affected : [];
     for (const t of affected) {
-      if (!t) continue;
+      if (!t || t.boosted) continue;
       if (shot.kind === "slow") {
         t.disruptSlowT = Math.max(t.disruptSlowT || 0, 5);
         t.disruptKind = "slow";

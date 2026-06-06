@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606051917";
-import { Map } from "./map.js?v=202606051917";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606051917";
-import { Particles } from "./vfx.js?v=202606051917";
-import { Projectile } from "./projectiles.js?v=202606051917";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606051917";
-import { MusicVisualizer } from "./visualization.js?v=202606051917";
+import { AudioSystem } from "./audio.js?v=202606052027";
+import { Map } from "./map.js?v=202606052027";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052027";
+import { Particles } from "./vfx.js?v=202606052027";
+import { Projectile } from "./projectiles.js?v=202606052027";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052027";
+import { MusicVisualizer } from "./visualization.js?v=202606052027";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -901,8 +901,9 @@ class Game {
     const maxTrackD = TRACK_RADIUS + this.map.gridSize * 3;
     if (trackD > maxTrackD) return false;
 
-    // Random candidate band must be no more than 3 tiles from track.
+    // Random candidate band should pressure nearby building without blocking the first track ring.
     // Use Manhattan distance so "3 tiles away" is intuitive.
+    const minTiles = 2;
     const maxTiles = 3;
     let nearest = Infinity;
     for (let oy = -maxTiles; oy <= maxTiles; oy++) {
@@ -917,7 +918,7 @@ class Game {
         if (md < nearest) nearest = md;
       }
     }
-    return nearest >= 1 && nearest <= maxTiles;
+    return nearest >= minTiles && nearest <= maxTiles;
   }
 
   _trackTileDistance(gx, gy) {
@@ -979,12 +980,7 @@ class Game {
         if (cell.v !== 1 && cell.v !== 3) continue;
         const key = this._tileKey(gx, gy);
         const prev = this.map.tilesByCell[key] || {};
-        const center = this.map.worldFromCell(gx, gy);
-        const trackD = Math.sqrt(distanceToSegmentsSquared(center.x, center.y, this.map.segs || []));
-        const savedCorruptionValid = cell.v === 1
-          && this.map.isCorruptionSafeCell(gx, gy, cell.v)
-          && !this.map.featureAtCell?.(gx, gy)
-          && trackD <= TRACK_RADIUS + this.map.gridSize * 3;
+        const savedCorruptionValid = this._isTrackAdjacentBuildCell(gx, gy, cell.v);
         this.map.tilesByCell[key] = {
           gx,
           gy,
@@ -1039,7 +1035,7 @@ class Game {
       if (selected.length >= target) break;
       const d = this._trackTileDistance(c.gx, c.gy);
       const near = nearbyCount(c);
-      const distBias = d <= 1 ? 0.92 : (d === 2 ? 0.68 : 0.5);
+      const distBias = d === 2 ? 0.86 : (d === 3 ? 0.62 : 0.35);
       const spreadBias = near <= 0 ? 1 : (near === 1 ? 0.7 : 0.35);
       const acceptP = distBias * spreadBias;
       if (rng() > acceptP) continue;

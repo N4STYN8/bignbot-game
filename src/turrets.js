@@ -1,5 +1,5 @@
-import { DAMAGE } from "./enemies.js?v=202606052154";
-import { Projectile } from "./projectiles.js?v=202606052154";
+import { DAMAGE } from "./enemies.js?v=202606052207";
+import { Projectile } from "./projectiles.js?v=202606052207";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
 
@@ -484,6 +484,7 @@ export class Turret {
     this.pulseBoostT = 0;
     this.disruptJamT = 0;
     this.disruptSlowT = 0;
+    this.disruptFlashT = 0;
     this.disruptKind = null;
     this.targetMode = "FIRST";
     this.boosted = false;
@@ -621,6 +622,7 @@ export class Turret {
     if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - visualDt * 5.0);
     if (this.disruptJamT > 0) this.disruptJamT = Math.max(0, this.disruptJamT - visualDt);
     if (this.disruptSlowT > 0) this.disruptSlowT = Math.max(0, this.disruptSlowT - visualDt);
+    if (this.disruptFlashT > 0) this.disruptFlashT = Math.max(0, this.disruptFlashT - visualDt);
     if (this.disruptJamT <= 0 && this.disruptSlowT <= 0) this.disruptKind = null;
     if (this.pulseBoostT > 0) {
       const realDt = game._realDt || dt;
@@ -1208,9 +1210,23 @@ export class Turret {
       const ringCol = jammed ? "rgba(98,242,255,0.94)" : "rgba(186,112,255,0.94)";
       const fillCol = jammed ? "rgba(98,242,255,0.18)" : "rgba(186,112,255,0.16)";
       const glyph = jammed ? "rgba(220,255,255,0.98)" : "rgba(248,214,255,0.98)";
+      const flash = clamp((this.disruptFlashT || 0) / 0.9, 0, 1);
       gfx.save();
       gfx.globalCompositeOperation = "lighter";
-      gfx.globalAlpha = 0.42 + pulse * 0.24;
+      if (flash > 0.01) {
+        gfx.globalAlpha = 0.28 + flash * 0.48;
+        gfx.strokeStyle = jammed ? "rgba(158,255,255,0.98)" : "rgba(238,178,255,0.98)";
+        gfx.lineWidth = 2 + flash * 2.2;
+        gfx.beginPath();
+        gfx.arc(this.x, this.y, 18 + (1 - flash) * 38, 0, Math.PI * 2);
+        gfx.stroke();
+        gfx.globalAlpha = 0.12 + flash * 0.20;
+        gfx.fillStyle = fillCol;
+        gfx.beginPath();
+        gfx.arc(this.x, this.y, 30 + (1 - flash) * 18, 0, Math.PI * 2);
+        gfx.fill();
+      }
+      gfx.globalAlpha = 0.50 + pulse * 0.28;
       gfx.strokeStyle = ringCol;
       gfx.lineWidth = jammed ? 2.4 : 1.8;
       gfx.setLineDash(jammed ? [4, 4] : [8, 5]);
@@ -1218,12 +1234,12 @@ export class Turret {
       gfx.arc(this.x, this.y, 24 + pulse * 5, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * clamp(remain / 5, 0, 1));
       gfx.stroke();
       gfx.setLineDash([]);
-      gfx.globalAlpha = 0.28 + pulse * 0.12;
+      gfx.globalAlpha = 0.34 + pulse * 0.16;
       gfx.fillStyle = fillCol;
       gfx.beginPath();
       gfx.arc(this.x, this.y, 18 + pulse * 3, 0, Math.PI * 2);
       gfx.fill();
-      gfx.globalAlpha = 0.36 + pulse * 0.38;
+      gfx.globalAlpha = 0.44 + pulse * 0.42;
       gfx.strokeStyle = glyph;
       gfx.lineWidth = 2.2;
       if (jammed) {

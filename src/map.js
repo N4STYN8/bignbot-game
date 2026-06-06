@@ -993,7 +993,7 @@ export class Map {
     if (!m.spectrum?.length || perf < 0.7) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    const baseY = H - this.gridSize * (0.78 + m.bass * 0.72);
+    const baseY = H - this.gridSize * (0.42 + m.bass * 0.42);
     const maxH = Math.min(H * 0.86, this.gridSize * (6.2 + m.intensity * 18.5 + m.bass * 8.2 + m.beat * 6.6 + m.drop * 5.2));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;

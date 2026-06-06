@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606052154";
-import { Map } from "./map.js?v=202606052154";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052154";
-import { Particles } from "./vfx.js?v=202606052154";
-import { Projectile } from "./projectiles.js?v=202606052154";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052154";
-import { MusicVisualizer } from "./visualization.js?v=202606052154";
+import { AudioSystem } from "./audio.js?v=202606052207";
+import { Map } from "./map.js?v=202606052207";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052207";
+import { Particles } from "./vfx.js?v=202606052207";
+import { Projectile } from "./projectiles.js?v=202606052207";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052207";
+import { MusicVisualizer } from "./visualization.js?v=202606052207";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -1324,7 +1324,9 @@ class Game {
     decay(this.decals);
     decay(this.lingering);
     decay(this.disruptionClouds);
-    for (const shot of this.disruptionShots) {
+    for (let i = this.disruptionShots.length - 1; i >= 0; i--) {
+      const shot = this.disruptionShots[i];
+      shot.t -= dtScaled;
       const elapsed = (shot.dur || 1) - (shot.t || 0);
       const impactAt = (shot.charge || 0) + (shot.travel || 0);
       if (!shot.shotSoundPlayed && elapsed >= (shot.charge || 0)) {
@@ -1332,8 +1334,8 @@ class Game {
         this.audio?.playLimited?.(shot.kind === "slow" ? "enemy_disrupt_slow_shot" : "enemy_disrupt_jam_shot", 320);
       }
       if (!shot.applied && elapsed >= impactAt) this._applyTurretDisruptionImpact(shot);
+      if (shot.t <= 0) this.disruptionShots.splice(i, 1);
     }
-    decay(this.disruptionShots);
     this.particles.update(dtScaled);
     for (let i = this.floatText.length - 1; i >= 0; i--) {
       const ft = this.floatText[i];
@@ -1409,6 +1411,7 @@ class Game {
         t.disruptKind = "jam";
         t.cool = Math.max(t.cool || 0, 0.18);
       }
+      t.disruptFlashT = Math.max(t.disruptFlashT || 0, 0.9);
     }
     const radius = shot.radius || this.map?.gridSize * 1.55 || 74;
     this.disruptionClouds.push({

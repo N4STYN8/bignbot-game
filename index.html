@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>ORBIT ECHO: Turret Defence</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=202606052137">
 </head>
 <body>
   <div id="app" class="layout">
@@ -48,8 +48,8 @@
           </div>
 
           <div class="versionStamp" aria-label="Build version">
-            <span class="versionValue">v2026.06.05.2027</span>
-            <span class="versionDate">2026-06-05 20:27 -04:00</span>
+            <span class="versionValue">v2026.06.05.2137</span>
+            <span class="versionDate">2026-06-05 21:37 -04:00</span>
           </div>
         </div>
 
@@ -211,12 +211,20 @@
             <button id="closeHelp" class="btn ghost">Close</button>
           </div>
           <div class="overlayBody">
+            <div class="howIntro">
+              <div class="howIntroTitle">Field Manual</div>
+              <div class="howIntroText">
+                Build a defence network, survive 16 waves, defeat the main boss, and push your run score onto the pilot leaderboard.
+                The battlefield changes by level, objective, music visual mode, and map feature.
+              </div>
+            </div>
+
             <div class="howGrid">
-              <div class="howBlock">
+              <div class="howBlock wide">
                 <div class="howH">Goal</div>
                 <div class="howP">
                   Protect the Core through <b>16 waves</b> per level. Enemies follow the path; each leak costs lives.
-                  On wave 16, the level only clears after the <b>Main Boss</b> is defeated.
+                  Wave 16 is the boss wave, and the level only clears after the <b>Main Boss</b> is defeated.
                 </div>
               </div>
 
@@ -224,7 +232,7 @@
                 <div class="howH">Basic Flow</div>
                 <div class="howP">
                   Pick a turret on the left, place it on a glowing build tile, then press <b>START</b>.
-                  Kill enemies for gold, upgrade your best towers, and prepare before the next wave.
+                  Kill enemies for gold, upgrade your best towers, cleanse bad tiles, and prepare before the next wave.
                 </div>
               </div>
 
@@ -232,7 +240,7 @@
                 <div class="howH">Waves & Skip</div>
                 <div class="howP">
                   After a wave ends, the next wave starts after the intermission. Press <b>SKIP</b> to launch early
-                  and gain a short damage/fire-rate bonus plus extra gold.
+                  and gain a short damage/fire-rate bonus plus extra gold. Skipping is useful when your defence is stable.
                 </div>
               </div>
 
@@ -240,7 +248,8 @@
                 <div class="howH">Turrets</div>
                 <div class="howP">
                   Turrets have different jobs: single-target, chain, cone slow, beam, splash, poison, sniper,
-                  support, drones, and traps. Select a turret to sell it, change targeting, or upgrade it.
+                  support, drones, and traps. Select a turret to upgrade it, sell it, or change how it targets enemies.
+                  Most turret types have build caps, while Pulse Spindle has a higher cap for basic coverage.
                 </div>
               </div>
 
@@ -256,7 +265,25 @@
                 <div class="howH">Tiles</div>
                 <div class="howP">
                   Build tiles can be blocked by <b>Corruption</b>; cleanse them with gold. Locked <b>Power Tiles</b>
-                  can be bought later and boost turrets placed on them.
+                  can be bought later and boost turrets placed on them. Power tiles are gold, corrupted tiles are red,
+                  and normal build tiles are the safe places to expand.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Map Features</div>
+                <div class="howP">
+                  Each level can roll a special feature: <b>Amplifier Nodes</b> boost turrets built on cyan pads,
+                  <b>Cryo Patches</b> slow enemies on blue lane tiles, <b>Salvage Relays</b> add bonus gold on kills,
+                  and <b>Phase Lanes</b> speed enemies up through violet track sections.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Power-Up Tokens</div>
+                <div class="howP">
+                  Clearing a level awards power-up tokens. Use the small plus signs on the ability HUD to upgrade
+                  EMP Pulse, Pulse Burst, or Overcharge. Higher ability levels cost more tokens, so saving them can matter.
                 </div>
               </div>
 
@@ -272,15 +299,25 @@
                 <div class="howH">Enemy Traits</div>
                 <div class="howP">
                   Watch for armor, shields, flying enemies that avoid traps, stealth enemies that need reveal,
-                  splitters, regenerators, shield drones, blinkers, minibosses, and final bosses.
+                  splitters, regenerators, shield drones, blinkers, minibosses, and final bosses. Larger enemies can
+                  disrupt nearby turrets, so avoid packing every tower into one tight cluster.
                 </div>
               </div>
 
               <div class="howBlock">
                 <div class="howH">Abilities</div>
                 <div class="howP">
-                  Use <b>EMP</b> to break shields, <b>Pulse Burst</b> to supercharge one turret, and
-                  <b>Overcharge</b> to speed up all turrets. Keys <b>1/2/3</b> trigger them.
+                  <b>EMP Pulse</b> sends an electric wave from the map center, damaging and disabling shields.
+                  <b>Pulse Burst</b> boosts a selected turret for focused damage. <b>Overcharge</b> speeds up your turret network.
+                  Keys <b>1/2/3</b> trigger them.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Objectives</div>
+                <div class="howP">
+                  Levels can add optional objectives such as timed assault, boss intercept, combo goals, or defensive challenges.
+                  Completing objectives improves the run and gives the level a different strategic rhythm.
                 </div>
               </div>
 
@@ -293,16 +330,49 @@
               </div>
 
               <div class="howBlock">
-                <div class="howH">Controls</div>
+                <div class="howH">Music & Visuals</div>
                 <div class="howP">
-                  Drag to pan, mouse wheel to zoom, right-click or <b>Esc</b> to cancel build mode, and use the
-                  speed button to cycle <b>1x/2x/3x/4x</b>.
+                  The music HUD controls play, pause, previous, next, repeat, shuffle, mute, seek, and volume.
+                  The battlefield grid reacts to the current song. Press <b>V</b> to cycle visual modes.
+                </div>
+              </div>
+
+              <div class="howBlock">
+                <div class="howH">Leaderboard</div>
+                <div class="howP">
+                  Use <b>PILOT</b> to create or load your pilot profile. The global leaderboard tracks run progress,
+                  levels cleared, score, and high combo streak so other players can compare runs.
+                </div>
+              </div>
+
+              <div class="howBlock wide">
+                <div class="howH">Hot Keys</div>
+                <div class="hotkeyGrid">
+                  <div><b>1</b><span>EMP Pulse</span></div>
+                  <div><b>2</b><span>Pulse Burst</span></div>
+                  <div><b>3</b><span>Overcharge</span></div>
+                  <div><b>V</b><span>Cycle music visualization</span></div>
+                  <div><b>Esc</b><span>Cancel build mode</span></div>
+                  <div><b>Right-click</b><span>Cancel build / alternate camera drag</span></div>
+                  <div><b>Mouse wheel</b><span>Zoom battlefield</span></div>
+                  <div><b>Drag</b><span>Pan camera</span></div>
+                </div>
+              </div>
+
+              <div class="howBlock wide">
+                <div class="howH">Strategy Tips</div>
+                <div class="howList">
+                  <div>Mix damage types so armor, shields, flying enemies, and stealth enemies do not stall your run.</div>
+                  <div>Cleanse corrupted tiles near the track when they block strong build positions.</div>
+                  <div>Use power tiles and amplifier nodes for high-value turrets, not throwaway coverage.</div>
+                  <div>Keep some turret spacing so large enemy disruption clouds do not shut down your whole defence.</div>
+                  <div>Hold combo streaks for better income, but do not overbuild so hard that upgrade timing suffers.</div>
                 </div>
               </div>
             </div>
           </div>
           <div class="overlayFooter">
-            <div class="tiny">Runs locally. No frameworks. Canvas-rendered with layered glow & particles.</div>
+            <div class="tiny">Tip: press PILOT before a serious run so leaderboard progress can be saved to your pilot profile.</div>
           </div>
         </div>
       </div>
@@ -586,7 +656,7 @@
   <script>
     window.ORBIT_ECHO_LEADERBOARD_API = "https://orbit-echo-leaderboard.nathan-scally.workers.dev";
   </script>
-  <script type="module" src="src/core.js?v=202606052027"></script>
+  <script type="module" src="src/core.js?v=202606052137"></script>
 </body>
 </html>
 

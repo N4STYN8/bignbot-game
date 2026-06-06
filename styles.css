@@ -1965,6 +1965,25 @@ body{
 .overlayBody{padding:14px; overflow:auto}
 .overlayFooter{padding:12px 14px; border-top:1px solid rgba(28,42,90,.7); color:var(--muted)}
 
+.howIntro{
+  margin-bottom:12px;
+  padding:13px 14px;
+  border:1px solid rgba(98,242,255,.36);
+  background:linear-gradient(135deg, rgba(98,242,255,.10), rgba(154,108,255,.08));
+}
+.howIntroTitle{
+  font-weight:950;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(134,250,255,.96);
+  font-size:12px;
+}
+.howIntroText{
+  margin-top:7px;
+  color:rgba(239,245,255,.86);
+  font-size:13px;
+  line-height:1.45;
+}
 .howGrid{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -1976,8 +1995,48 @@ body{
   border:1px solid rgba(28,42,90,.75);
   background: rgba(7,10,18,.38);
 }
+.howBlock.wide{grid-column:1 / -1}
 .howH{font-weight:950; letter-spacing:.06em}
 .howP{margin-top:6px; color:var(--muted); font-size:12px; line-height:1.4}
+.hotkeyGrid{
+  margin-top:9px;
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+}
+.hotkeyGrid div{
+  min-height:42px;
+  padding:8px;
+  border:1px solid rgba(98,242,255,.22);
+  background:rgba(11,16,34,.48);
+}
+.hotkeyGrid b{
+  display:block;
+  color:rgba(255,207,91,.96);
+  font-family:var(--mono);
+  font-size:12px;
+}
+.hotkeyGrid span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.25;
+}
+.howList{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.howList div{
+  padding:8px 9px;
+  border-left:2px solid rgba(98,242,255,.52);
+  background:rgba(7,10,18,.42);
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+}
 
 .toast{
   position:absolute;
@@ -2317,6 +2376,8 @@ body{
 @media (max-width: 1100px){
   .panel{width: 320px}
   .howGrid{grid-template-columns: 1fr}
+  .hotkeyGrid{grid-template-columns:1fr 1fr}
+  .howList{grid-template-columns:1fr}
 }
 
 @media (max-width: 900px){
@@ -2365,6 +2426,7 @@ body{
   .musicHudBottom{grid-template-columns:38px minmax(90px, 1fr) 38px; gap:6px;}
   .musicVolume{grid-column:1 / -1;}
   .comboCascade{top:112px; left:0; right:0; width:min(250px, calc(100vw - 20px)); margin:0 auto;}
+  .hotkeyGrid{grid-template-columns:1fr}
 }
 
 @media (max-width: 960px){

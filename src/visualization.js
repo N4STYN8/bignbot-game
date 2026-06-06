@@ -49,7 +49,7 @@ export class MusicVisualizer {
     this.last = performance.now();
     this.timeSeconds = this.last * 0.001;
     this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, snap: 0, drop: 0, tempo: 0.5 };
-    this.spectrum = new Array(24).fill(0.18);
+    this.spectrum = new Array(32).fill(0.18);
     this.beatAvg = 0.12;
     this.previousBass = 0;
     this.previousHigh = 0;
@@ -79,8 +79,8 @@ export class MusicVisualizer {
       if (!this.audioContext) {
         this.audioContext = new AudioContextCtor();
         this.analyser = this.audioContext.createAnalyser();
-        this.analyser.fftSize = 1024;
-        this.analyser.smoothingTimeConstant = 0.84;
+        this.analyser.fftSize = 2048;
+        this.analyser.smoothingTimeConstant = 0.70;
         this.analyser.connect(this.audioContext.destination);
         this.freq = new Uint8Array(this.analyser.frequencyBinCount);
         this.time = new Uint8Array(this.analyser.fftSize);
@@ -193,30 +193,34 @@ export class MusicVisualizer {
     if (hasAudio) {
       this.analyser.getByteFrequencyData(this.freq);
       this.analyser.getByteTimeDomainData(this.time);
-      const bass = this._avg(this.freq, 0, 18) / 255;
-      const mid = this._avg(this.freq, 18, 120) / 255;
-      const high = this._avg(this.freq, 120, 360) / 255;
+      const bass = Math.pow(this._avg(this.freq, 0, 24) / 255, 0.72);
+      const mid = Math.pow(this._avg(this.freq, 24, 170) / 255, 0.78);
+      const high = Math.pow(this._avg(this.freq, 170, 520) / 255, 0.70);
       this._updateSpectrumFromAnalyser();
       let waveSum = 0;
       for (let i = 0; i < this.time.length; i++) waveSum += Math.abs(this.time[i] - 128);
       const wave = clamp01((waveSum / this.time.length) / 64);
-      const instant = bass * 0.72 + mid * 0.18 + high * 0.10;
-      this.beatAvg = lerp(this.beatAvg, instant, 0.035);
-      const spike = instant > this.beatAvg * 1.38 && bass > 0.18 ? 1 : 0;
+      const instant = clamp01(bass * 0.66 + mid * 0.22 + high * 0.12 + wave * 0.10);
+      this.beatAvg = lerp(this.beatAvg, instant, instant > this.beatAvg ? 0.018 : 0.045);
       const bassJump = Math.max(0, bass - this.previousBass);
       const highJump = Math.max(0, high - this.previousHigh);
-      const snap = highJump > 0.085 && high > 0.16 ? 1 : 0;
-      const drop = spike && bassJump > 0.14 && instant > this.beatAvg * 1.62 && this.dropCooldown <= 0 ? 1 : 0;
+      const beatPower = clamp01((instant - this.beatAvg * 1.08) / (this.beatAvg * 0.55 + 0.055) + bassJump * 1.85);
+      const spike = beatPower > 0.28 && bass > 0.14 ? beatPower : 0;
+      const snapPower = clamp01((highJump - 0.030) * 6.4 + high * 0.36 + wave * 0.08);
+      const snap = snapPower > 0.24 && high > 0.12 ? snapPower : 0;
+      const drop = spike > 0.72 && bassJump > 0.10 && instant > this.beatAvg * 1.36 && this.dropCooldown <= 0
+        ? clamp01(0.65 + spike * 0.35 + bassJump * 1.2)
+        : 0;
       if (spike) this._registerBeat(this.timeSeconds);
       if (drop) this.dropCooldown = 1.4;
-      this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.5);
-      this.energy.snap = Math.max(snap, this.energy.snap - dt * 7.5);
-      this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.6);
-      this.energy.bass = lerp(this.energy.bass, bass, 0.22);
-      this.energy.mid = lerp(this.energy.mid, mid, 0.18);
-      this.energy.high = lerp(this.energy.high, high, 0.18);
-      this.energy.wave = lerp(this.energy.wave, wave, 0.2);
-      this.energy.intensity = lerp(this.energy.intensity, instant, 0.16);
+      this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.8);
+      this.energy.snap = Math.max(snap, this.energy.snap - dt * 8.0);
+      this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.5);
+      this.energy.bass = lerp(this.energy.bass, bass, 0.34);
+      this.energy.mid = lerp(this.energy.mid, mid, 0.26);
+      this.energy.high = lerp(this.energy.high, high, 0.30);
+      this.energy.wave = lerp(this.energy.wave, wave, 0.28);
+      this.energy.intensity = lerp(this.energy.intensity, instant, 0.26);
       this.energy.tempo = lerp(this.energy.tempo, clamp01(0.3 + (0.72 / this.beatInterval) * 0.32), 0.08);
       this.previousBass = bass;
       this.previousHigh = high;
@@ -254,9 +258,9 @@ export class MusicVisualizer {
     const snare = Math.pow(Math.max(0, 1 - offBeatPos * 7), 2.4);
     const bar = (beatIndex % 16) / 16;
     const phraseLift = 0.65 + 0.35 * Math.sin((bar * Math.PI * 2) + profile.phase);
-    const bass = clamp01(0.18 + kick * profile.bass + 0.12 * Math.sin(t * 1.7 + profile.phase));
-    const mid = clamp01(0.20 + phraseLift * profile.mid * 0.55 + snare * 0.32 + 0.10 * Math.sin(t * 2.4 + profile.phase));
-    const high = clamp01(0.12 + profile.high * (0.35 + 0.35 * Math.sin(t * 5.8 + profile.phase)) + snare * 0.28);
+    const bass = clamp01(0.18 + kick * profile.bass * 1.06 + 0.14 * Math.sin(t * 1.7 + profile.phase));
+    const mid = clamp01(0.20 + phraseLift * profile.mid * 0.62 + snare * 0.38 + 0.12 * Math.sin(t * 2.4 + profile.phase));
+    const high = clamp01(0.12 + profile.high * (0.38 + 0.42 * Math.sin(t * 5.8 + profile.phase)) + snare * 0.34);
     const wave = clamp01(0.16 + bass * 0.38 + mid * 0.28 + high * 0.18);
     const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
     this._updateTimedSpectrum(t, profile, bass, mid, high);
@@ -272,11 +276,11 @@ export class MusicVisualizer {
     this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
     this.energy.snap = Math.max(newSnap ? 1 : 0, this.energy.snap - dt * 8.2);
     this.energy.drop = Math.max(drop ? 1 : 0, this.energy.drop - dt * 2.6);
-    this.energy.bass = lerp(this.energy.bass, bass, 0.24);
-    this.energy.mid = lerp(this.energy.mid, mid, 0.20);
-    this.energy.high = lerp(this.energy.high, high, 0.20);
-    this.energy.wave = lerp(this.energy.wave, wave, 0.22);
-    this.energy.intensity = lerp(this.energy.intensity, instant, 0.18);
+    this.energy.bass = lerp(this.energy.bass, bass, 0.32);
+    this.energy.mid = lerp(this.energy.mid, mid, 0.26);
+    this.energy.high = lerp(this.energy.high, high, 0.30);
+    this.energy.wave = lerp(this.energy.wave, wave, 0.28);
+    this.energy.intensity = lerp(this.energy.intensity, instant, 0.24);
     this.energy.tempo = lerp(this.energy.tempo, clamp01((profile.bpm - 82) / 62), 0.12);
     this.previousBass = bass;
     this.previousHigh = high;
@@ -294,9 +298,10 @@ export class MusicVisualizer {
     if (!this.freq?.length) return;
     for (let i = 0; i < this.spectrum.length; i++) {
       const p = i / Math.max(1, this.spectrum.length - 1);
-      const start = Math.floor(Math.pow(p, 1.55) * Math.min(330, this.freq.length - 2));
-      const end = Math.max(start + 2, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.55) * Math.min(360, this.freq.length)));
-      this.spectrum[i] = lerp(this.spectrum[i], this._avg(this.freq, start, end) / 255, 0.24);
+      const start = Math.floor(Math.pow(p, 1.42) * Math.min(620, this.freq.length - 2));
+      const end = Math.max(start + 3, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.42) * Math.min(660, this.freq.length)));
+      const shaped = Math.pow(this._avg(this.freq, start, end) / 255, 0.68);
+      this.spectrum[i] = lerp(this.spectrum[i], shaped, 0.34);
     }
   }
 

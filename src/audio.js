@@ -106,6 +106,12 @@ export class AudioSystem {
       turret_aura: ["assets/sfx/sfx_turret_aura.wav"],
       turret_drone: ["assets/sfx/sfx_turret_drone.wav"],
       turret_trap: ["assets/sfx/sfx_turret_trap.wav"],
+      enemy_disrupt_charge: ["assets/sfx/sfx_enemy_disrupt_charge.wav.wav"],
+      enemy_disrupt_jam_shot: ["assets/sfx/sfx_enemy_disrupt_jam_shot.wav.wav"],
+      enemy_disrupt_slow_shot: ["assets/sfx/sfx_enemy_disrupt_slow_shot.wav.wav"],
+      enemy_disrupt_jam_impact: ["assets/sfx/sfx_enemy_disrupt_jam_impact.wav.wav"],
+      enemy_disrupt_slow_impact: ["assets/sfx/sfx_enemy_disrupt_slow_impact.wav.wav"],
+      turret_disrupted_pulse: ["assets/sfx/sfx_turret_disrupted_pulse.wav.wav"],
       abilities_btn: ["assets/sfx/sfx_abilities_btn.wav"],
       explodingboss: ["assets/sfx/sfx_explodingboss.wav"],
       finalexplosionboss: ["assets/sfx/sfx_finalexplosionboss.wav"],
@@ -128,12 +134,16 @@ export class AudioSystem {
     this._lowPrioritySfx = new Set([
       "shot", "hit", "drone", "beam", "mortar", "trap",
       "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
-      "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap"
+      "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap",
+      "enemy_disrupt_charge", "enemy_disrupt_jam_shot", "enemy_disrupt_slow_shot",
+      "turret_disrupted_pulse"
     ]);
     this._streamedSfx = new Set([
       "shot", "drone", "beam", "mortar", "trap",
       "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
-      "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap"
+      "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap",
+      "enemy_disrupt_charge", "enemy_disrupt_jam_shot", "enemy_disrupt_slow_shot",
+      "enemy_disrupt_jam_impact", "enemy_disrupt_slow_impact", "turret_disrupted_pulse"
     ]);
     this._sfxChannel = {};
     this._sfxPool = {};
@@ -152,6 +162,12 @@ export class AudioSystem {
       turret_aura: 3,
       turret_drone: 4,
       turret_trap: 4,
+      enemy_disrupt_charge: 3,
+      enemy_disrupt_jam_shot: 3,
+      enemy_disrupt_slow_shot: 3,
+      enemy_disrupt_jam_impact: 3,
+      enemy_disrupt_slow_impact: 3,
+      turret_disrupted_pulse: 2,
       explodingboss: 4,
       finalexplosionboss: 3
     };

@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606052027";
-import { Map } from "./map.js?v=202606052027";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052027";
-import { Particles } from "./vfx.js?v=202606052027";
-import { Projectile } from "./projectiles.js?v=202606052027";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052027";
-import { MusicVisualizer } from "./visualization.js?v=202606052027";
+import { AudioSystem } from "./audio.js?v=202606052137";
+import { Map } from "./map.js?v=202606052137";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606052137";
+import { Particles } from "./vfx.js?v=202606052137";
+import { Projectile } from "./projectiles.js?v=202606052137";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606052137";
+import { MusicVisualizer } from "./visualization.js?v=202606052137";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -645,7 +645,7 @@ class Game {
   }
 
   _syncLayoutAfterMenuClose() {
-    // Rebuild map bounds after HUD values/panel state settle.
+    // Let HUD values/panel state settle without moving the active battlefield.
     const sync = () => {
       resize();
       this.updateHUD();
@@ -892,7 +892,7 @@ class Game {
     const rows = this.map.rows | 0;
     if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return false;
 
-    // Keep the full corrupted square clear of the rendered track, including bends.
+    // Keep corruption off the actual lane while allowing it to touch the track edge.
     if (!this.map.isCorruptionSafeCell(gx, gy, v)) return false;
     if (this.map.featureAtCell?.(gx, gy)) return false;
 
@@ -901,9 +901,9 @@ class Game {
     const maxTrackD = TRACK_RADIUS + this.map.gridSize * 3;
     if (trackD > maxTrackD) return false;
 
-    // Random candidate band should pressure nearby building without blocking the first track ring.
+    // Corruption should pressure the prime build lane beside the track without sitting on the path.
     // Use Manhattan distance so "3 tiles away" is intuitive.
-    const minTiles = 2;
+    const minTiles = 1;
     const maxTiles = 3;
     let nearest = Infinity;
     for (let oy = -maxTiles; oy <= maxTiles; oy++) {
@@ -1030,12 +1030,26 @@ class Game {
       return n;
     };
 
-    // Pass 1: weighted random acceptance so corruption has pockets and gaps.
+    // Pass 1: make sure corruption starts directly beside the track, with random gaps.
+    const adjacent = candidates.filter((c) => this._trackTileDistance(c.gx, c.gy) === 1);
+    const adjacentTarget = Math.min(adjacent.length, Math.max(4, Math.round(target * 0.48)));
+    for (const c of adjacent) {
+      if (selected.length >= adjacentTarget) break;
+      const near = nearbyCount(c);
+      const spreadBias = near <= 0 ? 1 : (near === 1 ? 0.62 : 0.24);
+      if (rng() > spreadBias) continue;
+      const key = keyOf(c);
+      if (selectedKeys.has(key)) continue;
+      selected.push(c);
+      selectedKeys.add(key);
+    }
+
+    // Pass 2: weighted random acceptance so corruption has pockets and gaps.
     for (const c of candidates) {
       if (selected.length >= target) break;
       const d = this._trackTileDistance(c.gx, c.gy);
       const near = nearbyCount(c);
-      const distBias = d === 2 ? 0.86 : (d === 3 ? 0.62 : 0.35);
+      const distBias = d === 1 ? 0.88 : (d === 2 ? 0.60 : (d === 3 ? 0.34 : 0));
       const spreadBias = near <= 0 ? 1 : (near === 1 ? 0.7 : 0.35);
       const acceptP = distBias * spreadBias;
       if (rng() > acceptP) continue;
@@ -1045,7 +1059,7 @@ class Game {
       selectedKeys.add(key);
     }
 
-    // Pass 2: fill toward target with a lighter spacing bias.
+    // Pass 3: fill toward target with a lighter spacing bias.
     if (selected.length < target) {
       for (const c of candidates) {
         if (selected.length >= target) break;
@@ -1310,6 +1324,15 @@ class Game {
     decay(this.decals);
     decay(this.lingering);
     decay(this.disruptionClouds);
+    for (const shot of this.disruptionShots) {
+      const elapsed = (shot.dur || 1) - (shot.t || 0);
+      const impactAt = (shot.charge || 0) + (shot.travel || 0);
+      if (!shot.shotSoundPlayed && elapsed >= (shot.charge || 0)) {
+        shot.shotSoundPlayed = true;
+        this.audio?.playLimited?.(shot.kind === "slow" ? "enemy_disrupt_slow_shot" : "enemy_disrupt_jam_shot", 320);
+      }
+      if (!shot.applied && elapsed >= impactAt) this._applyTurretDisruptionImpact(shot);
+    }
     decay(this.disruptionShots);
     this.particles.update(dtScaled);
     for (let i = this.floatText.length - 1; i >= 0; i--) {
@@ -1341,7 +1364,44 @@ class Game {
     const affected = [];
     for (const t of this.turrets) {
       if (!t || dist2(target.x, target.y, t.x, t.y) > radius * radius) continue;
-      if (kind === "slow") {
+      affected.push(t);
+    }
+    if (!affected.length) return false;
+    const col = kind === "slow" ? "rgba(186,112,255,0.88)" : "rgba(98,242,255,0.88)";
+    const alt = kind === "slow" ? "rgba(255,120,220,0.62)" : "rgba(109,255,210,0.62)";
+    const distance = Math.hypot(target.x - enemy.x, target.y - enemy.y);
+    const charge = 0.34;
+    const travel = clamp(distance / 420, 0.78, 1.28);
+    this.disruptionShots.push({
+      ax: enemy.x,
+      ay: enemy.y,
+      bx: target.x,
+      by: target.y,
+      t: charge + travel,
+      dur: charge + travel,
+      charge,
+      travel,
+      affected,
+      radius,
+      applied: false,
+      shotSoundPlayed: false,
+      kind,
+      col,
+      alt
+    });
+    this.arcs.push({ ax: enemy.x, ay: enemy.y, bx: target.x, by: target.y, t: 0.46, col });
+    this.particles.spawn(enemy.x, enemy.y, kind === "slow" ? 6 : 8, "muzzle", alt);
+    this.audio?.playLimited?.("enemy_disrupt_charge", 420);
+    return true;
+  }
+
+  _applyTurretDisruptionImpact(shot) {
+    if (!shot || shot.applied) return;
+    shot.applied = true;
+    const affected = Array.isArray(shot.affected) ? shot.affected : [];
+    for (const t of affected) {
+      if (!t) continue;
+      if (shot.kind === "slow") {
         t.disruptSlowT = Math.max(t.disruptSlowT || 0, 5);
         t.disruptKind = "slow";
       } else {
@@ -1349,56 +1409,41 @@ class Game {
         t.disruptKind = "jam";
         t.cool = Math.max(t.cool || 0, 0.18);
       }
-      affected.push(t);
     }
-    if (!affected.length) return false;
-    const col = kind === "slow" ? "rgba(186,112,255,0.88)" : "rgba(98,242,255,0.88)";
-    const alt = kind === "slow" ? "rgba(255,120,220,0.62)" : "rgba(109,255,210,0.62)";
+    const radius = shot.radius || this.map?.gridSize * 1.55 || 74;
     this.disruptionClouds.push({
-      x: target.x,
-      y: target.y,
+      x: shot.bx,
+      y: shot.by,
       r: radius,
       t: 5,
       dur: 5,
-      kind,
-      col,
-      alt
+      kind: shot.kind,
+      col: shot.col,
+      alt: shot.alt
     });
-    this.disruptionShots.push({
-      ax: enemy.x,
-      ay: enemy.y,
-      bx: target.x,
-      by: target.y,
-      t: 0.42,
-      dur: 0.42,
-      kind,
-      col,
-      alt
-    });
-    this.arcs.push({ ax: enemy.x, ay: enemy.y, bx: target.x, by: target.y, t: 0.28, col });
     this.explosions.push({
-      x: target.x,
-      y: target.y,
+      x: shot.bx,
+      y: shot.by,
       r: 12,
       t: 0.32,
       dur: 0.32,
       max: radius,
-      col,
+      col: shot.col,
       boom: false
     });
     this.screenFlashes.push({
-      x: target.x,
-      y: target.y,
+      x: shot.bx,
+      y: shot.by,
       r: radius * 0.55,
       t: 0.18,
       dur: 0.18,
       max: radius * 1.1,
-      col: kind === "slow" ? "rgba(186,112,255,0.24)" : "rgba(98,242,255,0.24)"
+      col: shot.kind === "slow" ? "rgba(186,112,255,0.24)" : "rgba(98,242,255,0.24)"
     });
-    this.particles.spawn(target.x, target.y, kind === "slow" ? 10 : 12, "muzzle", alt);
-    this.spawnText(target.x, target.y - 22, kind === "slow" ? "STATIC SLOW" : "JAMMED", col, 1.05);
-    this.audio?.playLimited?.("turret_arc", 260);
-    return true;
+    this.particles.spawn(shot.bx, shot.by, shot.kind === "slow" ? 10 : 12, "muzzle", shot.alt);
+    this.spawnText(shot.bx, shot.by - 22, shot.kind === "slow" ? "STATIC SLOW" : "JAMMED", shot.col, 1.05);
+    this.audio?.playLimited?.(shot.kind === "slow" ? "enemy_disrupt_slow_impact" : "enemy_disrupt_jam_impact", 260);
+    this.audio?.playLimited?.("turret_disrupted_pulse", 900);
   }
 
   _spawnEnergyBurst(x, y, opts = {}) {
@@ -5328,8 +5373,13 @@ class Game {
 
     // enemy disruption shots
     for (const shot of this.disruptionShots) {
-      const p = 1 - clamp(shot.t / (shot.dur || 0.42), 0, 1);
-      const ease = 1 - Math.pow(1 - p, 2.4);
+      const total = shot.dur || 1;
+      const elapsed = total - (shot.t || 0);
+      const charge = shot.charge || 0;
+      const travel = shot.travel || Math.max(0.2, total - charge);
+      const p = clamp((elapsed - charge) / travel, 0, 1);
+      const charging = elapsed < charge;
+      const ease = charging ? 0 : 1 - Math.pow(1 - p, 1.65);
       const x = lerp(shot.ax, shot.bx, ease);
       const y = lerp(shot.ay, shot.by, ease);
       const dx = shot.bx - shot.ax;
@@ -5337,34 +5387,61 @@ class Game {
       const len = Math.hypot(dx, dy) || 1;
       const ux = dx / len;
       const uy = dy / len;
-      const tail = Math.min(80, len * 0.28);
+      const tail = Math.min(116, len * (charging ? 0.10 : 0.34));
       const jitter = Math.sin(performance.now() * 0.045 + x * 0.04) * 4;
       const nx = -uy * jitter;
       const ny = ux * jitter;
       gfx.save();
       gfx.globalCompositeOperation = "lighter";
+      if (charging) {
+        const chargeP = clamp(elapsed / Math.max(0.01, charge), 0, 1);
+        const aimLen = Math.min(150, len * 0.38);
+        gfx.globalAlpha = 0.16 + chargeP * 0.34;
+        gfx.strokeStyle = shot.alt || shot.col || "rgba(98,242,255,0.65)";
+        gfx.lineCap = "round";
+        gfx.lineWidth = 1.6 + chargeP * 2.1;
+        gfx.setLineDash([8, 8]);
+        gfx.beginPath();
+        gfx.moveTo(shot.ax, shot.ay);
+        gfx.lineTo(shot.ax + ux * aimLen, shot.ay + uy * aimLen);
+        gfx.stroke();
+        gfx.setLineDash([]);
+        gfx.globalAlpha = 0.70 + chargeP * 0.25;
+        gfx.fillStyle = shot.col || "rgba(98,242,255,0.95)";
+        gfx.beginPath();
+        gfx.arc(shot.ax, shot.ay, 5 + chargeP * 10, 0, Math.PI * 2);
+        gfx.fill();
+        gfx.globalAlpha = 0.36 + chargeP * 0.34;
+        gfx.strokeStyle = shot.alt || shot.col || "rgba(255,255,255,0.85)";
+        gfx.lineWidth = 1.3 + chargeP;
+        gfx.beginPath();
+        gfx.arc(shot.ax, shot.ay, 15 + chargeP * 13, 0, Math.PI * 2);
+        gfx.stroke();
+        gfx.restore();
+        continue;
+      }
       const grad = gfx.createLinearGradient(x - ux * tail, y - uy * tail, x, y);
       grad.addColorStop(0, "rgba(0,0,0,0)");
       grad.addColorStop(0.35, shot.alt || shot.col || "rgba(98,242,255,0.35)");
       grad.addColorStop(1, shot.col || "rgba(98,242,255,0.95)");
       gfx.strokeStyle = grad;
       gfx.lineCap = "round";
-      gfx.globalAlpha = 0.72;
-      gfx.lineWidth = shot.kind === "slow" ? 5 : 6;
+      gfx.globalAlpha = 0.82;
+      gfx.lineWidth = shot.kind === "slow" ? 5.5 : 6.8;
       gfx.beginPath();
       gfx.moveTo(x - ux * tail + nx, y - uy * tail + ny);
       gfx.lineTo(x + nx * 0.25, y + ny * 0.25);
       gfx.stroke();
-      gfx.globalAlpha = 0.95;
+      gfx.globalAlpha = 0.98;
       gfx.fillStyle = shot.col || "rgba(98,242,255,0.95)";
       gfx.beginPath();
-      gfx.arc(x, y, shot.kind === "slow" ? 5.5 : 6.5, 0, Math.PI * 2);
+      gfx.arc(x, y, shot.kind === "slow" ? 7 : 8.5, 0, Math.PI * 2);
       gfx.fill();
-      gfx.globalAlpha = 0.42;
+      gfx.globalAlpha = 0.50;
       gfx.strokeStyle = shot.alt || shot.col || "rgba(255,255,255,0.85)";
       gfx.lineWidth = 1.3;
       gfx.beginPath();
-      gfx.arc(x, y, 13 + Math.sin(performance.now() * 0.018) * 3, 0, Math.PI * 2);
+      gfx.arc(x, y, 16 + Math.sin(performance.now() * 0.018) * 3.5, 0, Math.PI * 2);
       gfx.stroke();
       gfx.restore();
     }

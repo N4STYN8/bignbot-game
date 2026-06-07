@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606071507";
-import { Map } from "./map.js?v=202606071507";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606071507";
-import { Particles } from "./vfx.js?v=202606071507";
-import { Projectile } from "./projectiles.js?v=202606071507";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071507";
-import { MusicVisualizer } from "./visualization.js?v=202606071507";
+import { AudioSystem } from "./audio.js?v=202606071855";
+import { Map } from "./map.js?v=202606071855";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606071855";
+import { Particles } from "./vfx.js?v=202606071855";
+import { Projectile } from "./projectiles.js?v=202606071855";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071855";
+import { MusicVisualizer } from "./visualization.js?v=202606071855";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -366,6 +366,7 @@ class Game {
     this.playerStats = this._newPlayerStats();
     this.playerProfile = null;
     this.leaderboard = [];
+    this.selectedLeaderboardPilotId = "";
     this._playRecordedThisSession = false;
     this.newPlayerTipsSeen = this._loadNewPlayerTipsSeen();
     this.firstWaveTutorialShown = false;
@@ -2421,6 +2422,34 @@ class Game {
     );
   }
 
+  _leaderboardDetailItems(entry) {
+    if (!entry) return [];
+    const updated = Number(entry.updatedAt) || 0;
+    return [
+      ["Score", fmt(entry.score || 0)],
+      ["Best Level", entry.bestLevel || 1],
+      ["Best Wave", entry.bestWave || 0],
+      ["Maps Cleared", entry.mapsCleared || 0],
+      ["Kills", entry.kills || 0],
+      ["High Combo", `${entry.bestCombo || 0}x`],
+      ["Leaks", entry.leaks || 0],
+      ["Towers Built", entry.towersBuilt || 0],
+      ["Bosses", entry.bosses || 0],
+      ["Objectives", entry.objectivesCompleted || 0],
+      ["Gold Earned", fmt(entry.gold || 0)],
+      ["Plays", entry.plays || 0],
+      ["Last Update", updated ? new Date(updated).toLocaleString() : "-"]
+    ];
+  }
+
+  _selectLeaderboardPilot(pilotId) {
+    if (!pilotId) return;
+    const entry = this.leaderboard.find(e => e.id === pilotId);
+    if (!entry) return;
+    this.selectedLeaderboardPilotId = entry.id;
+    this._renderLeaderboardModal();
+  }
+
   _syncLeaderboardStats(options = {}) {
     const push = options.push !== false;
     const entry = this._leaderboardEntryForProfile(false);
@@ -2557,23 +2586,28 @@ class Game {
     if (!leaderboardBodyEl) return;
     this._syncLeaderboardStats({ push: false });
     const activeId = this.playerProfile?.id || "";
-    const activeEntry = activeId ? this.leaderboard.find(entry => entry.id === activeId) : null;
-    const activeSummary = activeEntry ? `
-      <div class="leaderboardSnapshot" aria-label="Current pilot leaderboard stats">
-        <div><b>${fmt(activeEntry.score || 0)}</b><span>Score</span></div>
-        <div><b>${activeEntry.bestLevel || 1}</b><span>Best Level</span></div>
-        <div><b>${activeEntry.bestWave || 0}</b><span>Best Wave</span></div>
-        <div><b>${activeEntry.mapsCleared || 0}</b><span>Maps</span></div>
-        <div><b>${activeEntry.kills || 0}</b><span>Kills</span></div>
-        <div><b>${activeEntry.bestCombo || 0}x</b><span>Combo</span></div>
-        <div><b>${activeEntry.leaks || 0}</b><span>Leaks</span></div>
-        <div><b>${activeEntry.towersBuilt || 0}</b><span>Towers</span></div>
-        <div><b>${activeEntry.bosses || 0}</b><span>Bosses</span></div>
-        <div><b>${fmt(activeEntry.gold || 0)}</b><span>Gold</span></div>
+    const fallbackEntry = (activeId ? this.leaderboard.find(entry => entry.id === activeId) : null) || this.leaderboard[0] || null;
+    const selectedEntry = this.leaderboard.find(entry => entry.id === this.selectedLeaderboardPilotId) || fallbackEntry;
+    if (selectedEntry) this.selectedLeaderboardPilotId = selectedEntry.id;
+    const selectedRank = selectedEntry ? this.leaderboard.findIndex(entry => entry.id === selectedEntry.id) + 1 : 0;
+    const selectedSummary = selectedEntry ? `
+      <div class="leaderboardDetail" aria-label="Selected pilot leaderboard stats">
+        <div class="leaderboardDetailHeader">
+          <div>
+            <span class="leaderboardDetailEyebrow">Pilot Details</span>
+            <b>${escapeHtml(selectedEntry.name)}</b>
+          </div>
+          <span>${selectedRank ? `Rank #${selectedRank}` : "Unranked"}</span>
+        </div>
+        <div class="leaderboardSnapshot">
+          ${this._leaderboardDetailItems(selectedEntry).map(([label, value]) => `
+            <div><b>${escapeHtml(String(value))}</b><span>${escapeHtml(String(label))}</span></div>
+          `).join("")}
+        </div>
       </div>
     ` : "";
     const rows = (this.leaderboard || []).slice(0, 10).map((entry, index) => `
-      <div class="leaderboardRow ${entry.id === activeId ? "active" : ""}">
+      <div class="leaderboardRow ${entry.id === activeId ? "active" : ""} ${entry.id === selectedEntry?.id ? "selected" : ""}" role="button" tabindex="0" data-pilot-id="${escapeHtml(entry.id)}" aria-label="View stats for ${escapeHtml(entry.name)}">
         <div class="leaderboardStat">#${index + 1}</div>
         <div class="leaderboardName">${escapeHtml(entry.name)}</div>
         <div class="leaderboardStat">${fmt(entry.score || 0)}</div>
@@ -2590,9 +2624,9 @@ class Game {
     leaderboardBodyEl.innerHTML = `
       <div class="leaderboardMeta">
         <div class="leaderboardCurrent">${this.playerProfile ? `Pilot: ${escapeHtml(this.playerProfile.name)}` : "Guest Pilot"}</div>
-        <div class="leaderboardNote">Score is built from level, wave, maps, kills, combo, bosses, objectives, gold, towers, and leak penalties.</div>
+        <div class="leaderboardNote">Click any pilot to inspect their full stats.</div>
       </div>
-      ${activeSummary}
+      ${selectedSummary}
       <div class="leaderboardProfile">
         <label>Username <input id="leaderboardNameInput" type="text" maxlength="18" autocomplete="username" value="${escapeHtml(this.playerProfile?.name || "")}"></label>
         <label>Password <input id="leaderboardPasswordInput" type="password" maxlength="32" autocomplete="current-password"></label>
@@ -2610,6 +2644,16 @@ class Game {
     document.getElementById("leaderboardCreateBtn")?.addEventListener("click", () => this._createOrLoginProfile("create"));
     document.getElementById("leaderboardLoginBtn")?.addEventListener("click", () => this._createOrLoginProfile("login"));
     document.getElementById("leaderboardLogoutBtn")?.addEventListener("click", () => this._logoutProfile());
+    leaderboardBodyEl.querySelectorAll("[data-pilot-id]").forEach((row) => {
+      const select = () => this._selectLeaderboardPilot(row.getAttribute("data-pilot-id"));
+      row.addEventListener("click", select);
+      row.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          select();
+        }
+      });
+    });
   }
 
   _openLeaderboardModal() {

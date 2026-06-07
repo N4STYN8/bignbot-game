@@ -2293,10 +2293,11 @@ body{
 .leaderboardTable{
   display:grid;
   gap:6px;
+  min-width:860px;
 }
 .leaderboardRow{
   display:grid;
-  grid-template-columns: 48px minmax(136px, 1.3fr) repeat(8, minmax(60px, .62fr));
+  grid-template-columns: 48px minmax(136px, 1.25fr) minmax(86px, .86fr) repeat(8, minmax(58px, .58fr));
   gap:6px;
   align-items:center;
   padding:10px 12px;
@@ -2327,6 +2328,32 @@ body{
   font-family:var(--mono);
   font-size:13px;
 }
+.leaderboardSnapshot{
+  display:grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap:8px;
+}
+.leaderboardSnapshot div{
+  padding:10px 11px;
+  border-radius:8px;
+  border:1px solid rgba(98,242,255,.20);
+  background:linear-gradient(180deg, rgba(98,242,255,.075), rgba(7,10,18,.42));
+}
+.leaderboardSnapshot b{
+  display:block;
+  color:rgba(234,240,255,.96);
+  font-family:var(--mono);
+  font-size:16px;
+}
+.leaderboardSnapshot span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
 .landingPilotStatus{
   margin-top:12px;
   color:var(--muted);
@@ -2343,6 +2370,9 @@ body{
   }
   .leaderboardRow > :nth-child(n+6){
     display:none;
+  }
+  .leaderboardSnapshot{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 .settingsBtn{

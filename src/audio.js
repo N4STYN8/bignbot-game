@@ -20,7 +20,19 @@ export class AudioSystem {
       "assets/music/Background/Aurora Bastion Reverie.mp3",
       "assets/music/Background/Corrupted Grid Signal.mp3",
       "assets/music/Background/Bastion Core Surge.mp3",
-      "assets/music/Background/Nova Bastion Afterglow.mp3"
+      "assets/music/Background/Nova Bastion Afterglow.mp3",
+      "assets/music/Background/Echoes of Orbit.mp3",
+      "assets/music/Background/Echoes of Orbit 3.mp3",
+      "assets/music/Background/Echos of Orbit 7.mp3",
+      "assets/music/Background/Final Lane Ascension.mp3",
+      "assets/music/Background/Hyperlane Resonance.mp3",
+      "assets/music/Background/Ion Storm Pursuit.mp3",
+      "assets/music/Background/Reactor Grid Breaker.mp3",
+      "assets/music/Background/Rift Runner Ambush.mp3",
+      "assets/music/Background/Sentinel Overcharge.mp3",
+      "assets/music/Background/Sentinel Resistance Drive.mp3",
+      "assets/music/Background/Void Lane Pursuit.mp3",
+      "assets/music/Background/Voidlane Star Voyage.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -37,7 +49,19 @@ export class AudioSystem {
       "Aurora Bastion Reverie",
       "Corrupted Grid Signal",
       "Bastion Core Surge",
-      "Nova Bastion Afterglow"
+      "Nova Bastion Afterglow",
+      "Orbit Echo Prime",
+      "Echo Core Breach",
+      "Seventh Orbit Surge",
+      "Final Lane Ascension",
+      "Hyperlane Resonance",
+      "Ion Storm Pursuit",
+      "Reactor Grid Breaker",
+      "Rift Runner Ambush",
+      "Sentinel Overcharge",
+      "Sentinel Resistance Drive",
+      "Void Lane Pursuit",
+      "Voidlane Star Voyage"
     ];
     this.trackIndex = 0;
     this.repeat = true;
@@ -48,6 +72,7 @@ export class AudioSystem {
     this._pendingProgressRatio = null;
     this._pendingSeekSeconds = 0;
     this._pendingProgressDisplay = 0;
+    this._failedBgmTracks = new Set();
     this.bgm = this._makeBgm();
     this.bgm.volume = 0.32;
     this._probeAnalysisCors();
@@ -231,12 +256,33 @@ export class AudioSystem {
   }
 
   _makeBgm() {
+    const trackIndex = this.trackIndex;
     const a = this._makeAudio([this.bgmSources[this.trackIndex]], false, this.bgm?.volume ?? 0.32);
     a.preload = "metadata";
     a.muted = this.musicMuted;
-    a.addEventListener("loadedmetadata", () => this._applyPendingSeek());
+    a.addEventListener("loadedmetadata", () => {
+      this._failedBgmTracks.delete(trackIndex);
+      this._applyPendingSeek();
+    });
+    a.addEventListener("error", () => this._handleBgmError(trackIndex));
     a.addEventListener("ended", () => this._handleTrackEnded());
     return a;
+  }
+
+  _handleBgmError(trackIndex) {
+    if (trackIndex !== this.trackIndex) return;
+    this._failedBgmTracks.add(trackIndex);
+    if (this._failedBgmTracks.size >= this.bgmSources.length) {
+      if (!this._errorShown) {
+        this._errorShown = true;
+        toast("Music playlist unavailable. Check CDN uploads.");
+      }
+      return;
+    }
+    const autoplay = this.enabled && this.unlocked && !this.musicPaused;
+    setTimeout(() => {
+      if (trackIndex === this.trackIndex && this.bgm?.error) this.nextTrack(autoplay);
+    }, 250);
   }
 
   _applyPendingSeek() {

@@ -1,11 +1,11 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606071324";
-import { Map } from "./map.js?v=202606071324";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606071324";
-import { Particles } from "./vfx.js?v=202606071324";
-import { Projectile } from "./projectiles.js?v=202606071324";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071324";
-import { MusicVisualizer } from "./visualization.js?v=202606071324";
+import { AudioSystem } from "./audio.js?v=202606071438";
+import { Map } from "./map.js?v=202606071438";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606071438";
+import { Particles } from "./vfx.js?v=202606071438";
+import { Projectile } from "./projectiles.js?v=202606071438";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071438";
+import { MusicVisualizer } from "./visualization.js?v=202606071438";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -2258,37 +2258,94 @@ class Game {
       name: profile.name,
       passHash: profile.passHash,
       plays: 0,
+      score: 0,
       bestLevel: 1,
       bestWave: 0,
       mapsCleared: 0,
       kills: 0,
+      leaks: 0,
       bestCombo: 0,
       gold: 0,
+      towersBuilt: 0,
       bosses: 0,
       objectivesCompleted: 0,
       updatedAt: Date.now()
     };
   }
 
+  _normalizeLeaderboardEntry(e, fallbackProfile = null) {
+    const profile = fallbackProfile || {};
+    return {
+      id: String(e?.id || profile.id || e?.name || ""),
+      name: String(e?.name || profile.name || "Pilot").slice(0, 18),
+      passHash: String(e?.passHash || profile.passHash || ""),
+      plays: Math.max(0, Number(e?.plays) | 0),
+      score: Math.max(0, Number(e?.score) | 0),
+      bestLevel: Math.max(1, Number(e?.bestLevel) | 0),
+      bestWave: Math.max(0, Number(e?.bestWave) | 0),
+      mapsCleared: Math.max(0, Number(e?.mapsCleared) | 0),
+      kills: Math.max(0, Number(e?.kills) | 0),
+      leaks: Math.max(0, Number(e?.leaks) | 0),
+      bestCombo: Math.max(0, Number(e?.bestCombo) | 0),
+      gold: Math.max(0, Number(e?.gold) | 0),
+      towersBuilt: Math.max(0, Number(e?.towersBuilt) | 0),
+      bosses: Math.max(0, Number(e?.bosses) | 0),
+      objectivesCompleted: Math.max(0, Number(e?.objectivesCompleted) | 0),
+      updatedAt: Math.max(0, Number(e?.updatedAt) || Date.parse(e?.updatedAt || "") || 0)
+    };
+  }
+
+  _mergeLeaderboardEntry(incoming) {
+    if (!incoming?.id) return null;
+    const normalized = this._normalizeLeaderboardEntry(incoming);
+    let entry = this.leaderboard.find(e => e.id === normalized.id);
+    if (!entry) {
+      entry = normalized;
+      this.leaderboard.push(entry);
+      return entry;
+    }
+    entry.name = normalized.name || entry.name;
+    if (normalized.passHash) entry.passHash = normalized.passHash;
+    for (const key of ["plays", "score", "bestLevel", "bestWave", "mapsCleared", "kills", "leaks", "bestCombo", "gold", "towersBuilt", "bosses", "objectivesCompleted"]) {
+      entry[key] = Math.max(Number(entry[key]) || 0, Number(normalized[key]) || 0);
+    }
+    entry.updatedAt = Math.max(Number(entry.updatedAt) || 0, Number(normalized.updatedAt) || 0);
+    return entry;
+  }
+
+  _leaderboardScore(entry) {
+    if (!entry) return 0;
+    const bestLevel = Math.max(1, Number(entry.bestLevel) | 0);
+    const bestWave = Math.max(0, Number(entry.bestWave) | 0);
+    const maps = Math.max(0, Number(entry.mapsCleared) | 0);
+    const kills = Math.max(0, Number(entry.kills) | 0);
+    const combo = Math.max(0, Number(entry.bestCombo) | 0);
+    const bosses = Math.max(0, Number(entry.bosses) | 0);
+    const objectives = Math.max(0, Number(entry.objectivesCompleted) | 0);
+    const gold = Math.max(0, Number(entry.gold) | 0);
+    const leaks = Math.max(0, Number(entry.leaks) | 0);
+    const towers = Math.max(0, Number(entry.towersBuilt) | 0);
+    return Math.max(0,
+      bestLevel * 100000
+      + bestWave * 2500
+      + maps * 18000
+      + bosses * 3500
+      + objectives * 1800
+      + combo * 180
+      + kills * 35
+      + Math.floor(gold * 0.4)
+      + towers * 60
+      - leaks * 900
+    ) | 0;
+  }
+
   _loadLeaderboardState() {
     try {
       const rawBoard = localStorage.getItem(LEADERBOARD_KEY);
       const parsedBoard = rawBoard ? JSON.parse(rawBoard) : [];
-      this.leaderboard = Array.isArray(parsedBoard) ? parsedBoard.filter(e => e && e.id && e.name).map(e => ({
-        id: String(e.id),
-        name: String(e.name).slice(0, 18),
-        passHash: String(e.passHash || ""),
-        plays: Math.max(0, Number(e.plays) | 0),
-        bestLevel: Math.max(1, Number(e.bestLevel) | 0),
-        bestWave: Math.max(0, Number(e.bestWave) | 0),
-        mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
-        kills: Math.max(0, Number(e.kills) | 0),
-        bestCombo: Math.max(0, Number(e.bestCombo) | 0),
-        gold: Math.max(0, Number(e.gold) | 0),
-        bosses: Math.max(0, Number(e.bosses) | 0),
-        objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
-        updatedAt: Math.max(0, Number(e.updatedAt) || 0)
-      })) : [];
+      this.leaderboard = Array.isArray(parsedBoard)
+        ? parsedBoard.filter(e => e && e.id && e.name).map(e => this._normalizeLeaderboardEntry(e))
+        : [];
 
       const rawProfile = localStorage.getItem(PROFILE_KEY);
       const profile = rawProfile ? JSON.parse(rawProfile) : null;
@@ -2320,12 +2377,15 @@ class Game {
       method: "POST",
       body: JSON.stringify({
         plays: entry.plays || 0,
+        score: entry.score || 0,
         bestLevel: entry.bestLevel || 1,
         bestWave: entry.bestWave || 0,
         mapsCleared: entry.mapsCleared || 0,
         kills: entry.kills || 0,
+        leaks: entry.leaks || 0,
         bestCombo: entry.bestCombo || 0,
         gold: entry.gold || 0,
+        towersBuilt: entry.towersBuilt || 0,
         bosses: entry.bosses || 0,
         objectivesCompleted: entry.objectivesCompleted || 0
       })
@@ -2350,7 +2410,8 @@ class Game {
 
   _sortLeaderboard() {
     this.leaderboard.sort((a, b) =>
-      (b.bestLevel - a.bestLevel)
+      (b.score - a.score)
+      || (b.bestLevel - a.bestLevel)
       || (b.bestWave - a.bestWave)
       || (b.mapsCleared - a.mapsCleared)
       || (b.kills - a.kills)
@@ -2370,10 +2431,13 @@ class Game {
     entry.bestWave = Math.max(entry.bestWave || 0, this.wave || 0);
     entry.mapsCleared = Math.max(entry.mapsCleared || 0, p.mapsCleared || 0);
     entry.kills = Math.max(entry.kills || 0, p.kills || 0);
+    entry.leaks = Math.max(entry.leaks || 0, p.leaks || 0);
     entry.bestCombo = Math.max(entry.bestCombo || 0, p.bestCombo || 0, this.comboBest || 0);
     entry.gold = Math.max(entry.gold || 0, p.gold || 0);
+    entry.towersBuilt = Math.max(entry.towersBuilt || 0, p.towersBuilt || 0);
     entry.bosses = Math.max(entry.bosses || 0, p.bosses || 0);
     entry.objectivesCompleted = Math.max(entry.objectivesCompleted || 0, p.objectivesCompleted || 0);
+    entry.score = Math.max(entry.score || 0, this._leaderboardScore(entry));
     entry.updatedAt = Date.now();
     this._sortLeaderboard();
     this._saveLeaderboardState();
@@ -2396,9 +2460,17 @@ class Game {
     if (leaderboardBtnEl) leaderboardBtnEl.textContent = this.playerProfile ? "PILOT" : "LEADERS";
   }
 
-  _setPlayerProfile(profile) {
+  _setPlayerProfile(profile, remoteScore = null) {
     this.playerProfile = profile;
-    this._leaderboardEntryForProfile(true);
+    const entry = this._leaderboardEntryForProfile(true);
+    if (remoteScore && entry) {
+      this._mergeLeaderboardEntry({
+        ...remoteScore,
+        id: profile.id,
+        name: profile.name,
+        passHash: profile.passHash || ""
+      });
+    }
     this._syncLeaderboardStats();
     this._saveLeaderboardState();
     this._renderLeaderboardModal();
@@ -2446,7 +2518,7 @@ class Game {
         });
         const profile = this._profileFromApi(data);
         if (!profile) throw new Error("Leaderboard login did not return a session.");
-        this._setPlayerProfile(profile);
+        this._setPlayerProfile(profile, data?.score || null);
         return;
       } catch (err) {
         toast(err.message || "Leaderboard service unavailable.");
@@ -2485,25 +2557,42 @@ class Game {
     if (!leaderboardBodyEl) return;
     this._syncLeaderboardStats({ push: false });
     const activeId = this.playerProfile?.id || "";
+    const activeEntry = activeId ? this.leaderboard.find(entry => entry.id === activeId) : null;
+    const activeSummary = activeEntry ? `
+      <div class="leaderboardSnapshot" aria-label="Current pilot leaderboard stats">
+        <div><b>${fmt(activeEntry.score || 0)}</b><span>Score</span></div>
+        <div><b>${activeEntry.bestLevel || 1}</b><span>Best Level</span></div>
+        <div><b>${activeEntry.bestWave || 0}</b><span>Best Wave</span></div>
+        <div><b>${activeEntry.mapsCleared || 0}</b><span>Maps</span></div>
+        <div><b>${activeEntry.kills || 0}</b><span>Kills</span></div>
+        <div><b>${activeEntry.bestCombo || 0}x</b><span>Combo</span></div>
+        <div><b>${activeEntry.leaks || 0}</b><span>Leaks</span></div>
+        <div><b>${activeEntry.towersBuilt || 0}</b><span>Towers</span></div>
+        <div><b>${activeEntry.bosses || 0}</b><span>Bosses</span></div>
+        <div><b>${fmt(activeEntry.gold || 0)}</b><span>Gold</span></div>
+      </div>
+    ` : "";
     const rows = (this.leaderboard || []).slice(0, 10).map((entry, index) => `
       <div class="leaderboardRow ${entry.id === activeId ? "active" : ""}">
         <div class="leaderboardStat">#${index + 1}</div>
         <div class="leaderboardName">${escapeHtml(entry.name)}</div>
+        <div class="leaderboardStat">${fmt(entry.score || 0)}</div>
         <div class="leaderboardStat">${entry.bestLevel || 1}</div>
         <div class="leaderboardStat">${entry.bestWave || 0}</div>
-        <div class="leaderboardStat">${entry.plays || 0}</div>
         <div class="leaderboardStat">${entry.mapsCleared || 0}</div>
         <div class="leaderboardStat">${entry.kills || 0}</div>
         <div class="leaderboardStat">${entry.bestCombo || 0}</div>
-        <div class="leaderboardStat">${entry.objectivesCompleted || 0}</div>
+        <div class="leaderboardStat">${entry.leaks || 0}</div>
+        <div class="leaderboardStat">${entry.towersBuilt || 0}</div>
         <div class="leaderboardStat">${fmt(entry.gold || 0)}</div>
       </div>
     `).join("");
     leaderboardBodyEl.innerHTML = `
       <div class="leaderboardMeta">
         <div class="leaderboardCurrent">${this.playerProfile ? `Pilot: ${escapeHtml(this.playerProfile.name)}` : "Guest Pilot"}</div>
-        <div class="leaderboardNote">Online leaderboard sync active. Pilot progress is backed up automatically.</div>
+        <div class="leaderboardNote">Score is built from level, wave, maps, kills, combo, bosses, objectives, gold, towers, and leak penalties.</div>
       </div>
+      ${activeSummary}
       <div class="leaderboardProfile">
         <label>Username <input id="leaderboardNameInput" type="text" maxlength="18" autocomplete="username" value="${escapeHtml(this.playerProfile?.name || "")}"></label>
         <label>Password <input id="leaderboardPasswordInput" type="password" maxlength="32" autocomplete="current-password"></label>
@@ -2512,9 +2601,9 @@ class Game {
       </div>
       <div class="leaderboardTable">
         <div class="leaderboardRow header">
-          <div>Rank</div><div>Pilot</div><div>Level</div><div>Wave</div><div>Plays</div><div>Maps</div><div>Kills</div><div>Combo</div><div>Objectives</div><div>Gold</div>
+          <div>Rank</div><div>Pilot</div><div>Score</div><div>Level</div><div>Wave</div><div>Maps</div><div>Kills</div><div>Combo</div><div>Leaks</div><div>Towers</div><div>Gold</div>
         </div>
-        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
+        ${rows || `<div class="leaderboardRow"><div class="leaderboardStat">-</div><div class="leaderboardName">No pilots yet</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div><div class="leaderboardStat">-</div></div>`}
       </div>
       ${this.playerProfile ? `<div class="modalFooter"><button id="leaderboardLogoutBtn" class="btn ghost" type="button">Logout</button></div>` : ""}
     `;
@@ -2536,21 +2625,12 @@ class Game {
     try {
       const data = await this._apiRequest("/api/leaderboard");
       if (Array.isArray(data?.leaderboard)) {
-        this.leaderboard = data.leaderboard.map(e => ({
-          id: String(e.id || e.name),
-          name: String(e.name || "Pilot").slice(0, 18),
-          passHash: "",
-          plays: Math.max(0, Number(e.plays) | 0),
-          bestLevel: Math.max(1, Number(e.bestLevel) | 0),
-          bestWave: Math.max(0, Number(e.bestWave) | 0),
-          mapsCleared: Math.max(0, Number(e.mapsCleared) | 0),
-          kills: Math.max(0, Number(e.kills) | 0),
-          bestCombo: Math.max(0, Number(e.bestCombo) | 0),
-          gold: Math.max(0, Number(e.gold) | 0),
-          bosses: Math.max(0, Number(e.bosses) | 0),
-          objectivesCompleted: Math.max(0, Number(e.objectivesCompleted) | 0),
-          updatedAt: Date.parse(e.updatedAt || "") || 0
-        }));
+        const activeEntry = this.playerProfile ? this._leaderboardEntryForProfile(false) : null;
+        const localActive = activeEntry ? { ...activeEntry } : null;
+        this.leaderboard = [];
+        for (const e of data.leaderboard) this._mergeLeaderboardEntry(e);
+        if (localActive) this._mergeLeaderboardEntry(localActive);
+        this._syncLeaderboardStats({ push: false });
         this._renderLeaderboardModal();
       }
     } catch (err) {}

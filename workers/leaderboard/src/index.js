@@ -69,12 +69,15 @@ async function playerPayload(env, player, sessionToken = null) {
     player: { id: player.id, username: player.username },
     score: {
       plays: score?.plays || 0,
+      score: score?.score || 0,
       bestLevel: score?.best_level || 1,
       bestWave: score?.best_wave || 0,
       mapsCleared: score?.maps_cleared || 0,
       kills: score?.kills || 0,
+      leaks: score?.leaks || 0,
       bestCombo: score?.best_combo || 0,
       gold: score?.gold || 0,
+      towersBuilt: score?.towers_built || 0,
       bosses: score?.bosses || 0,
       objectivesCompleted: score?.objectives_completed || 0
     }
@@ -122,40 +125,46 @@ async function saveScore(env, request) {
   if (!player) return json({ error: "Login required." }, 401);
   const body = await readJson(request);
   const plays = clampInt(body?.plays, 0, 1000000);
+  const score = clampInt(body?.score, 0, 1000000000);
   const bestLevel = clampInt(body?.bestLevel, 1, 9999);
   const bestWave = clampInt(body?.bestWave, 0, 9999);
   const mapsCleared = clampInt(body?.mapsCleared, 0, 1000000);
   const kills = clampInt(body?.kills, 0, 1000000000);
+  const leaks = clampInt(body?.leaks, 0, 1000000);
   const bestCombo = clampInt(body?.bestCombo, 0, 1000000);
   const gold = clampInt(body?.gold, 0, 1000000000);
+  const towersBuilt = clampInt(body?.towersBuilt, 0, 1000000);
   const bosses = clampInt(body?.bosses, 0, 1000000);
   const objectivesCompleted = clampInt(body?.objectivesCompleted, 0, 1000000);
 
   await env.DB.prepare(`
-    INSERT INTO scores (player_id, plays, best_level, best_wave, maps_cleared, kills, best_combo, gold, bosses, objectives_completed, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO scores (player_id, plays, score, best_level, best_wave, maps_cleared, kills, leaks, best_combo, gold, towers_built, bosses, objectives_completed, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(player_id) DO UPDATE SET
       plays = MAX(scores.plays, excluded.plays),
+      score = MAX(scores.score, excluded.score),
       best_level = MAX(scores.best_level, excluded.best_level),
       best_wave = MAX(scores.best_wave, excluded.best_wave),
       maps_cleared = MAX(scores.maps_cleared, excluded.maps_cleared),
       kills = MAX(scores.kills, excluded.kills),
+      leaks = MAX(scores.leaks, excluded.leaks),
       best_combo = MAX(scores.best_combo, excluded.best_combo),
       gold = MAX(scores.gold, excluded.gold),
+      towers_built = MAX(scores.towers_built, excluded.towers_built),
       bosses = MAX(scores.bosses, excluded.bosses),
       objectives_completed = MAX(scores.objectives_completed, excluded.objectives_completed),
       updated_at = CURRENT_TIMESTAMP
-  `).bind(player.id, plays, bestLevel, bestWave, mapsCleared, kills, bestCombo, gold, bosses, objectivesCompleted).run();
+  `).bind(player.id, plays, score, bestLevel, bestWave, mapsCleared, kills, leaks, bestCombo, gold, towersBuilt, bosses, objectivesCompleted).run();
 
   return json(await playerPayload(env, player));
 }
 
 async function leaderboard(env) {
   const rows = await env.DB.prepare(`
-    SELECT p.id, p.username, s.plays, s.best_level, s.best_wave, s.maps_cleared, s.kills, s.best_combo, s.gold, s.bosses, s.objectives_completed, s.updated_at
+    SELECT p.id, p.username, s.plays, s.score, s.best_level, s.best_wave, s.maps_cleared, s.kills, s.leaks, s.best_combo, s.gold, s.towers_built, s.bosses, s.objectives_completed, s.updated_at
     FROM scores s
     JOIN players p ON p.id = s.player_id
-    ORDER BY s.best_level DESC, s.best_wave DESC, s.maps_cleared DESC, s.kills DESC, s.best_combo DESC, s.gold DESC, s.updated_at DESC
+    ORDER BY s.score DESC, s.best_level DESC, s.best_wave DESC, s.maps_cleared DESC, s.kills DESC, s.best_combo DESC, s.gold DESC, s.updated_at DESC
     LIMIT 25
   `).all();
   return json({
@@ -163,12 +172,15 @@ async function leaderboard(env) {
       id: row.id,
       name: row.username,
       plays: row.plays,
+      score: row.score,
       bestLevel: row.best_level,
       bestWave: row.best_wave,
       mapsCleared: row.maps_cleared,
       kills: row.kills,
+      leaks: row.leaks,
       bestCombo: row.best_combo,
       gold: row.gold,
+      towersBuilt: row.towers_built,
       bosses: row.bosses,
       objectivesCompleted: row.objectives_completed,
       updatedAt: row.updated_at

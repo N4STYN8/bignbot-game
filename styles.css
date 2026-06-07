@@ -2222,8 +2222,8 @@ body{
   line-height:1.55;
 }
 .leaderboardCard{
-  width:min(860px, 94vw);
-  max-height:82vh;
+  width:min(1240px, 96vw);
+  max-height:86vh;
 }
 .leaderboardCard .modalTitle{
   font-size:17px;
@@ -2232,12 +2232,13 @@ body{
 .leaderboardBody{
   display:grid;
   gap:14px;
-  max-height:70vh;
-  overflow:auto;
+  max-height:74vh;
+  overflow-y:auto;
+  overflow-x:hidden;
 }
 .leaderboardProfile{
   display:grid;
-  grid-template-columns: 1fr 1fr auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(86px, auto) minmax(78px, auto);
   gap:8px;
   align-items:end;
   padding:10px;
@@ -2293,21 +2294,22 @@ body{
 .leaderboardTable{
   display:grid;
   gap:6px;
-  min-width:860px;
+  width:100%;
+  min-width:0;
 }
 .leaderboardRow{
   display:grid;
-  grid-template-columns: 48px minmax(136px, 1.25fr) minmax(86px, .86fr) repeat(8, minmax(58px, .58fr));
+  grid-template-columns: 48px minmax(132px, 1.45fr) minmax(82px, .9fr) repeat(8, minmax(54px, .62fr));
   gap:6px;
   align-items:center;
-  padding:10px 12px;
+  padding:9px 10px;
   border:1px solid rgba(28,42,90,.62);
   border-radius:8px;
   background:rgba(7,10,18,.34);
 }
 .leaderboardRow.header{
   color:var(--muted);
-  font-size:11px;
+  font-size:10px;
   letter-spacing:.08em;
   text-transform:uppercase;
   background:rgba(98,242,255,.06);
@@ -2321,12 +2323,16 @@ body{
 }
 .leaderboardName{
   color:var(--text);
-  font-size:14px;
+  font-size:13px;
   font-weight:900;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .leaderboardStat{
   font-family:var(--mono);
-  font-size:13px;
+  font-size:12px;
+  white-space:nowrap;
 }
 .leaderboardSnapshot{
   display:grid;

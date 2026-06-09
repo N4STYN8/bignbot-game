@@ -2150,14 +2150,25 @@ body{
   position: fixed;
   z-index: 30;
   pointer-events: none;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(11,16,34,0.9);
-  border: 1px solid rgba(28,42,90,0.9);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background:
+    radial-gradient(160px 80px at 20% 0, rgba(98,242,255,.13), transparent 72%),
+    linear-gradient(180deg, rgba(13,20,42,.96), rgba(7,10,18,.92));
+  border: 1px solid rgba(98,242,255,0.34);
+  box-shadow:
+    0 16px 36px rgba(0,0,0,0.42),
+    0 0 0 1px rgba(255,255,255,.045) inset,
+    0 0 22px rgba(98,242,255,.09);
   color: var(--text);
   font-size: 12px;
-  letter-spacing: .02em;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: .01em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 .tooltip.hidden{display:none}
 .levelOverlay{

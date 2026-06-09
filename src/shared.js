@@ -707,6 +707,12 @@ export function showTooltip(msg, x, y) {
   tooltipEl.style.left = `${x}px`;
   tooltipEl.style.top = `${y}px`;
   tooltipEl.classList.remove("hidden");
+  const rect = tooltipEl.getBoundingClientRect();
+  const pad = 12;
+  const left = clamp(x, pad, Math.max(pad, window.innerWidth - rect.width - pad));
+  const top = clamp(y, pad, Math.max(pad, window.innerHeight - rect.height - pad));
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
 }
 
 export function hideTooltip() {

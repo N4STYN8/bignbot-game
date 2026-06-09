@@ -1,14 +1,14 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606071855";
-import { Map } from "./map.js?v=202606071855";
-import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606071855";
-import { Particles } from "./vfx.js?v=202606071855";
-import { Projectile } from "./projectiles.js?v=202606071855";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071855";
-import { MusicVisualizer } from "./visualization.js?v=202606071855";
-import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606071855";
-import { createDefaultSynergyRegistry } from "./synergies.js?v=202606071855";
-import { STATUS, setStatusState } from "./statusEffects.js?v=202606071855";
+import { AudioSystem } from "./audio.js?v=202606082235";
+import { Map } from "./map.js?v=202606082235";
+import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606082235";
+import { Particles } from "./vfx.js?v=202606082235";
+import { Projectile } from "./projectiles.js?v=202606082235";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202606082235";
+import { MusicVisualizer } from "./visualization.js?v=202606082235";
+import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606082235";
+import { createDefaultSynergyRegistry } from "./synergies.js?v=202606082235";
+import { STATUS, setStatusState } from "./statusEffects.js?v=202606082235";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -219,6 +219,24 @@ const LEVEL_OBJECTIVES = [
     reward: (level) => 165 + level * 22
   }
 ];
+const OBJECTIVE_TOOLTIP_DETAILS = {
+  CORE_INTEGRITY: "Keep enemies from leaking through the end of the track. If more than 2 enemies reach your core, this bonus is missed.",
+  TIMED_ASSAULT: "Clear all waves and defeat the level boss before the timer runs out. Faster clears earn the bonus.",
+  PRIORITY_HUNT: "Some enemies become priority targets. Kill every marked target before it escapes to earn the bonus.",
+  BOSS_INTERCEPT: "Mini bosses and the final boss must be defeated before crossing the checkpoint. Letting a boss pass misses the bonus."
+};
+const ANOMALY_TOOLTIP_DETAILS = {
+  LOW_GRAVITY: "Your non-mortar projectiles travel faster and pierce more enemies, so straight-line and bullet towers get stronger during this wave.",
+  ION_STORM: "Enemies gain stronger shields, but your energy damage also gets boosted. Arc, Frost, and Lens towers become more valuable.",
+  CRYO_LEAK: "Slow effects become stronger, while damage-over-time lasts less time. Frost/control builds get better and poison burns out faster.",
+  WARP_RIPPLE: "Every few seconds, two ground enemies blink forward on the path. Spread damage along the lane so surprise jumps do not leak."
+};
+const FEATURE_TOOLTIP_DETAILS = {
+  AMPLIFIER_NODES: "Cyan build nodes are premium tower spots. A turret placed on one gains extra damage and range for the whole level.",
+  CRYO_PATCHES: "Blue path patches slow ground enemies while they travel through them. Build near these zones to get more firing time.",
+  SALVAGE_RELAYS: "Gold relay zones reward kills. Enemies destroyed inside these zones pay bonus gold, so towers nearby improve your economy.",
+  PHASE_LANES: "Violet path patches speed enemies up. These are danger zones where you may need slows, burst damage, or extra coverage."
+};
 
 // CODEX CHANGE: Helper keeps combo window tiers centralized for quick balancing.
 function comboWindowForCount(count) {
@@ -1640,6 +1658,22 @@ class Game {
     });
     startBtn.addEventListener("pointerleave", () => hideTooltip());
 
+    [
+      { el: anomalyPill, type: "anomaly" },
+      { el: objectivePillEl, type: "objective" },
+      { el: mapFeaturePillEl, type: "feature" }
+    ].forEach(({ el, type }) => {
+      if (!el) return;
+      const show = (ev) => {
+        const msg = this._topbarPillTooltip(type);
+        if (!msg) return;
+        showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
+      };
+      el.addEventListener("pointerenter", show);
+      el.addEventListener("pointermove", show);
+      el.addEventListener("pointerleave", () => hideTooltip());
+    });
+
     abilityScanBtn?.addEventListener("click", () => {
       this.audio?.playLimited("abilities_btn", 70);
       this.useAbility("scan");
@@ -3004,6 +3038,36 @@ class Game {
       buildList.appendChild(item);
     }
     this._refreshBuildList();
+  }
+
+  _topbarPillTooltip(type) {
+    if (type === "anomaly") {
+      if (!this.waveAnomaly) {
+        return "Anomaly: temporary wave rule. None is active right now, but later waves can change enemy shields, slows, movement, or projectile behavior.";
+      }
+      const detail = ANOMALY_TOOLTIP_DETAILS[this.waveAnomaly.key] || this.waveAnomaly.desc;
+      return `Anomaly: ${this.waveAnomaly.name}. ${detail} Current rule: ${this.waveAnomaly.desc}`;
+    }
+    if (type === "objective") {
+      if (!this.levelObjective) {
+        return "Objective: optional level challenge. Complete it for bonus gold and better leaderboard progress.";
+      }
+      const state = this.levelObjective.complete
+        ? "Complete"
+        : (this.levelObjective.failed ? "Missed" : "Active");
+      const detail = OBJECTIVE_TOOLTIP_DETAILS[this.levelObjective.key] || this.levelObjective.desc;
+      const progress = this._objectiveProgressText();
+      return `Objective: ${this.levelObjective.name} (${state}). ${detail} Progress: ${progress}. Reward: ${fmt(this.levelObjective.reward || 0)}g.`;
+    }
+    if (type === "feature") {
+      const feature = this.map?.feature;
+      if (!feature) {
+        return "Feature: special map rule. Each level can add a different battlefield bonus, hazard, or build modifier.";
+      }
+      const detail = FEATURE_TOOLTIP_DETAILS[feature.key] || feature.desc;
+      return `Feature: ${feature.name}. ${detail} Current rule: ${feature.desc}`;
+    }
+    return "";
   }
 
   updateHUD() {

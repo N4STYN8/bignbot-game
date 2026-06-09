@@ -408,6 +408,9 @@ body{
     0 0 18px rgba(98,242,255,.045);
   backdrop-filter: blur(12px) saturate(1.12);
 }
+.topbar .pill{
+  pointer-events:auto;
+}
 .pill .k{
   color:rgba(174,191,235,.82);
   font-size:10px;

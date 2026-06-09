@@ -1,5 +1,7 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { USE_ENEMY_SPRITES, ENEMY_SPRITE_ANGLE_OFFSET, getEnemySprite, preloadEnemySprites } from "./sprites.js";
+import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent, addCombatTag } from "./combatEvents.js?v=202606071855";
+import { STATUS, setStatusState, syncEnemyLegacyStatuses } from "./statusEffects.js?v=202606071855";
 
 preloadEnemySprites();
 
@@ -577,6 +579,7 @@ export class Enemy {
 
     this._dead = false;
     this._lastHitBy = null;
+    this.statuses = {};
     this._marked = 0;
     this._markedT = 0;
     this.empT = 0;
@@ -633,7 +636,17 @@ export class Enemy {
     if (this.dotT > 0) {
       this.dotT -= dt;
       const dmg = this.dot * dt;
-      const dealt = applyDamageToEnemy(this, dmg, DAMAGE.CHEM);
+      const event = createCombatEvent(COMBAT_EVENT_TYPES.DAMAGE, {
+        source: this._lastHitBy || null,
+        sourceKey: this._lastHitBy?.typeKey || "DOT",
+        target: this,
+        amount: dmg,
+        damageType: DAMAGE.CHEM,
+        tags: ["dot", "chemical-hit"]
+      });
+      const dealt = applyDamageToEnemy(this, event.amount, event.damageType);
+      event.dealt = dealt;
+      emitCombatEvent(game, event);
       // light shimmer
       game.particles.spawn(this.x, this.y, 1, "chem");
       if (dealt > 0 && this._dotTextCd <= 0) {
@@ -673,6 +686,7 @@ export class Enemy {
       this._noSplitT -= dt;
       if (this._noSplitT <= 0) this._noSplit = false;
     }
+    syncEnemyLegacyStatuses(this);
 
     // movement
     const slowFactor = (1 - this.slow);
@@ -736,7 +750,23 @@ export class Enemy {
     this.hitFlashDur = rand(0.08, 0.12);
     this.hitFlashT = this.hitFlashDur;
     this.hitFlash = 1;
-    const dealt = applyDamageToEnemy(this, amount, dmgType);
+    const event = createCombatEvent(COMBAT_EVENT_TYPES.DAMAGE, {
+      source: sourceTurret || this._lastHitBy || null,
+      sourceKey,
+      target: this,
+      amount,
+      damageType: dmgType,
+      tags: []
+    });
+    if (dmgType === DAMAGE.ENGY) addCombatTag(event, "energy-hit");
+    if (dmgType === DAMAGE.PHYS) addCombatTag(event, "physical-hit");
+    if (dmgType === DAMAGE.CHEM) addCombatTag(event, "chemical-hit");
+    if (dmgType === DAMAGE.TRUE) addCombatTag(event, "true-hit");
+    if (sourceKey === "MORTAR") addCombatTag(event, "explosive-hit");
+    if (sourceKey) addCombatTag(event, `source:${sourceKey}`);
+    const dealt = applyDamageToEnemy(this, event.amount, event.damageType);
+    event.dealt = dealt;
+    emitCombatEvent(game, event);
     if (game && dealt > 0) {
       game.recordDamage(sourceKey, dealt);
     }
@@ -809,6 +839,7 @@ export class Enemy {
     const next = clamp(pct * mul, 0, 0.85);
     this.slow = Math.max(this.slow, next);
     this.slowT = Math.max(this.slowT, dur);
+    setStatusState(this, STATUS.SLOW, { strength: this.slow, duration: this.slowT });
       this._game?.spawnText(this.x, this.y - 12, "SLOWED", "rgba(160,190,255,0.95)", 0.85);
   }
 
@@ -817,6 +848,7 @@ export class Enemy {
     const mul = this._dotDurMul || 1;
     const next = Math.max(0.2, dur * mul);
     this.dotT = Math.max(this.dotT, next);
+    setStatusState(this, STATUS.DOT, { dps: this.dot, duration: this.dotT });
       this._game?.spawnText(this.x, this.y - 12, "BURN", "rgba(109,255,154,0.95)", 0.85);
   }
 
@@ -825,6 +857,7 @@ export class Enemy {
     const wasRevealed = this.revealed;
     this.revealed = true;
     this.revealT = Math.max(this.revealT, dur);
+    setStatusState(this, STATUS.REVEAL, { duration: this.revealT });
     if (!wasRevealed) {
       this._game?.spawnText(this.x, this.y - 12, "REVEALED", "rgba(98,242,255,0.9)", 1.0);
     }

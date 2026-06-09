@@ -1,4 +1,6 @@
 import { DAMAGE, turretHitFxProfile } from "./enemies.js?v=202606071855";
+import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606071855";
+import { STATUS, setStatusState } from "./statusEffects.js?v=202606071855";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 
 export class Projectile {
@@ -196,6 +198,15 @@ export class Projectile {
 
         e._lastHitBy = this.owner;
         const dealt = this.dmg * (e.shield > 0 ? this.vsShield : this.vsHp);
+        emitCombatEvent(game, createCombatEvent(COMBAT_EVENT_TYPES.PROJECTILE_HIT, {
+          source: this.owner || null,
+          sourceKey: this.owner?.typeKey || null,
+          projectile: this,
+          target: e,
+          amount: dealt,
+          damageType: this.dmgType,
+          tags: [this.style ? `projectile:${this.style}` : null].filter(Boolean)
+        }));
         e.takeHit(game, dealt, this.dmgType, this.owner?.typeKey || null);
 
         // special style effects
@@ -205,6 +216,7 @@ export class Projectile {
         if (this.markOnHit) {
           e._marked = Math.max(e._marked || 0, this.markOnHit);
           e._markedT = Math.max(e._markedT || 0, 1.4);
+          setStatusState(e, STATUS.MARK, { strength: e._marked, duration: e._markedT });
         game.spawnText(e.x, e.y - 14, "MARKED", "rgba(154,108,255,0.95)", 0.85);
         }
         if (this.stunChance && Math.random() < this.stunChance) {

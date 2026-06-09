@@ -6,6 +6,9 @@ import { Particles } from "./vfx.js?v=202606071855";
 import { Projectile } from "./projectiles.js?v=202606071855";
 import { TURRET_TYPES, Turret } from "./turrets.js?v=202606071855";
 import { MusicVisualizer } from "./visualization.js?v=202606071855";
+import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606071855";
+import { createDefaultSynergyRegistry } from "./synergies.js?v=202606071855";
+import { STATUS, setStatusState } from "./statusEffects.js?v=202606071855";
 
 // CODEX CHANGE: Echo Cascade tuning knobs and lightweight HUD/FX references.
 const comboCascadeEl = document.getElementById("comboCascade");
@@ -66,11 +69,11 @@ const ECHO_CASCADE_WINDOW_TIERS = [
   { min: 1, sec: 1.75 }
 ];
 const ECHO_CASCADE_GOLD_TIERS = [
-  { min: 24, mult: 1.24 },
-  { min: 18, mult: 1.19 },
-  { min: 12, mult: 1.14 },
-  { min: 8, mult: 1.08 },
-  { min: 4, mult: 1.04 },
+  { min: 24, mult: 1.20 },
+  { min: 18, mult: 1.16 },
+  { min: 12, mult: 1.11 },
+  { min: 8, mult: 1.07 },
+  { min: 4, mult: 1.03 },
   { min: 0, mult: 1.0 }
 ];
 const ECHO_CASCADE_FADE_SECS = 0.45;
@@ -308,6 +311,9 @@ class Game {
     this.lingering = [];
     this.disruptionClouds = [];
     this.disruptionShots = [];
+    this.combatEvents = [];
+    this.combatEventSeq = 0;
+    this.synergies = createDefaultSynergyRegistry();
   }
 
   // CODEX CHANGE: Keep constructor-readable, single-source defaults for run/session/input state.
@@ -3376,6 +3382,7 @@ class Game {
         for (const e of this.enemies) {
           if (!e || e._dead) continue;
           e.empT = Math.max(Number(e.empT) || 0, empDuration);
+          setStatusState(e, STATUS.EMP, { duration: e.empT });
           if (this._clearEnemyShield(e)) {
             shields++;
             this.particles.spawn(e.x, e.y, 6, "shard", "rgba(154,108,255,0.9)");
@@ -4444,6 +4451,21 @@ class Game {
     if (enemy.isBoss || enemy.isFinalBoss) {
       this.map?.triggerBossKillPulse?.(enemy.x, enemy.y, !!enemy.isFinalBoss);
     }
+    emitCombatEvent(this, createCombatEvent(COMBAT_EVENT_TYPES.ENEMY_DEATH, {
+      source: enemy._lastHitBy || null,
+      sourceKey: enemy._lastHitBy?.typeKey || null,
+      target: enemy,
+      reward,
+      comboCount: this.comboCount,
+      comboMult: this.comboMult,
+      tags: [
+        enemy.isFinalBoss ? "final-boss" : null,
+        enemy.isBoss ? "boss" : null,
+        enemy.elite?.tag ? `elite:${enemy.elite.tag}` : null,
+        dramaticKill ? "dramatic-kill" : null,
+        abilityKill ? `ability:${abilityKill}` : null
+      ].filter(Boolean)
+    }));
 
     // type-specific death animation
     this._spawnEnemyDeathFx(enemy);
@@ -5312,6 +5334,7 @@ class Game {
           if (tr.noSplit && e.typeKey === "SPLITTER") {
             e._noSplit = true;
             e._noSplitT = Math.max(e._noSplitT, 0.8);
+            setStatusState(e, STATUS.NO_SPLIT, { duration: e._noSplitT });
           }
         }
       }
@@ -5910,6 +5933,28 @@ class Game {
 resize();
 const game = new Game();
 window.game = game; // handy for debugging
+window._orbitEchoCombat = () => ({
+  eventsSeen: game.synergies?.eventsSeen || 0,
+  triggerCounts: { ...(game.synergies?.triggerCounts || {}) },
+  lastDamage: game.lastDamageEvent ? {
+    id: game.lastDamageEvent.id,
+    sourceKey: game.lastDamageEvent.sourceKey,
+    target: game.lastDamageEvent.target?.name || game.lastDamageEvent.target?.typeKey || null,
+    amount: game.lastDamageEvent.amount,
+    dealt: game.lastDamageEvent.dealt,
+    tags: [...(game.lastDamageEvent.tags || [])],
+    synergies: game.lastDamageEvent.synergies || []
+  } : null,
+  recent: (game.combatEvents || []).slice(-12).map(event => ({
+    id: event.id,
+    type: event.type,
+    sourceKey: event.sourceKey,
+    target: event.target?.name || event.target?.typeKey || null,
+    dealt: event.dealt,
+    tags: [...(event.tags || [])],
+    synergies: event.synergies || []
+  }))
+});
 window._orbitEchoSelfTest = () => {
   const g = window.game;
   if (!g) {

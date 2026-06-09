@@ -109,6 +109,14 @@ export class AudioSystem {
       enemy_disrupt_jam_impact: ["assets/sfx/sfx_enemy_disrupt_jam_impact.wav.wav"],
       enemy_disrupt_slow_impact: ["assets/sfx/sfx_enemy_disrupt_slow_impact.wav.wav"],
       turret_disrupted_pulse: ["assets/sfx/sfx_turret_disrupted_pulse.wav.wav"],
+      synergy_shatter: ["assets/sfx/sfx_shatter_circuit.wav"],
+      synergy_bloom: ["assets/sfx/sfx_chemical_bloom.wav"],
+      synergy_emp_feedback: ["assets/sfx/sfx_emp_feedback.wav"],
+      synergy_precision_break: ["assets/sfx/sfx_precision_break.wav"],
+      synergy_swarm_link: ["assets/sfx/sfx_swarm_link.wav"],
+      synergy_caustic_ray: ["assets/sfx/sfx_caustic_ray.wav"],
+      synergy_seismic_snare: ["assets/sfx/sfx_seismic_snare.wav"],
+      synergy_overcharge_rupture: ["assets/sfx/sfx_overcharge_rupture.wav"],
       abilities_btn: ["assets/sfx/sfx_abilities_btn.wav"],
       explodingboss: ["assets/sfx/sfx_explodingboss.wav"],
       finalexplosionboss: ["assets/sfx/sfx_finalexplosionboss.wav"],
@@ -133,14 +141,18 @@ export class AudioSystem {
       "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
       "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap",
       "enemy_disrupt_charge", "enemy_disrupt_jam_shot", "enemy_disrupt_slow_shot",
-      "turret_disrupted_pulse"
+      "turret_disrupted_pulse",
+      "synergy_shatter", "synergy_bloom", "synergy_emp_feedback", "synergy_precision_break",
+      "synergy_swarm_link", "synergy_caustic_ray", "synergy_seismic_snare", "synergy_overcharge_rupture"
     ]);
     this._streamedSfx = new Set([
       "shot", "drone", "beam", "mortar", "trap",
       "turret_pulse", "turret_arc", "turret_frost", "turret_lens", "turret_mortar",
       "turret_venom", "turret_needle", "turret_aura", "turret_drone", "turret_trap",
       "enemy_disrupt_charge", "enemy_disrupt_jam_shot", "enemy_disrupt_slow_shot",
-      "enemy_disrupt_jam_impact", "enemy_disrupt_slow_impact", "turret_disrupted_pulse"
+      "enemy_disrupt_jam_impact", "enemy_disrupt_slow_impact", "turret_disrupted_pulse",
+      "synergy_shatter", "synergy_bloom", "synergy_emp_feedback", "synergy_precision_break",
+      "synergy_swarm_link", "synergy_caustic_ray", "synergy_seismic_snare", "synergy_overcharge_rupture"
     ]);
     this._sfxChannel = {};
     this._sfxPool = {};
@@ -165,6 +177,14 @@ export class AudioSystem {
       enemy_disrupt_jam_impact: 3,
       enemy_disrupt_slow_impact: 3,
       turret_disrupted_pulse: 2,
+      synergy_shatter: 3,
+      synergy_bloom: 3,
+      synergy_emp_feedback: 3,
+      synergy_precision_break: 3,
+      synergy_swarm_link: 3,
+      synergy_caustic_ray: 3,
+      synergy_seismic_snare: 3,
+      synergy_overcharge_rupture: 3,
       explodingboss: 4,
       finalexplosionboss: 3
     };

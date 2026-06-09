@@ -32,7 +32,12 @@ export class AudioSystem {
       "assets/music/Background/Sentinel Overcharge.mp3",
       "assets/music/Background/Sentinel Resistance Drive.mp3",
       "assets/music/Background/Void Lane Pursuit.mp3",
-      "assets/music/Background/Voidlane Star Voyage.mp3"
+      "assets/music/Background/Voidlane Star Voyage.mp3",
+      "assets/music/Background/Bastion Wave Protocol.mp3",
+      "assets/music/Background/Corrupted Orbit Drive.mp3",
+      "assets/music/Background/Cryo Grid Horizon.mp3",
+      "assets/music/Background/Overcharge Nightfall.mp3",
+      "assets/music/Background/Quantum Lane Rebellion.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -61,7 +66,12 @@ export class AudioSystem {
       "Sentinel Overcharge",
       "Sentinel Resistance Drive",
       "Void Lane Pursuit",
-      "Voidlane Star Voyage"
+      "Voidlane Star Voyage",
+      "Bastion Wave Protocol",
+      "Corrupted Orbit Drive",
+      "Cryo Grid Horizon",
+      "Overcharge Nightfall",
+      "Quantum Lane Rebellion"
     ];
     this.trackIndex = 0;
     this.repeat = true;

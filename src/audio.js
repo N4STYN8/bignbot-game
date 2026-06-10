@@ -37,7 +37,13 @@ export class AudioSystem {
       "assets/music/Background/Corrupted Orbit Drive.mp3",
       "assets/music/Background/Cryo Grid Horizon.mp3",
       "assets/music/Background/Overcharge Nightfall.mp3",
-      "assets/music/Background/Quantum Lane Rebellion.mp3"
+      "assets/music/Background/Quantum Lane Rebellion.mp3",
+      "assets/music/Background/Cryo Bastion Drift.mp3",
+      "assets/music/Background/Neon Siege Vector.mp3",
+      "assets/music/Background/Orbital Core Rebellion.mp3",
+      "assets/music/Background/Pulsewave Defense Matrix.mp3",
+      "assets/music/Background/Rift Overdrive Protocol.mp3",
+      "assets/music/Background/Solar Flare Intercept.mp3"
     ].map(src => this._cdnUrl(src));
     this.trackNames = [
       "Pulse Grid Ascension",
@@ -71,7 +77,13 @@ export class AudioSystem {
       "Corrupted Orbit Drive",
       "Cryo Grid Horizon",
       "Overcharge Nightfall",
-      "Quantum Lane Rebellion"
+      "Quantum Lane Rebellion",
+      "Cryo Bastion Drift",
+      "Neon Siege Vector",
+      "Orbital Core Rebellion",
+      "Pulsewave Defense Matrix",
+      "Rift Overdrive Protocol",
+      "Solar Flare Intercept"
     ];
     this.trackIndex = 0;
     this.repeat = true;

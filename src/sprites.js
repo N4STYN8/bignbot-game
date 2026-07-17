@@ -16,9 +16,11 @@ export const TURRET_SPRITE_SCALE_OVERRIDES = {
 
 export const TURRET_GLOW_TINTS = {
   PULSE: "rgba(98,242,255,1)",
-  ARC: "rgba(154,108,255,1)",
+  // CODEX CHANGE: Match Arc Coil selection effects to the new cyan reactor sprites.
+  ARC: "rgba(98,242,255,1)",
   FROST: "rgba(176,214,255,1)",
-  LENS: "rgba(126,244,255,1)",
+  // CODEX CHANGE: Match Sun Lens selection effects to the new amber optical sprites.
+  LENS: "rgba(255,166,42,1)",
   NEEDLE: "rgba(190,126,255,1)",
   VENOM: "rgba(109,255,154,1)",
   MORTAR: "rgba(255,184,92,1)",
@@ -95,9 +97,12 @@ const ENEMY_SPRITE_KEY_TO_PATHS = {
 const TURRET_SPRITE_DEFS = {
   // CODEX CHANGE: Match the required pulse_spindle_lv1-lv5 filenames used by the new play-area sprites.
   PULSE: { key: "pulse", aliases: ["pulse_spindle", "pulse"], folders: ["pulse", "pulse_spindle"] },
-  ARC: { key: "arc", aliases: ["arc"], folders: ["arc", "arc_coil"] },
-  FROST: { key: "frost", aliases: ["frost"], folders: ["frost", "frost_vent"] },
-  LENS: { key: "lens", aliases: ["lens", "sun"], folders: ["lens", "sun_lens"] },
+  // CODEX CHANGE: Resolve the new arc_coil_lv1-lv5 filenames before legacy Arc assets.
+  ARC: { key: "arc", aliases: ["arc_coil", "arc"], folders: ["arc", "arc_coil"] },
+  // CODEX CHANGE: Resolve the new frost_vent_lv1-lv5 filenames before legacy Frost assets.
+  FROST: { key: "frost", aliases: ["frost_vent", "frost"], folders: ["frost", "frost_vent"] },
+  // CODEX CHANGE: Resolve the new sun_lens_lv1-lv5 filenames before legacy Lens assets.
+  LENS: { key: "lens", aliases: ["sun_lens", "lens", "sun"], folders: ["lens", "sun_lens"] },
   VENOM: { key: "venom", aliases: ["venom"], folders: ["venom", "venom_spitter"] },
   MORTAR: { key: "mortar", aliases: ["mortar"], folders: ["mortar", "mortar_bloom"] },
   NEEDLE: { key: "needle", aliases: ["needle", "rail"], folders: ["needle", "rail_needle"] },
@@ -147,8 +152,8 @@ function buildSpriteMap() {
     const base = buildTierCandidates(def, "base");
     const lv1 = [...buildTierCandidates(def, "lv1"), ...buildTierCandidates(def, "u1")];
     map[typeKey] = {
-      // CODEX CHANGE: New Pulse Spindles use the top-down level-one art in the play area before their first upgrade.
-      base: typeKey === "PULSE" ? [...lv1, ...base] : base,
+      // CODEX CHANGE: New five-level turret sets use their top-down level-one art before the first upgrade.
+      base: typeKey === "PULSE" || typeKey === "ARC" || typeKey === "FROST" || typeKey === "LENS" ? [...lv1, ...base] : base,
       lv1,
       lv2: [...buildTierCandidates(def, "lv2"), ...buildTierCandidates(def, "u2")],
       lv3: [...buildTierCandidates(def, "lv3"), ...buildTierCandidates(def, "u3")],

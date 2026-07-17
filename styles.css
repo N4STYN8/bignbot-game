@@ -1539,17 +1539,35 @@ body{
 [data-icon="PULSE"][data-level="4"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv4.png")}
 [data-icon="PULSE"][data-level="5"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv5.png")}
 [data-icon="ARC"]{
-  --turret-rgb: 154,108,255;
-  --turret-img: url("assets/images/turrets/arc_coil/arc_base.png");
+  /* CODEX CHANGE: Use the new cyan Arc Coil Level 1 sprite for build and selection icons. */
+  --turret-rgb: 98,242,255;
+  --turret-img: url("assets/images/turrets/arc_coil/arc_coil_lv1.png");
 }
+/* CODEX CHANGE: Keep the Arc Coil portrait synchronized with its battlefield upgrade level. */
+[data-icon="ARC"][data-level="2"]{--turret-img:url("assets/images/turrets/arc_coil/arc_coil_lv2.png")}
+[data-icon="ARC"][data-level="3"]{--turret-img:url("assets/images/turrets/arc_coil/arc_coil_lv3.png")}
+[data-icon="ARC"][data-level="4"]{--turret-img:url("assets/images/turrets/arc_coil/arc_coil_lv4.png")}
+[data-icon="ARC"][data-level="5"]{--turret-img:url("assets/images/turrets/arc_coil/arc_coil_lv5.png")}
 [data-icon="FROST"]{
+  /* CODEX CHANGE: Use the new top-down Frost Vent Level 1 sprite for build and selection icons. */
   --turret-rgb: 176,214,255;
-  --turret-img: url("assets/images/turrets/frost_vent/frost_base.png");
+  --turret-img: url("assets/images/turrets/frost_vent/frost_vent_lv1.png");
 }
+/* CODEX CHANGE: Keep the Frost Vent portrait synchronized with its battlefield upgrade level. */
+[data-icon="FROST"][data-level="2"]{--turret-img:url("assets/images/turrets/frost_vent/frost_vent_lv2.png")}
+[data-icon="FROST"][data-level="3"]{--turret-img:url("assets/images/turrets/frost_vent/frost_vent_lv3.png")}
+[data-icon="FROST"][data-level="4"]{--turret-img:url("assets/images/turrets/frost_vent/frost_vent_lv4.png")}
+[data-icon="FROST"][data-level="5"]{--turret-img:url("assets/images/turrets/frost_vent/frost_vent_lv5.png")}
 [data-icon="LENS"]{
-  --turret-rgb: 126,244,255;
-  --turret-img: url("assets/images/turrets/sun_lens/sun_base.png");
+  /* CODEX CHANGE: Use the new amber Sun Lens Level 1 sprite for build and selection icons. */
+  --turret-rgb: 255,166,42;
+  --turret-img: url("assets/images/turrets/sun_lens/sun_lens_lv1.png");
 }
+/* CODEX CHANGE: Keep the Sun Lens portrait synchronized with its battlefield upgrade level. */
+[data-icon="LENS"][data-level="2"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv2.png")}
+[data-icon="LENS"][data-level="3"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv3.png")}
+[data-icon="LENS"][data-level="4"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv4.png")}
+[data-icon="LENS"][data-level="5"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv5.png")}
 [data-icon="MORTAR"]{
   --turret-rgb: 255,184,92;
   --turret-img: url("assets/images/turrets/mortar_bloom/mortar_base.png");

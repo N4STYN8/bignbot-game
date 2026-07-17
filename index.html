@@ -13,7 +13,8 @@
     gtag("config", "G-WQGQLK211G");
   </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap">
-  <link rel="stylesheet" href="styles.css?v=202606082258">
+  <!-- CODEX CHANGE: Refresh cached turret icon styling for the new Pulse Spindle art. -->
+  <link rel="stylesheet" href="styles.css?v=202607171800">
 </head>
 <body>
   <div id="app" class="layout">
@@ -55,8 +56,9 @@
           </div>
 
           <div class="versionStamp" aria-label="Build version">
-            <span class="versionValue">v2026.06.09.2221</span>
-            <span class="versionDate">2026-06-09 22:21 -04:00</span>
+            <!-- CODEX CHANGE: Refresh the visible build stamp for the turret HUD and waveform release. -->
+            <span class="versionValue">v2026.07.16.2326</span>
+            <span class="versionDate">2026-07-16 23:26 -04:00</span>
           </div>
         </div>
 
@@ -388,11 +390,15 @@
       <div id="toast" class="toast hidden"></div>
       <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
       <div id="turretHud" class="turretHud hidden" aria-live="polite">
+        <!-- CODEX CHANGE: One reusable canvas carries the music-reactive ribbon outside the turret HUD. -->
+        <canvas id="turretHudOuterWave" class="turretHudOuterWave" width="900" height="900" aria-hidden="true"></canvas>
         <div id="turretHudBody" class="turretHudBody"></div>
         <div class="turretHudFooter">
-          <button id="turretHudSellBtn" class="btn danger" disabled>SELL</button>
-          <button id="turretHudCloseBtn" class="btn ghost">CLOSE</button>
+          <!-- CODEX CHANGE: Material Symbols make radial turret actions readable at a glance. -->
+          <button id="turretHudSellBtn" class="btn danger" disabled><span class="material-symbols-rounded" aria-hidden="true">sell</span><span>SELL</span></button>
+          <button id="turretHudCloseBtn" class="btn ghost"><span class="material-symbols-rounded" aria-hidden="true">close</span><span>CLOSE</span></button>
         </div>
+        <!-- CODEX CHANGE: The selected-turret waveform now lives in the game canvas, behind the turret head. -->
       </div>
       <div id="levelOverlay" class="levelOverlay hidden" aria-hidden="true">
         <div id="levelOverlayText" class="levelOverlayText">LEVEL 1</div>
@@ -460,6 +466,11 @@
             <label class="audioCtl">
               <span>Enemy Sprites</span>
               <input id="enemySpritesToggle" type="checkbox" checked>
+            </label>
+            <!-- CODEX CHANGE: Allow music-reactive battlefield visuals to be disabled independently. -->
+            <label class="audioCtl">
+              <span>Music Visualizations</span>
+              <input id="musicVisualsToggle" type="checkbox" checked>
             </label>
             <label class="audioCtl">
               <span>VFX Intensity</span>
@@ -572,7 +583,8 @@
   <script>
     window.ORBIT_ECHO_LEADERBOARD_API = "https://orbit-echo-leaderboard.nathan-scally.workers.dev";
   </script>
-  <script type="module" src="src/core.js?v=202606082258"></script>
+  <!-- CODEX CHANGE: Refresh the live module graph so new turret level assets load immediately. -->
+  <script type="module" src="src/core.js?v=202607171700"></script>
 </body>
 </html>
 

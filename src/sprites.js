@@ -93,7 +93,8 @@ const ENEMY_SPRITE_KEY_TO_PATHS = {
 };
 
 const TURRET_SPRITE_DEFS = {
-  PULSE: { key: "pulse", aliases: ["pulse"], folders: ["pulse", "pulse_spindle"] },
+  // CODEX CHANGE: Match the required pulse_spindle_lv1-lv5 filenames used by the new play-area sprites.
+  PULSE: { key: "pulse", aliases: ["pulse_spindle", "pulse"], folders: ["pulse", "pulse_spindle"] },
   ARC: { key: "arc", aliases: ["arc"], folders: ["arc", "arc_coil"] },
   FROST: { key: "frost", aliases: ["frost"], folders: ["frost", "frost_vent"] },
   LENS: { key: "lens", aliases: ["lens", "sun"], folders: ["lens", "sun_lens"] },
@@ -142,11 +143,17 @@ function buildTierCandidates(def, tierSuffix) {
 function buildSpriteMap() {
   const map = {};
   for (const [typeKey, def] of Object.entries(TURRET_SPRITE_DEFS)) {
+    // CODEX CHANGE: Support five named levels while retaining legacy u1-u3 asset compatibility.
+    const base = buildTierCandidates(def, "base");
+    const lv1 = [...buildTierCandidates(def, "lv1"), ...buildTierCandidates(def, "u1")];
     map[typeKey] = {
-      base: buildTierCandidates(def, "base"),
-      u1: buildTierCandidates(def, "u1"),
-      u2: buildTierCandidates(def, "u2"),
-      u3: buildTierCandidates(def, "u3"),
+      // CODEX CHANGE: New Pulse Spindles use the top-down level-one art in the play area before their first upgrade.
+      base: typeKey === "PULSE" ? [...lv1, ...base] : base,
+      lv1,
+      lv2: [...buildTierCandidates(def, "lv2"), ...buildTierCandidates(def, "u2")],
+      lv3: [...buildTierCandidates(def, "lv3"), ...buildTierCandidates(def, "u3")],
+      lv4: buildTierCandidates(def, "lv4"),
+      lv5: buildTierCandidates(def, "lv5"),
     };
   }
   return map;
@@ -203,17 +210,19 @@ function getLoadedCandidate(candidates) {
 }
 
 function tierKeyForLevel(level) {
+  // CODEX CHANGE: Match runtime upgrade levels 1-5 to their dedicated sprite tiers.
   if (level <= 0) return "base";
-  if (level === 1) return "u1";
-  if (level === 2) return "u2";
-  return "u3";
+  return `lv${Math.min(5, Math.floor(level))}`;
 }
 
+// CODEX CHANGE: Fall back through earlier upgrade art so partial turret sets remain compatible.
 const TIER_FALLBACKS = {
   base: ["base"],
-  u1: ["u1", "base"],
-  u2: ["u2", "u1", "base"],
-  u3: ["u3", "u2", "u1", "base"],
+  lv1: ["lv1", "base"],
+  lv2: ["lv2", "lv1", "base"],
+  lv3: ["lv3", "lv2", "lv1", "base"],
+  lv4: ["lv4", "lv3", "lv2", "lv1", "base"],
+  lv5: ["lv5", "lv4", "lv3", "lv2", "lv1", "base"],
 };
 
 export function preloadTurretSprites(opts = {}) {
@@ -221,9 +230,12 @@ export function preloadTurretSprites(opts = {}) {
   for (const entry of Object.values(TURRET_SPRITE_FILES)) {
     requestCandidates(entry.base);
     if (includeUpgradePlaceholders) {
-      requestCandidates(entry.u1);
-      requestCandidates(entry.u2);
-      requestCandidates(entry.u3);
+      // CODEX CHANGE: Preload every visual upgrade tier when requested.
+      requestCandidates(entry.lv1);
+      requestCandidates(entry.lv2);
+      requestCandidates(entry.lv3);
+      requestCandidates(entry.lv4);
+      requestCandidates(entry.lv5);
     }
   }
 }

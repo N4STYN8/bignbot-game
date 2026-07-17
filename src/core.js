@@ -4,8 +4,13 @@ import { Map } from "./map.js?v=202606082258";
 import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606082258";
 import { Particles } from "./vfx.js?v=202606082258";
 import { Projectile } from "./projectiles.js?v=202606082258";
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202606082258";
+// CODEX CHANGE: Refresh the turret module for five-level sprite loading.
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202607162147";
 import { MusicVisualizer } from "./visualization.js?v=202606082258";
+// CODEX CHANGE: Add one reusable canvas waveform for the currently selected turret.
+import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607171200";
+// CODEX CHANGE: Add a second reusable music ribbon around the outside of the turret HUD.
+import { HudOuterWaveform } from "./hudOuterWaveform.js?v=202607171400";
 import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606082258";
 import { createDefaultSynergyRegistry } from "./synergies.js?v=202606082258";
 import { STATUS, setStatusState } from "./statusEffects.js?v=202606082258";
@@ -18,6 +23,8 @@ const screenFxEl = document.querySelector(".screenFx");
 const visualModeLabelEl = document.getElementById("visualModeLabel");
 const enemySpritesToggleEl = document.getElementById("enemySpritesToggle");
 const vfxIntensitySelectEl = document.getElementById("vfxIntensitySelect");
+const musicVisualsToggleEl = document.getElementById("musicVisualsToggle");
+const turretHudOuterWaveEl = document.getElementById("turretHudOuterWave");
 const leaderboardBtnEl = document.getElementById("leaderboardBtn");
 const leaderboardModalEl = document.getElementById("leaderboardModal");
 const leaderboardCloseEl = document.getElementById("leaderboardClose");
@@ -293,6 +300,10 @@ class Game {
       label: visualModeLabelEl,
       audioSystem: this.audio
     });
+    // CODEX CHANGE: Allocate the selected-turret waveform once and reuse it for every turret.
+    this.selectedTurretWaveform = new SelectedTurretWaveform();
+    this.hudOuterWaveform = new HudOuterWaveform(turretHudOuterWaveEl);
+    this._selectedWaveformOptions = { disabled: false, vfx: "med", enemyCount: 0, boss: false, zoom: 1 };
     this.musicVisualizer.setLevelTheme(this.levelIndex, this.mapSeed);
     this.musicVisualizer.start();
     this._initCollections();
@@ -343,6 +354,10 @@ class Game {
     this.speed = 1;
     this.zoom = 1;
     this.cam = { x: 0, y: 0 };
+    // CODEX CHANGE: Cache floating HUD geometry so camera dragging only performs compositor updates.
+    this._turretHudMetrics = null;
+    this._turretHudLastTransform = null;
+    this._turretHudLastCone = null;
     this.dragging = false;
     this.dragMoved = false;
     this.dragStart = { x: 0, y: 0 };
@@ -406,6 +421,9 @@ class Game {
     this.bossCinematic = null;
     this.buildKey = null;
     this.selectedTurret = null;
+    // CODEX CHANGE: A fresh run cannot retain the previous selected-head waveform.
+    this.selectedTurretWaveform?.clear(true);
+    this.hudOuterWaveform?.clear(true);
     this.selectedEnemy = null;
     this.selectedTileCell = null;
     this.hoverCell = null;
@@ -415,7 +433,7 @@ class Game {
     this.panelHold = { left: 0, right: 0 };
     this._lastRuntimeErrAt = 0;
     this.panelHover = { left: false, right: false };
-    this.visualSettings = { enemySprites: true, vfxIntensity: "med" };
+    this.visualSettings = { enemySprites: true, vfxIntensity: "med", musicVisualizations: true };
     this._loadLeaderboardState();
   }
 
@@ -430,9 +448,11 @@ class Game {
       const parsed = JSON.parse(raw);
       this.visualSettings.enemySprites = parsed?.enemySprites !== false;
       this.visualSettings.vfxIntensity = this._sanitizeVfxIntensity(parsed?.vfxIntensity);
+      this.visualSettings.musicVisualizations = parsed?.musicVisualizations !== false;
     } catch (err) {
       this.visualSettings.enemySprites = true;
       this.visualSettings.vfxIntensity = "med";
+      this.visualSettings.musicVisualizations = true;
     }
   }
 
@@ -440,7 +460,8 @@ class Game {
     try {
       localStorage.setItem(VISUAL_SETTINGS_KEY, JSON.stringify({
         enemySprites: this.visualSettings.enemySprites !== false,
-        vfxIntensity: this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity)
+        vfxIntensity: this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity),
+        musicVisualizations: this.visualSettings.musicVisualizations !== false
       }));
     } catch (err) {}
   }
@@ -453,6 +474,43 @@ class Game {
   _syncVisualSettingsUi() {
     if (enemySpritesToggleEl) enemySpritesToggleEl.checked = this.visualSettings.enemySprites !== false;
     if (vfxIntensitySelectEl) vfxIntensitySelectEl.value = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
+    if (musicVisualsToggleEl) musicVisualsToggleEl.checked = this.visualSettings.musicVisualizations !== false;
+  }
+
+  // CODEX CHANGE: Feed one reusable waveform with selection, music, combat load, and visual settings.
+  _updateSelectedTurretWaveform(dt) {
+    const waveform = this.selectedTurretWaveform;
+    if (!waveform) return;
+    const selected = this.selectedTurret;
+    if (selected && !this.turrets.includes(selected)) {
+      waveform.clear(true);
+      this.hudOuterWaveform?.clear(true);
+      return;
+    }
+    let enemyCount = 0;
+    let boss = false;
+    for (const enemy of this.enemies) {
+      if (!enemy || enemy.hp <= 0) continue;
+      enemyCount += 1;
+      if (enemy.isBoss || enemy.isMiniBoss || enemy.isFinalBoss) boss = true;
+    }
+    const options = this._selectedWaveformOptions;
+    options.disabled = this.visualSettings.musicVisualizations === false
+      || document.documentElement.dataset.visualizationsDisabled === "true"
+      || document.body.classList.contains("visualizations-disabled");
+    options.vfx = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
+    options.enemyCount = enemyCount;
+    options.boss = boss;
+    // CODEX CHANGE: Let both selected-turret visualizers grow as the battlefield camera zooms out.
+    options.zoom = this.zoom;
+    waveform.update(dt, selected || null, this.musicVisualizer, options);
+    this.hudOuterWaveform?.update(dt, selected || null, this.musicVisualizer, options);
+  }
+
+  // CODEX CHANGE: Briefly brighten the selected waveform on its attacks and on enemy kills.
+  onCombatEvent(event) {
+    this.selectedTurretWaveform?.onCombatEvent(event, this.selectedTurret);
+    this.hudOuterWaveform?.onCombatEvent(event, this.selectedTurret);
   }
 
   _loadNewPlayerTipsSeen() {
@@ -1789,6 +1847,15 @@ class Game {
       this._applyVisualSettings();
       this._saveVisualSettings();
     });
+    // CODEX CHANGE: Persist the music-visualization opt-out used by the selected-turret waveform.
+    musicVisualsToggleEl?.addEventListener("change", () => {
+      this.visualSettings.musicVisualizations = !!musicVisualsToggleEl.checked;
+      this._saveVisualSettings();
+      if (!this.visualSettings.musicVisualizations) {
+        this.selectedTurretWaveform?.clear(true);
+        this.hudOuterWaveform?.clear(true);
+      }
+    });
 
     resetBtn?.addEventListener("click", () => {
       showConfirm("Reset Game", "Reset the game? This will clear your saved progress.", () => {
@@ -1964,7 +2031,12 @@ class Game {
     });
 
     canvas.addEventListener("click", (ev) => {
-      if (this.dragging || this.dragMoved) return;
+      // CODEX CHANGE: Consume the click emitted after a map drag so an open turret HUD is not rebuilt.
+      if (this.dragging) return;
+      if (this.dragMoved) {
+        this.dragMoved = false;
+        return;
+      }
       if (this.isUiBlocked()) return;
       if (overlay && !overlay.classList.contains("hidden")) return;
       if (settingsModal && !settingsModal.classList.contains("hidden")) return;
@@ -2002,8 +2074,8 @@ class Game {
       this.camStart.y = this.cam.y;
     });
     window.addEventListener("mouseup", () => {
+      // CODEX CHANGE: Preserve dragMoved until the following click event can consume the drag release.
       this.dragging = false;
-      this.dragMoved = false;
       this.dragButton = null;
     });
 
@@ -2020,13 +2092,17 @@ class Game {
     });
     canvas.addEventListener("mouseleave", () => hideTooltip());
 
-    canvas.addEventListener("wheel", (ev) => {
+    // CODEX CHANGE: Share map zoom with the turret HUD so its overlay never blocks the wheel.
+    const handleMapZoom = (ev) => {
       if (this.isUiBlocked()) return;
       ev.preventDefault();
       const delta = Math.sign(ev.deltaY);
       const next = this.zoom + (delta > 0 ? -0.1 : 0.1);
-      this.zoom = clamp(next, 0.75, 1.5);
-    }, { passive: false });
+      // CODEX CHANGE: Extend the zoom range to leave more battlefield padding around the larger radial HUD.
+      this.zoom = clamp(next, 0.6, 1.65);
+    };
+    canvas.addEventListener("wheel", handleMapZoom, { passive: false });
+    turretHud?.addEventListener("wheel", handleMapZoom, { passive: false });
 
     document.querySelectorAll(".panelBtn").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -2170,6 +2246,13 @@ class Game {
     };
   }
 
+  // CODEX CHANGE: Invalidate cached HUD measurements only when its content or viewport can change.
+  _invalidateTurretHudLayout() {
+    this._turretHudMetrics = null;
+    this._turretHudLastTransform = null;
+    this._turretHudLastCone = null;
+  }
+
   _updateTurretHudPosition() {
     if (!turretHud || turretHud.classList.contains("hidden")) return;
     let world = null;
@@ -2181,15 +2264,76 @@ class Game {
     if (!world) return;
 
     const s = this.worldToScreen(world.x, world.y);
-    const rect = turretHud.getBoundingClientRect();
-    const wrapRect = turretHud.offsetParent?.getBoundingClientRect();
-    const vw = wrapRect ? wrapRect.width : W;
-    const vh = wrapRect ? wrapRect.height : H;
+    if (!this._turretHudMetrics) {
+      turretHud.style.left = "0px";
+      turretHud.style.top = "0px";
+      turretHud.style.transform = "translate3d(0, 0, 0)";
+      const rect = turretHud.getBoundingClientRect();
+      const wrapRect = turretHud.offsetParent?.getBoundingClientRect();
+      this._turretHudMetrics = {
+        width: rect.width,
+        height: rect.height,
+        vw: wrapRect ? wrapRect.width : W,
+        vh: wrapRect ? wrapRect.height : H
+      };
+    }
+    const { width, height, vw, vh } = this._turretHudMetrics;
     const margin = 10;
-    const px = clamp(s.x - rect.width * 0.5, margin, vw - rect.width - margin);
-    const py = clamp(s.y - rect.height - 34, margin, vh - rect.height - margin);
-    turretHud.style.left = `${px}px`;
-    turretHud.style.top = `${py}px`;
+    // CODEX CHANGE: Keep tile action panels close to the selected square instead of three cells away.
+    const clearance = Math.max(24, MAP_GRID_SIZE * this.zoom * 0.75);
+    const maxX = Math.max(margin, vw - width - margin);
+    const maxY = Math.max(margin, vh - height - margin);
+    const isRadial = turretHud.classList.contains("turretMode");
+    let px;
+    let py;
+    let side;
+    let coneX;
+    let coneY;
+    let coneAngle;
+
+    if (isRadial) {
+      // CODEX CHANGE: Lock the command ring around the selected battlefield turret itself.
+      px = s.x - width * 0.5;
+      py = s.y - height * 0.5;
+      side = "center";
+      coneX = width * 0.5;
+      coneY = height * 0.5;
+      coneAngle = 0;
+    } else {
+      // CODEX CHANGE: Place cleanse/unlock panels beside and vertically centered on the selected square.
+      const leftX = s.x - width - clearance;
+      const rightX = s.x + clearance;
+      const leftFits = leftX >= margin;
+      const rightFits = rightX <= maxX;
+      const prefersRight = s.x < vw * 0.5;
+      side = prefersRight ? "right" : "left";
+      if (side === "right" && !rightFits && leftFits) side = "left";
+      if (side === "left" && !leftFits && rightFits) side = "right";
+      px = clamp(side === "right" ? rightX : leftX, margin, maxX);
+      py = clamp(s.y - height * 0.5, margin, maxY);
+      coneX = 0;
+      coneY = 0;
+      coneAngle = 0;
+    }
+
+    px = Math.round(px);
+    py = Math.round(py);
+    // CODEX CHANGE: Connector cones are no longer rendered for tile or turret HUD modes.
+    const coneLength = 0;
+    // CODEX CHANGE: Keep camera-following transforms separate from the more expensive cone styling.
+    const transformKey = `${px}:${py}`;
+    if (this._turretHudLastTransform !== transformKey) {
+      turretHud.style.transform = `translate3d(${px}px, ${py}px, 0)`;
+      this._turretHudLastTransform = transformKey;
+    }
+    const coneKey = `${side}:${Math.round(coneY)}:${Math.round(coneLength)}:${coneAngle.toFixed(3)}`;
+    if (this._turretHudLastCone !== coneKey) {
+      turretHud.style.setProperty("--hud-cone-x", `${coneX}px`);
+      turretHud.style.setProperty("--hud-cone-length", `${coneLength}px`);
+      turretHud.style.setProperty("--hud-cone-angle", `${coneAngle}rad`);
+      turretHud.dataset.side = side;
+      this._turretHudLastCone = coneKey;
+    }
   }
 
   _canSkipIntermission() {
@@ -3579,6 +3723,8 @@ class Game {
     // Rebuilding here changes the path beneath placed turrets and active enemies.
     this._syncMusicHudGeometry();
     this._positionTutorialSpotlight();
+    // CODEX CHANGE: Re-measure the floating HUD after viewport changes.
+    this._invalidateTurretHudLayout();
     this._updateTurretHudPosition();
   }
 
@@ -4162,6 +4308,9 @@ class Game {
 
     this.buildKey = null;
     this.selectedTurret = null;
+    // CODEX CHANGE: Hide the selected-head waveform immediately when a run is reset or replaced.
+    this.selectedTurretWaveform?.clear(true);
+    this.hudOuterWaveform?.clear(true);
     this.selectedEnemy = null;
     this.hoverCell = null;
     this._id = 1;
@@ -4631,6 +4780,8 @@ class Game {
 
   _openCorruptedTileHud(cell) {
     if (!cell) return;
+    // CODEX CHANGE: Tile information keeps the compact rectangular HUD treatment.
+    turretHud?.classList.remove("turretMode");
     const state = this._getTileState(cell.gx, cell.gy, true);
     if (!state || !state.corrupted) return;
     const cost = Math.max(1, Number(state.cleanseCost) || this._defaultCleanseCost(cell.gx, cell.gy));
@@ -4672,6 +4823,8 @@ class Game {
       </div>
     `;
     if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    // CODEX CHANGE: Re-measure only after the HUD content changes.
+    this._invalidateTurretHudLayout();
     turretHud?.classList.remove("hidden");
     this._updateTurretHudPosition();
     const cleanseBtn = turretHudBody?.querySelector("#cleanseTileBtn");
@@ -4710,6 +4863,8 @@ class Game {
 
   _openPowerTileHud(cell) {
     if (!cell || cell.v !== 3) return;
+    // CODEX CHANGE: Tile information keeps the compact rectangular HUD treatment.
+    turretHud?.classList.remove("turretMode");
     const state = this._getTileState(cell.gx, cell.gy, true);
     if (!state || state.powerPurchased === true) return;
     const cost = Math.max(1, Number(state.powerUnlockCost) || this._defaultPowerUnlockCost(cell.gx, cell.gy));
@@ -4752,6 +4907,8 @@ class Game {
       </div>
     `;
     if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    // CODEX CHANGE: Re-measure only after the HUD content changes.
+    this._invalidateTurretHudLayout();
     turretHud?.classList.remove("hidden");
     this._updateTurretHudPosition();
     const buyBtn = turretHudBody?.querySelector("#buyPowerTileBtn");
@@ -4798,6 +4955,8 @@ class Game {
   _openFeatureTileHud(cell) {
     const feature = cell ? this.map.featureAtCell?.(cell.gx, cell.gy) : null;
     if (!feature) return false;
+    // CODEX CHANGE: Tile information keeps the compact rectangular HUD treatment.
+    turretHud?.classList.remove("turretMode");
     this.selectedTurret = null;
     this.selectedEnemy = null;
     this.selectedTileCell = { gx: cell.gx, gy: cell.gy, v: cell.v };
@@ -4811,6 +4970,7 @@ class Game {
     const behavior = isBuildNode
       ? "Build a turret here to apply the node boost immediately."
       : "This lane effect applies automatically while enemies cross it.";
+    // CODEX CHANGE: Keep radial targeting compact and explicitly labeled for assistive technology.
     const hudHtml = `
       <div class="selHeaderRow">
         <div class="selName">${feature.name || "Map Feature"}</div>
@@ -4836,6 +4996,8 @@ class Game {
       </div>
     `;
     if (turretHudBody) turretHudBody.innerHTML = hudHtml;
+    // CODEX CHANGE: Re-measure only after the HUD content changes.
+    this._invalidateTurretHudLayout();
     turretHud?.classList.remove("hidden");
     this._updateTurretHudPosition();
     return true;
@@ -4941,7 +5103,7 @@ class Game {
     this.selectEnemy(null);
   }
 
-  selectTurret(turret) {
+  selectTurret(turret, snapCamera = true) {
     this.selectedTileCell = null;
     this.selectedEnemy = null;
     this.selectedTurret = turret;
@@ -4949,27 +5111,47 @@ class Game {
     if (turretHudSellBtn) {
       turretHudSellBtn.disabled = !turret;
       turretHudSellBtn.style.display = "";
+      // CODEX CHANGE: Show the selected turret's exact sell value directly on its radial action button.
+      if (turret) {
+        const refund = Math.max(1, Math.floor((turret.costSpent || 0) * 0.7));
+        turretHudSellBtn.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">sell</span><span>SELL ${refund}G</span>`;
+      }
     }
     if (!turret) {
+      // CODEX CHANGE: Remove radial presentation when no turret is selected.
+      turretHud?.classList.remove("turretMode");
       selSub.textContent = "Select a turret";
       if (selectionBody) selectionBody.innerHTML = "";
       turretHud?.classList.add("hidden");
       turretStateBar?.classList.add("hidden");
       return;
     }
+    // CODEX CHANGE: Turret upgrades use the circular radial HUD presentation.
+    turretHud?.classList.add("turretMode");
+    // CODEX CHANGE: Snap the selected battlefield turret to the exact camera and radial HUD center.
+    if (snapCamera) {
+      this.cam.x = turret.x - W * 0.5;
+      this.cam.y = turret.y - H * 0.5;
+      this.camStart.x = this.cam.x;
+      this.camStart.y = this.cam.y;
+    }
     selSub.textContent = turret.role;
 
     const tierNames = ["Base", "I", "II", "III", "IV", "V"];
     const dps = turret.fire > 0 ? (turret.dmg / turret.fire) : turret.dmg * 12;
     const stats = [
-      { k: "Damage", v: turret.dmg.toFixed(1) },
-      { k: "Fire", v: `${turret.fire.toFixed(2)}s` },
-      { k: "Range", v: turret.range.toFixed(0) },
-      { k: "DPS", v: dps.toFixed(1) }
+      { k: "Damage", v: turret.dmg.toFixed(1), icon: "bolt" },
+      { k: "Fire", v: `${turret.fire.toFixed(2)}s`, icon: "speed" },
+      { k: "Range", v: turret.range.toFixed(0), icon: "radar" },
+      { k: "DPS", v: dps.toFixed(1), icon: "analytics" }
     ];
 
+    // CODEX CHANGE: Give each radial attribute tile a stable label for clean visual treatment.
     const statCards = stats.map(s => `
-      <div class="statCard"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>
+      <div class="statCard" data-stat="${s.k.toLowerCase()}">
+        <span class="material-symbols-rounded" aria-hidden="true">${s.icon}</span>
+        <div class="statText"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>
+      </div>
     `).join("");
     const targetModes = [
       { value: "FIRST", label: "FIRST" },
@@ -4994,11 +5176,12 @@ class Game {
             ${mods.map((m, idx) => {
               const preview = Turret.previewAfterUpgrade(turret, tierIdx, idx);
               const affordable = this.gold >= m.cost;
+              // CODEX CHANGE: Show compact attribute deltas that fit cleanly inside each radial upgrade card.
               const delta = [
-                `DMG ${turret.dmg.toFixed(1)} -> ${preview.dmg.toFixed(1)}`,
-                `FIR ${turret.fire.toFixed(2)} -> ${preview.fire.toFixed(2)}`,
-                `RNG ${turret.range.toFixed(0)} -> ${preview.range.toFixed(0)}`
-              ].join(", ");
+                `<span><b>DMG</b>${preview.dmg - turret.dmg >= 0 ? "+" : ""}${(preview.dmg - turret.dmg).toFixed(1)}</span>`,
+                `<span><b>FIR</b>${preview.fire - turret.fire >= 0 ? "+" : ""}${(preview.fire - turret.fire).toFixed(2)}</span>`,
+                `<span><b>RNG</b>${preview.range - turret.range >= 0 ? "+" : ""}${(preview.range - turret.range).toFixed(0)}</span>`
+              ].join("");
               return `
                 <div class="modChoice ${affordable ? "" : "poor"}">
                   <div class="modTop">
@@ -5008,7 +5191,9 @@ class Game {
                   <div class="modDesc">${m.desc}</div>
                   <div class="modDelta">${delta}</div>
                   <div class="modBtnRow">
-                    <button class="btn ${affordable ? "primary" : ""}" data-mod="${idx}" data-cost="${m.cost}" ${affordable ? "" : "disabled"}>UPGRADE</button>
+                    <button class="btn ${affordable ? "primary" : ""}" data-mod="${idx}" data-cost="${m.cost}" ${affordable ? "" : "disabled"}>
+                      <span class="material-symbols-rounded" aria-hidden="true">upgrade</span><span>UPGRADE</span>
+                    </button>
                   </div>
                 </div>
               `;
@@ -5025,9 +5210,20 @@ class Game {
       `;
     }
 
+    // CODEX CHANGE: Layered tactical dial rings give the turret HUD a calibrated sci-fi instrument face.
     const hudHtml = `
+      <div class="hudDial" aria-hidden="true">
+        <!-- CODEX CHANGE: Independent armor bands give the HUD background subtle mechanical movement. -->
+        <span class="hudArmorBand hudArmorOuter"></span>
+        <span class="hudArmorBand hudArmorMiddle"></span>
+        <span class="hudArmorBand hudArmorInner"></span>
+        <span class="hudDialRing hudDialTicks"></span>
+        <span class="hudDialRing hudDialSegments"></span>
+        <span class="hudDialRing hudDialSweep"></span>
+        <span class="hudDialRing hudDialCore"></span>
+      </div>
       <div class="selHeaderRow">
-        <div class="selPortrait" data-icon="${turret.typeKey}" aria-hidden="true"></div>
+        <div class="selPortrait" data-icon="${turret.typeKey}" data-level="${turret.level}" aria-hidden="true"></div>
         <div class="selHeaderText">
           <div class="selName">${turret.name}</div>
           <div class="selLevel">Tier ${tierNames[turret.level]}</div>
@@ -5035,8 +5231,8 @@ class Game {
       </div>
       <div class="statGrid">${statCards}</div>
       <div class="targetRow">
-        <div class="targetLabel">Targeting</div>
-        <select id="targetModeSelect" class="targetSelect">
+        <div class="targetLabel"><span class="material-symbols-rounded" aria-hidden="true">my_location</span><span>Targeting</span></div>
+        <select id="targetModeSelect" class="targetSelect" aria-label="Targeting mode">
           ${targetOptions}
         </select>
       </div>
@@ -5044,6 +5240,8 @@ class Game {
     `;
     if (turretHudBody) turretHudBody.innerHTML = hudHtml;
     if (selectionBody) selectionBody.innerHTML = "";
+    // CODEX CHANGE: Re-measure only after the turret upgrade menu changes.
+    this._invalidateTurretHudLayout();
     turretHud?.classList.remove("hidden");
     this._updateTurretHudPosition();
 
@@ -5139,7 +5337,8 @@ class Game {
     const ok = turret.applyUpgrade(turret.level, modIdx, false);
     if (ok) {
       this.gold -= cost;
-      this.selectTurret(turret);
+      // CODEX CHANGE: Refresh upgraded attributes without re-snapping a camera the player may have moved.
+      this.selectTurret(turret, false);
       this.particles.spawn(turret.x, turret.y, 10, "muzzle");
       this.audio.play("upgrade");
       this._save();
@@ -5155,6 +5354,9 @@ class Game {
     if (this.waveStats) this.waveStats.gold += refund;
     if (this.runStats) this.runStats.gold += refund;
     if (this.playerStats) this.playerStats.gold += refund;
+    // CODEX CHANGE: Remove the shared waveform before its selected turret leaves the world.
+    this.selectedTurretWaveform?.clear(true);
+    this.hudOuterWaveform?.clear(true);
     this.turrets = this.turrets.filter(x => x !== t);
     this._refreshBuildList();
     this.selectTurret(null);
@@ -5178,6 +5380,8 @@ class Game {
       this.statsMode = null;
     }
     this._syncMusicHud();
+    // CODEX CHANGE: Update selection fade and music response even while gameplay itself is paused.
+    this._updateSelectedTurretWaveform(dt);
     if (this.gameOver || this.gameWon) {
       this.updateHUD();
       return;
@@ -5443,7 +5647,10 @@ class Game {
     gfx.translate(W * 0.5, H * 0.5);
     gfx.scale(renderZoom, renderZoom);
     gfx.translate(-W * 0.5 - renderCam.x, -H * 0.5 - renderCam.y);
-    const musicState = this.musicVisualizer?.getGridState?.();
+    // CODEX CHANGE: The visualization toggle disables both map music VFX and the selected-head waveform.
+    const musicState = this.visualSettings.musicVisualizations !== false
+      ? this.musicVisualizer?.getGridState?.()
+      : null;
     if (musicState) {
       musicState.wave = this.wave;
       musicState.waveMax = this.waveMax;
@@ -5761,6 +5968,9 @@ class Game {
       gfx.setLineDash([]);
       gfx.restore();
     }
+
+    // CODEX CHANGE: Draw the selected waveform above the map but behind turret heads and range rings.
+    this.selectedTurretWaveform?.draw(gfx);
 
     // turrets
     for (const t of this.turrets) t.draw(gfx, t === this.selectedTurret, this);

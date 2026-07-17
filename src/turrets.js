@@ -3,7 +3,8 @@ import { Projectile } from "./projectiles.js?v=202606082258";
 import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606082258";
 import { STATUS, setStatusState } from "./statusEffects.js?v=202606082258";
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, TURRET_GLOW_TINTS, getTurretSprite, preloadTurretSprites } from "./sprites.js";
+// CODEX CHANGE: Refresh sprite definitions for the Pulse Spindle level set.
+import { USE_TURRET_SPRITES, SPRITE_ANGLE_OFFSET, TURRET_SPRITE_ANGLE_OVERRIDES, DEFAULT_TURRET_SPRITE_SIZE, TURRET_SPRITE_SCALE_OVERRIDES, getTurretSprite, preloadTurretSprites } from "./sprites.js?v=202607162144";
 
 preloadTurretSprites();
 
@@ -1355,21 +1356,8 @@ export class Turret {
       const sy = this.y + ry;
       const scale = TURRET_SPRITE_SCALE_OVERRIDES[this.typeKey] || 1;
       const spriteSize = DEFAULT_TURRET_SPRITE_SIZE * scale;
-      const pulse = 0.6 + 0.4 * Math.sin(t * 2.3 + this.x * 0.01 + this.y * 0.01);
-      const glowTint = TURRET_GLOW_TINTS[this.typeKey] || "rgba(98,242,255,1)";
 
-      gfx.save();
-      gfx.globalCompositeOperation = "lighter";
-      gfx.globalAlpha = 0.12 + 0.10 * pulse;
-      const halo = gfx.createRadialGradient(sx, sy, spriteSize * 0.18, sx, sy, spriteSize * 0.68);
-      halo.addColorStop(0, glowTint);
-      halo.addColorStop(1, "rgba(0,0,0,0)");
-      gfx.fillStyle = halo;
-      gfx.beginPath();
-      gfx.arc(sx, sy, spriteSize * 0.68, 0, Math.PI * 2);
-      gfx.fill();
-      gfx.restore();
-
+      // CODEX CHANGE: Render image-backed turrets as clean PNGs without generated halos or outlines.
       gfx.save();
       gfx.translate(sx, sy);
       const angleOffset = SPRITE_ANGLE_OFFSET + (TURRET_SPRITE_ANGLE_OVERRIDES[this.typeKey] || 0);
@@ -1509,19 +1497,20 @@ export class Turret {
       }
     }
 
-    const accentAlpha = hasTurretSprite ? 0.42 : 1;
-
+    // CODEX CHANGE: Legacy vector upgrade accents are fallback-only; sprite upgrades are represented by their PNG and stars.
     // barrels (upgrade visual)
-    for (let i = 0; i < this.visual.barrels + 1; i++) {
-      const off = (i - this.visual.barrels / 2) * 4;
-      gfx.fillStyle = col;
-      gfx.globalAlpha = 0.7 * accentAlpha;
-      gfx.fillRect(10, -2 + off, 8, 4);
+    if (!hasTurretSprite) {
+      for (let i = 0; i < this.visual.barrels + 1; i++) {
+        const off = (i - this.visual.barrels / 2) * 4;
+        gfx.fillStyle = col;
+        gfx.globalAlpha = 0.7;
+        gfx.fillRect(10, -2 + off, 8, 4);
+      }
     }
     gfx.globalAlpha = 1;
 
     // spikes (upgrade visual)
-    if (this.visual.spikes) {
+    if (!hasTurretSprite && this.visual.spikes) {
       gfx.strokeStyle = col;
       gfx.lineWidth = 2;
       gfx.beginPath();
@@ -1533,7 +1522,7 @@ export class Turret {
     }
 
     // antenna (upgrade visual)
-    if (this.visual.antenna) {
+    if (!hasTurretSprite && this.visual.antenna) {
       gfx.strokeStyle = col;
       gfx.lineWidth = 2;
       gfx.beginPath();
@@ -1543,14 +1532,15 @@ export class Turret {
     }
 
     // rings (upgrade visual)
-    for (let r = 0; r < this.visual.rings; r++) {
-      gfx.globalAlpha = 0.5;
-      gfx.strokeStyle = col;
-      gfx.lineWidth = 1.5;
-      gfx.beginPath();
-      gfx.globalAlpha = 0.5 * accentAlpha;
-      gfx.arc(0, 0, 14 + r * 5 + Math.sin(t * 2 + r) * 0.6, 0, Math.PI * 2);
-      gfx.stroke();
+    if (!hasTurretSprite) {
+      for (let r = 0; r < this.visual.rings; r++) {
+        gfx.globalAlpha = 0.5;
+        gfx.strokeStyle = col;
+        gfx.lineWidth = 1.5;
+        gfx.beginPath();
+        gfx.arc(0, 0, 14 + r * 5 + Math.sin(t * 2 + r) * 0.6, 0, Math.PI * 2);
+        gfx.stroke();
+      }
     }
 
     gfx.restore();

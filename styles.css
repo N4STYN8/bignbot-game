@@ -1530,8 +1530,14 @@ body{
 }
 [data-icon="PULSE"]{
   --turret-rgb: 98,242,255;
-  --turret-img: url("assets/images/turrets/pulse_spindle/pulse_base.png");
+  /* CODEX CHANGE: Use the new top-down Pulse Spindle art for build and selection icons. */
+  --turret-img: url("assets/images/turrets/pulse_spindle/pulse_spindle_lv1.png");
 }
+/* CODEX CHANGE: Keep the centered Pulse Spindle portrait synchronized with its battlefield upgrade level. */
+[data-icon="PULSE"][data-level="2"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv2.png")}
+[data-icon="PULSE"][data-level="3"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv3.png")}
+[data-icon="PULSE"][data-level="4"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv4.png")}
+[data-icon="PULSE"][data-level="5"]{--turret-img:url("assets/images/turrets/pulse_spindle/pulse_spindle_lv5.png")}
 [data-icon="ARC"]{
   --turret-rgb: 154,108,255;
   --turret-img: url("assets/images/turrets/arc_coil/arc_base.png");
@@ -1702,9 +1708,16 @@ body{
 }
 
 .turretHud{
+  /* CODEX CHANGE: Keep side-floating upgrade menus inside the viewport while preserving a fixed footer. */
   position:absolute;
   z-index:9;
-  width:min(320px, 88vw);
+  width:min(278px, 84vw);
+  max-height:calc(100% - 20px);
+  display:flex;
+  flex-direction:column;
+  overflow:visible;
+  isolation:isolate;
+  will-change:transform;
   pointer-events:auto;
   border-radius:12px;
   border:1px solid rgba(98,242,255,.46);
@@ -1722,16 +1735,50 @@ body{
   -webkit-user-select:none;
   -ms-user-select:none;
 }
+.turretHud::before{
+  /* CODEX CHANGE: Full-height curved tactical funnel narrows from the HUD edge toward the turret. */
+  content:"";
+  position:absolute;
+  left:var(--hud-cone-x, 0px);
+  top:0;
+  width:var(--hud-cone-length, 0px);
+  height:100%;
+  transform-origin:0 50%;
+  transform:rotate(var(--hud-cone-angle, 0rad));
+  clip-path:polygon(
+    0 0,
+    0 100%,
+    16% 82%,
+    36% 67%,
+    62% 57%,
+    100% 52%,
+    100% 48%,
+    62% 43%,
+    36% 33%,
+    16% 18%
+  );
+  background:
+    radial-gradient(circle at 100% 50%, rgba(98,242,255,.68), transparent 13%),
+    linear-gradient(90deg, rgba(98,242,255,.34), rgba(98,242,255,.13) 56%, rgba(98,242,255,.04));
+  filter:drop-shadow(0 0 8px rgba(98,242,255,.32));
+  opacity:.84;
+  pointer-events:none;
+  z-index:-1;
+}
+/* CODEX CHANGE: Tile cleanse/unlock panels sit beside their square without a connector cone. */
+.turretHud:not(.turretMode)::before{display:none}
 .turretHud.hidden{display:none}
 .turretHudBody{
-  padding:12px;
+  padding:10px;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:8px;
+  min-height:0;
+  overflow-y:auto;
 }
 .turretHudFooter{
   border-top:1px solid rgba(98,242,255,.18);
-  padding:10px 12px;
+  padding:8px 10px;
   display:flex;
   justify-content:space-between;
   gap:8px;
@@ -1773,11 +1820,11 @@ body{
 }
 .turretHud .statGrid{
   margin-top:0;
-  gap:9px;
+  gap:6px;
 }
 .turretHud .statCard{
   border-radius:12px;
-  padding:9px 10px;
+  padding:7px 8px;
 }
 .turretHud .targetRow{
   margin-top:0;
@@ -1787,7 +1834,7 @@ body{
   gap:8px;
 }
 .turretHud .modChoice{
-  padding:10px;
+  padding:8px;
   border-radius:12px;
   border-color:rgba(98,242,255,.20);
   background:rgba(7,10,18,.48);
@@ -1862,6 +1909,515 @@ body{
   font-size:14px;
   font-weight:700;
   min-height:36px;
+}
+/* CODEX CHANGE: Present turret controls as a circular command ring encasing the live battlefield turret. */
+.turretHud.turretMode{
+  --radial-size:min(480px, calc(100vw - 48px), calc(100vh - 48px));
+  --radial-radius:min(240px, calc(50vw - 24px), calc(50vh - 24px));
+  width:var(--radial-size);
+  height:var(--radial-size);
+  max-height:none;
+  box-sizing:border-box;
+  overflow:visible;
+  border-radius:50%;
+  border:1px solid transparent;
+  background:transparent;
+  backdrop-filter:none;
+  box-shadow:
+    0 20px 44px rgba(0,0,0,.34),
+    0 0 30px rgba(98,242,255,.10);
+}
+/* CODEX CHANGE: Keep the flowing music ribbon just beyond the HUD rim and out of hit testing. */
+.turretHudOuterWave{
+  display:none;
+}
+.turretHud.turretMode .turretHudOuterWave{
+  position:absolute;
+  left:50%;
+  top:50%;
+  /* CODEX CHANGE: Add a generous quiet zone between the command shell and its outer waveform. */
+  /* CODEX CHANGE: Preserve extra off-HUD canvas room for zoom-out waveform growth. */
+  width:calc(100% + 240px);
+  height:calc(100% + 240px);
+  display:block;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+  z-index:0;
+}
+/* CODEX CHANGE: Build a translucent instrument face from concentric armor bands and open mechanical gaps. */
+.turretHud.turretMode::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background:
+    /* CODEX CHANGE: Make the dark shell lighter and divide it with broad transparent mechanical gaps. */
+    radial-gradient(circle, transparent 0 32%, rgba(6,16,34,.24) 32.5% 38%, transparent 38.5% 41%, rgba(4,10,24,.46) 42% 100%),
+    repeating-conic-gradient(from -3deg,
+      rgba(18,38,66,.38) 0deg 17deg,
+      transparent 17deg 26deg,
+      rgba(7,18,38,.24) 26deg 35deg,
+      transparent 35deg 45deg);
+  /* CODEX CHANGE: Enlarge the live center aperture so the head-mounted waveform reads clearly. */
+  -webkit-mask:radial-gradient(circle, transparent 0 32%, #000 33% 100%);
+  mask:radial-gradient(circle, transparent 0 32%, #000 33% 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(98,242,255,.32),
+    inset 0 0 34px rgba(98,242,255,.07);
+  pointer-events:none;
+  z-index:0;
+}
+.turretHud.turretMode::before{
+  /* CODEX CHANGE: A slow segmented scan ring adds motion without disturbing the controls. */
+  content:"";
+  position:absolute;
+  inset:-8px;
+  display:block;
+  padding:2px;
+  border-radius:50%;
+  background:conic-gradient(from 0deg, transparent 0 9%, rgba(98,242,255,.82) 10% 13%, transparent 14% 31%, rgba(154,108,255,.62) 32% 35%, transparent 36% 59%, rgba(98,242,255,.54) 60% 65%, transparent 66% 88%, rgba(255,255,255,.44) 89% 91%, transparent 92%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  animation:hudOrbitSpin 14s linear infinite;
+  pointer-events:none;
+  z-index:0;
+}
+/* CODEX CHANGE: Leave a transparent center aperture for the live turret and orbit every control around it. */
+.turretHud.turretMode .turretHudBody{
+  position:absolute;
+  inset:0;
+  display:block;
+  padding:0;
+  overflow:visible;
+  clip-path:circle(50% at 50% 50%);
+  z-index:1;
+}
+/* CODEX CHANGE: Add HUD-like calibration bands, segmented arcs, and rotating scan geometry behind controls. */
+.turretHud.turretMode .hudDial{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+  filter:drop-shadow(0 0 5px rgba(98,242,255,.18));
+}
+/* CODEX CHANGE: Subtle cardinal calibration lines and mid-ring brackets echo a targeting instrument. */
+.turretHud.turretMode .hudDial::before,
+.turretHud.turretMode .hudDial::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+.turretHud.turretMode .hudDial::before{
+  inset:5%;
+  /* CODEX CHANGE: Remove the long horizontal crosshair that cut through the turret and stat cards. */
+  background:linear-gradient(90deg, transparent 49.8%, rgba(98,242,255,.45) 49.9% 50.1%, transparent 50.2%);
+  -webkit-mask:radial-gradient(circle, transparent 0 38%, #000 39% 96%, transparent 97%);
+  mask:radial-gradient(circle, transparent 0 38%, #000 39% 96%, transparent 97%);
+  opacity:.30;
+}
+.turretHud.turretMode .hudDial::after{
+  inset:13%;
+  background:conic-gradient(from 4deg, rgba(229,254,255,.76) 0 4%, transparent 4.5% 22%, rgba(98,242,255,.75) 22.5% 29%, transparent 29.5% 49%, rgba(154,108,255,.54) 49.5% 55%, transparent 55.5% 76%, rgba(98,242,255,.68) 76.5% 83%, transparent 83.5%);
+  -webkit-mask:radial-gradient(circle, transparent 0 62%, #000 62.5% 67%, transparent 67.5%);
+  mask:radial-gradient(circle, transparent 0 62%, #000 62.5% 67%, transparent 67.5%);
+  opacity:.72;
+}
+.turretHud.turretMode .hudDialRing{
+  position:absolute;
+  display:block;
+  border-radius:50%;
+  pointer-events:none;
+}
+/* CODEX CHANGE: Drift separate background armor pieces around the turret without moving the controls. */
+.turretHud.turretMode .hudArmorBand{
+  position:absolute;
+  display:block;
+  border-radius:50%;
+  pointer-events:none;
+  transform-origin:50% 50%;
+  will-change:transform;
+}
+.turretHud.turretMode .hudArmorOuter{
+  inset:1%;
+  background:repeating-conic-gradient(from 2deg,
+    rgba(36,64,98,.46) 0deg 14deg,
+    transparent 14deg 25deg,
+    rgba(12,28,53,.28) 25deg 33deg,
+    transparent 33deg 45deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 69%, #000 70% 96%, transparent 97%);
+  mask:radial-gradient(circle, transparent 0 69%, #000 70% 96%, transparent 97%);
+  animation:hudArmorOrbitOuter 52s linear infinite;
+}
+.turretHud.turretMode .hudArmorMiddle{
+  inset:10%;
+  background:conic-gradient(from -8deg,
+    rgba(40,69,104,.38) 0 8%, transparent 8.5% 20%, rgba(12,29,56,.24) 20.5% 29%,
+    transparent 29.5% 43%, rgba(34,61,94,.40) 43.5% 54%, transparent 54.5% 69%,
+    rgba(42,72,108,.38) 69.5% 80%, transparent 80.5% 94%, rgba(10,26,51,.22) 94.5% 100%);
+  -webkit-mask:radial-gradient(circle, transparent 0 57%, #000 58% 83%, transparent 84%);
+  mask:radial-gradient(circle, transparent 0 57%, #000 58% 83%, transparent 84%);
+  animation:hudArmorOrbitMiddle 41s linear infinite;
+}
+.turretHud.turretMode .hudArmorInner{
+  inset:21%;
+  background:repeating-conic-gradient(from 11deg,
+    rgba(48,78,112,.38) 0deg 10deg,
+    transparent 10deg 22deg,
+    rgba(9,24,48,.24) 22deg 29deg,
+    transparent 29deg 45deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 47%, #000 48% 76%, transparent 77%);
+  mask:radial-gradient(circle, transparent 0 47%, #000 48% 76%, transparent 77%);
+  animation:hudArmorOrbitInner 33s linear infinite;
+}
+.turretHud.turretMode .hudDialTicks{
+  inset:2.5%;
+  background:repeating-conic-gradient(from 0deg, rgba(160,252,255,.94) 0deg .62deg, transparent .62deg 3deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 88%, #000 88.4% 91%, transparent 91.4%);
+  mask:radial-gradient(circle, transparent 0 88%, #000 88.4% 91%, transparent 91.4%);
+  opacity:.80;
+  animation:hudDialCounter 28s linear infinite;
+}
+.turretHud.turretMode .hudDialSegments{
+  inset:8%;
+  background:conic-gradient(from 12deg,
+    transparent 0 7%, rgba(98,242,255,.92) 7.5% 19%, transparent 19.5% 31%,
+    rgba(154,108,255,.68) 31.5% 39%, transparent 39.5% 55%,
+    rgba(232,253,255,.88) 55.5% 67%, transparent 67.5% 82%,
+    rgba(98,242,255,.78) 82.5% 94%, transparent 94.5% 100%);
+  -webkit-mask:radial-gradient(circle, transparent 0 80%, #000 80.5% 84%, transparent 84.5%);
+  mask:radial-gradient(circle, transparent 0 80%, #000 80.5% 84%, transparent 84.5%);
+  opacity:.90;
+  animation:hudOrbitSpin 19s linear infinite;
+}
+.turretHud.turretMode .hudDialSweep{
+  inset:17%;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(98,242,255,.72) 0deg .7deg, transparent .7deg 5deg),
+    conic-gradient(from 205deg, transparent 0 10%, rgba(239,253,255,.78) 10.5% 25%, transparent 25.5% 59%, rgba(154,108,255,.56) 59.5% 71%, transparent 71.5%);
+  -webkit-mask:radial-gradient(circle, transparent 0 77%, #000 77.5% 84%, transparent 84.5%);
+  mask:radial-gradient(circle, transparent 0 77%, #000 77.5% 84%, transparent 84.5%);
+  opacity:.68;
+  animation:hudDialCounter 13s linear infinite;
+}
+.turretHud.turretMode .hudDialCore{
+  inset:31.5%;
+  border:1px solid rgba(98,242,255,.42);
+  box-shadow:
+    0 0 0 5px rgba(98,242,255,.035),
+    0 0 0 8px rgba(154,108,255,.10),
+    inset 0 0 14px rgba(98,242,255,.10);
+  opacity:.80;
+  animation:hudDialBreathe 2.8s ease-in-out infinite alternate;
+}
+/* CODEX CHANGE: Counter-rotate a light reticle around the live turret in the center aperture. */
+.turretHud.turretMode .turretHudBody::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  /* CODEX CHANGE: Frame the live waveform without covering its radial bars. */
+  width:30%;
+  aspect-ratio:1;
+  border-radius:50%;
+  border:2px dashed rgba(98,242,255,.34);
+  box-shadow:0 0 15px rgba(98,242,255,.12), inset 0 0 12px rgba(154,108,255,.10);
+  transform:translate(-50%, -50%);
+  animation:hudReticleSpin 7s linear infinite reverse;
+  pointer-events:none;
+}
+.turretHud.turretMode .material-symbols-rounded{
+  flex:0 0 auto;
+  font-size:19px;
+  line-height:1;
+  font-variation-settings:"FILL" 0, "wght" 500, "GRAD" -25, "opsz" 20;
+}
+/* CODEX CHANGE: Move identity text onto the upper ring and reveal the real turret beneath it. */
+.turretHud.turretMode .selHeaderRow{
+  position:absolute;
+  left:50%;
+  top:16%;
+  width:180px;
+  height:auto;
+  transform:translateX(-50%);
+  display:block;
+  z-index:2;
+}
+.turretHud.turretMode .selPortrait{
+  display:none;
+}
+.turretHud.turretMode .selHeaderText{
+  position:static;
+  width:auto;
+  transform:none;
+  text-align:center;
+}
+.turretHud.turretMode .selName{
+  font-size:18px;
+  line-height:1.05;
+  white-space:nowrap;
+}
+.turretHud.turretMode .selLevel{
+  margin-top:2px;
+  font-size:12px;
+  color:#9ff7ff;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.turretHud.turretMode .statGrid{
+  position:absolute;
+  inset:0;
+  display:block;
+  margin:0;
+  z-index:2;
+}
+/* CODEX CHANGE: Detached attribute modules use mirrored silhouettes and individual system accents. */
+.turretHud.turretMode .statCard{
+  --piece-accent:98,242,255;
+  position:absolute;
+  width:27%;
+  height:56px;
+  box-sizing:border-box;
+  min-width:0;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  overflow:hidden;
+  border:1px solid rgba(var(--piece-accent),.58);
+  border-radius:18px 8px 18px 8px;
+  clip-path:none;
+  text-align:left;
+  background:
+    linear-gradient(90deg, rgba(var(--piece-accent),.12), transparent 34%),
+    linear-gradient(145deg, rgba(18,36,67,.98), rgba(4,9,21,.96));
+  box-shadow:
+    inset 3px 0 0 rgba(var(--piece-accent),.40),
+    inset 0 0 14px rgba(var(--piece-accent),.07),
+    0 0 0 3px rgba(2,8,20,.56),
+    0 7px 16px rgba(0,0,0,.34);
+  will-change:transform;
+  animation:hudNodeFloat 2.8s ease-in-out infinite alternate;
+}
+.turretHud.turretMode .statCard::after{
+  content:"";
+  position:absolute;
+  right:10px;
+  top:6px;
+  width:18px;
+  height:2px;
+  border-radius:2px;
+  background:rgba(var(--piece-accent),.92);
+  box-shadow:0 0 8px rgba(var(--piece-accent),.75);
+}
+.turretHud.turretMode .statCard[data-stat="damage"]{left:10%; top:25%; --piece-accent:98,242,255}
+.turretHud.turretMode .statCard[data-stat="fire"]{right:10%; top:25%; --piece-accent:90,190,255; border-radius:8px 18px 8px 18px; animation-delay:-1.4s}
+.turretHud.turretMode .statCard[data-stat="range"]{left:4.5%; top:44%; --piece-accent:166,125,255; border-radius:22px 8px 14px 22px; animation-delay:-2.1s}
+.turretHud.turretMode .statCard[data-stat="dps"]{right:4.5%; top:44%; --piece-accent:103,255,198; border-radius:8px 22px 22px 14px; animation-delay:-.7s}
+.turretHud.turretMode .statCard[data-stat="fire"]::after,
+.turretHud.turretMode .statCard[data-stat="dps"]::after{left:10px;right:auto}
+.turretHud.turretMode .statCard > .material-symbols-rounded{
+  color:#7ff6ff;
+  font-size:23px;
+  filter:drop-shadow(0 0 6px rgba(98,242,255,.42));
+}
+.turretHud.turretMode .statText{min-width:0}
+.turretHud.turretMode .statCard .k{
+  font-size:10px;
+  letter-spacing:.08em;
+}
+.turretHud.turretMode .statCard .v{
+  margin-top:2px;
+  font-size:18px;
+}
+/* CODEX CHANGE: Keep targeting inside a narrow angular top segment. */
+.turretHud.turretMode .targetRow{
+  position:absolute;
+  left:50%;
+  top:5%;
+  width:44%;
+  transform:translateX(-50%);
+  padding:8px 12px;
+  border-radius:18px;
+  clip-path:none;
+  border:1px solid rgba(98,242,255,.58);
+  background:
+    linear-gradient(90deg, rgba(98,242,255,.13), transparent 24% 76%, rgba(154,108,255,.12)),
+    linear-gradient(135deg, rgba(14,29,55,.98), rgba(5,10,23,.96));
+  box-shadow:0 0 0 3px rgba(2,8,20,.52), inset 0 -2px 0 rgba(154,108,255,.20), 0 7px 16px rgba(0,0,0,.30);
+  z-index:2;
+}
+.turretHud.turretMode .targetLabel{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:9px;
+}
+.turretHud.turretMode .targetLabel span:last-child{display:none}
+.turretHud.turretMode .targetLabel .material-symbols-rounded{color:#7ff6ff}
+.turretHud.turretMode .targetSelect{
+  flex:1 1 auto;
+  min-width:0;
+  width:100%;
+  min-height:32px;
+  font-size:13px;
+}
+/* CODEX CHANGE: Inset upgrade choices into the lower arc so their actions remain visible. */
+.turretHud.turretMode .upgrades{
+  position:absolute;
+  /* CODEX CHANGE: Keep both upgrade cards fully inside the circular clipping boundary. */
+  left:12.5%;
+  right:12.5%;
+  bottom:18%;
+  margin:0;
+  padding:0;
+  border:0;
+  z-index:2;
+}
+.turretHud.turretMode .upTitle{
+  display:none;
+}
+.turretHud.turretMode .modRow{
+  margin-top:0;
+  display:grid;
+  grid-template-columns:42% 42%;
+  justify-content:space-between;
+  gap:0;
+}
+/* CODEX CHANGE: Upgrade choices read as heavier removable armor plates with amber tier rails. */
+.turretHud.turretMode .modChoice{
+  width:auto;
+  box-sizing:border-box;
+  min-width:0;
+  padding:9px 10px 10px;
+  overflow:hidden;
+  border:1px solid rgba(98,242,255,.46);
+  border-top:2px solid rgba(255,208,92,.82);
+  border-radius:22px 9px 16px 22px;
+  text-align:center;
+  background:
+    radial-gradient(120px 50px at 18% 0%, rgba(255,208,92,.12), transparent 62%),
+    linear-gradient(145deg, rgba(20,38,70,.99), rgba(4,8,20,.98));
+  box-shadow:
+    inset 3px 0 0 rgba(98,242,255,.32),
+    inset 0 0 16px rgba(98,242,255,.05),
+    0 0 0 3px rgba(2,8,20,.58),
+    0 8px 18px rgba(0,0,0,.36);
+}
+.turretHud.turretMode .modChoice:first-child{clip-path:none}
+.turretHud.turretMode .modChoice:last-child{
+  clip-path:none;
+  border-radius:9px 22px 22px 16px;
+  background:
+    radial-gradient(120px 50px at 82% 0%, rgba(255,208,92,.12), transparent 62%),
+    linear-gradient(215deg, rgba(20,38,70,.99), rgba(4,8,20,.98));
+  box-shadow:
+    inset -3px 0 0 rgba(154,108,255,.34),
+    inset 0 0 16px rgba(154,108,255,.06),
+    0 0 0 3px rgba(2,8,20,.58),
+    0 8px 18px rgba(0,0,0,.36);
+}
+.turretHud.turretMode .modTop{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:4px;
+}
+.turretHud.turretMode .modName{
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.turretHud.turretMode .modCost{
+  margin-top:0;
+  font-size:11px;
+}
+.turretHud.turretMode .modDesc{display:none}
+.turretHud.turretMode .modDelta{
+  margin-top:5px;
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:2px;
+  font-size:10px;
+  line-height:1.25;
+}
+.turretHud.turretMode .modDelta span{
+  display:block;
+  min-width:0;
+  white-space:nowrap;
+}
+.turretHud.turretMode .modDelta b{
+  display:block;
+  color:#9ff7ff;
+  letter-spacing:.06em;
+}
+.turretHud.turretMode .modBtnRow{margin-top:4px}
+.turretHud.turretMode .modBtnRow .btn{
+  padding:9px 7px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  border-radius:12px;
+  clip-path:none;
+  font-size:12px;
+  border-color:rgba(98,242,255,.55);
+  background:linear-gradient(135deg, rgba(32,111,130,.92), rgba(12,44,72,.94));
+}
+/* CODEX CHANGE: Compact hexagonal footer actions fit inside the narrow bottom arc. */
+.turretHud.turretMode .turretHudFooter{
+  position:absolute;
+  left:28.5%;
+  right:28.5%;
+  bottom:4.5%;
+  padding:0;
+  border-top:0;
+  gap:6px;
+  z-index:3;
+}
+.turretHud.turretMode .turretHudFooter .btn{
+  padding:10px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  border-radius:14px;
+  clip-path:none;
+  font-size:12px;
+}
+/* CODEX CHANGE: Keep locked upgrade attributes readable while the action itself remains disabled. */
+.turretHud.turretMode .modChoice.poor{
+  opacity:.78;
+  filter:grayscale(.08);
+}
+@keyframes hudOrbitSpin{to{transform:rotate(360deg)}}
+@keyframes hudDialCounter{to{transform:rotate(-360deg)}}
+@keyframes hudArmorOrbitOuter{to{transform:rotate(360deg)}}
+@keyframes hudArmorOrbitMiddle{to{transform:rotate(-360deg)}}
+@keyframes hudArmorOrbitInner{to{transform:rotate(360deg)}}
+@keyframes hudDialBreathe{
+  from{transform:scale(.985);opacity:.54}
+  to{transform:scale(1.015);opacity:.88}
+}
+@keyframes hudReticleSpin{
+  from{transform:translate(-50%, -50%) rotate(0deg);opacity:.46}
+  50%{opacity:.82}
+  to{transform:translate(-50%, -50%) rotate(360deg);opacity:.46}
+}
+@keyframes hudNodeFloat{
+  from{transform:translateY(-1px)}
+  to{transform:translateY(2px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .turretHud.turretMode::before,
+  .turretHud.turretMode .hudArmorBand,
+  .turretHud.turretMode .hudDialRing,
+  .turretHud.turretMode .turretHudBody::before,
+  .turretHud.turretMode .statCard{animation:none;opacity:.72}
 }
 #turretHudCloseBtn{
   border-color: rgba(109,255,154,.55);

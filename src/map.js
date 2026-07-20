@@ -652,9 +652,19 @@ export class Map {
     gfx.restore();
   }
 
+  // CODEX CHANGE: Shift gently within the chosen C palette as phrases, beats, snaps, and drops arrive.
+  _musicColorDrift(m) {
+    const phrase = Math.sin(m.time * (0.20 + m.songTempo * 0.16) + m.trackIndex * 0.73) * (5 + m.mid * 7);
+    const shimmer = Math.sin(m.time * (1.10 + m.songTempo * 0.82) + m.trackIndex * 1.31) * m.high * 4.5;
+    const polarity = Math.sin(m.time * (2.15 + m.songTempo * 1.55) + m.trackIndex) >= 0 ? 1 : -1;
+    const transient = polarity * (m.beat * 9 - m.snap * 6) + m.drop * 14;
+    const spectrumBias = (m.high - m.bass) * 4.5;
+    return phrase + shimmer + transient + spectrumBias;
+  }
+
   _musicHue(m, offset = 0) {
-    // CODEX CHANGE: Apply the C-key color rotation to legacy music-reactive grid helpers too.
-    return (188 + (m.colorShift || 0) + offset + m.level * 11 + m.trackIndex * 17 + m.intensity * 42 + Math.sin(m.time * (0.24 + m.songTempo * 0.28) + offset) * 34) % 360;
+    // CODEX CHANGE: Share the same restrained musical color drift with legacy grid helpers.
+    return (188 + (m.colorShift || 0) + this._musicColorDrift(m) + offset + m.level * 11 + m.trackIndex * 17 + m.intensity * 16) % 360;
   }
 
   _musicPalette(m) {
@@ -670,9 +680,9 @@ export class Map {
       { name: "Aurora Field", hues: [136, 164, 188, 218, 268, 318], spark: 166, style: "aurora", solid: 188, accent: 318 },
       { name: "Cosmic Reactor", hues: [18, 38, 54, 188, 236, 312], spark: 48, style: "reactor", solid: 38, accent: 188 }
     ];
-    // CODEX CHANGE: Rotate each mode's full palette together so C recolors every linked effect consistently.
+    // CODEX CHANGE: Keep C as the base family while the playing track subtly alternates its hues.
     const base = palettes[((m.mode % palettes.length) + palettes.length) % palettes.length];
-    const shift = Number.isFinite(m.colorShift) ? m.colorShift : 0;
+    const shift = (Number.isFinite(m.colorShift) ? m.colorShift : 0) + this._musicColorDrift(m);
     const rotate = (hue) => ((hue + shift) % 360 + 360) % 360;
     return {
       ...base,

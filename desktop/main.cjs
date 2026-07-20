@@ -134,6 +134,18 @@ function createGameWindow() {
           const mapWidth = (window.game?.map?.cols || 0) * (window.game?.map?.gridSize || 0);
           const mapHeight = (window.game?.map?.rows || 0) * (window.game?.map?.gridSize || 0);
           const zoom = window.game?.zoom || 0;
+          // CODEX CHANGE: Prove a beat changes hue without replacing the player's selected C palette.
+          const visualState = window.game?.musicVisualizer?.getGridState?.();
+          const calmMusic = visualState ? window.game.map._musicGridState({
+            ...visualState,
+            energy: { ...visualState.energy, beat: 0, snap: 0, drop: 0 }
+          }) : null;
+          const beatMusic = visualState ? window.game.map._musicGridState({
+            ...visualState,
+            energy: { ...visualState.energy, beat: 1, snap: 0, drop: 0 }
+          }) : null;
+          const calmHue = calmMusic ? window.game.map._musicPalette(calmMusic).solid : null;
+          const beatHue = beatMusic ? window.game.map._musicPalette(beatMusic).solid : null;
           return {
             title: document.title,
             readyState: document.readyState,
@@ -146,6 +158,7 @@ function createGameWindow() {
             desktopActions: typeof window.orbitEchoDesktop?.toggleFullscreen === "function"
               && typeof window.orbitEchoDesktop?.exit === "function",
             saveSucceeded: window.game?.saveNow?.() === true,
+            musicColorAlternation: Number.isFinite(calmHue) && Number.isFinite(beatHue) && Math.abs(calmHue - beatHue) > 0.5,
             mapCoverageX: mapWidth * zoom / Math.max(1, window.innerWidth),
             mapCoverageY: mapHeight * zoom / Math.max(1, window.innerHeight)
           };
@@ -166,6 +179,7 @@ function createGameWindow() {
           && result.desktopControlsVisible
           && result.desktopActions
           && result.saveSucceeded
+          && result.musicColorAlternation
           && result.startedFullscreen
           && result.fullscreenToggledOff
           && result.activeVisualModes === 10

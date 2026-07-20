@@ -425,6 +425,10 @@ export class Map {
     const spectrum = enabled && Array.isArray(music?.spectrum) && music.spectrum.length
       ? music.spectrum.map((v) => clamp(Number(v) || 0, 0, 1))
       : [bass, bass, mid, mid, high, high];
+    // CODEX CHANGE: Accept normalized time-domain samples for true background waveform traces.
+    const audioWaveform = enabled && Array.isArray(music?.audioWaveform) && music.audioWaveform.length
+      ? music.audioWaveform.map((v) => clamp(Number(v) || 0, -1, 1))
+      : [0, 0, 0, 0];
     const time = Number.isFinite(music?.time) ? music.time : performance.now() * 0.001;
     const wave = Math.max(0, Number(music?.wave) || 0);
     const waveMax = Math.max(1, Number(music?.waveMax) || 16);
@@ -449,6 +453,7 @@ export class Map {
       songTempo,
       trackIndex,
       spectrum,
+      audioWaveform,
       wave,
       waveMax,
       level,
@@ -957,7 +962,8 @@ export class Map {
     const cx = W * (0.50 + Math.sin(m.time * 0.11) * 0.035 + (m.mid - 0.5) * 0.018);
     const cy = H * (0.40 + Math.cos(m.time * 0.09) * 0.025 + (m.high - 0.5) * 0.012);
     const maxR = Math.hypot(W, H) * 0.72;
-    const starCount = perf < 0.7 ? 56 + chapter * 8 : 76 + chapter * 16;
+    // CODEX CHANGE: Keep space motion atmospheric now that real waveforms carry the musical foreground.
+    const starCount = perf < 0.7 ? 24 + chapter * 4 : 38 + chapter * 7;
     const hash = (n) => {
       const v = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
       return v - Math.floor(v);
@@ -990,7 +996,7 @@ export class Map {
       const cycle = (hash(i + 127) + m.time * rate) % 1;
       const perspective = Math.pow(cycle, 1.82);
       const band = m.spectrum[i % m.spectrum.length] || m.intensity;
-      const streak = 0.012 + band * 0.032 + m.bass * 0.018 + m.beat * 0.034 + chapter * 0.014;
+      const streak = 0.005 + band * 0.014 + m.bass * 0.008 + m.beat * 0.015 + chapter * 0.006;
       const previous = Math.max(0, Math.pow(Math.max(0, cycle - streak), 1.82));
       const radius = perspective * maxR * lane;
       const previousRadius = previous * maxR * lane;
@@ -999,9 +1005,9 @@ export class Map {
       const px = cx + Math.cos(angle) * previousRadius;
       const py = cy + Math.sin(angle) * previousRadius;
       const starHue = palette.hues[(i + chapter) % palette.hues.length];
-      gfx.globalAlpha = clamp(0.055 + perspective * 0.24 + band * 0.14 + m.beat * 0.08, 0.05, 0.42);
+      gfx.globalAlpha = clamp(0.025 + perspective * 0.12 + band * 0.07 + m.beat * 0.04, 0.02, 0.22);
       gfx.strokeStyle = `hsla(${starHue}, 100%, ${72 + band * 18}%, 0.94)`;
-      gfx.lineWidth = 0.55 + perspective * 1.45 + band * 0.75 + (chapter === 2 ? 0.45 : 0);
+      gfx.lineWidth = 0.45 + perspective * 0.72 + band * 0.38 + (chapter === 2 ? 0.20 : 0);
       gfx.beginPath();
       gfx.moveTo(px, py);
       gfx.lineTo(x, y);
@@ -1018,6 +1024,54 @@ export class Map {
       gfx.lineWidth = 0.8 + m.beat * 1.5;
       gfx.beginPath();
       gfx.ellipse(cx, cy, radius * 1.65, radius * 0.72, Math.sin(m.time * 0.08) * 0.18, 0, Math.PI * 2);
+      gfx.stroke();
+    }
+    gfx.restore();
+  }
+
+  // CODEX CHANGE: Draw real time-domain oscilloscope ribbons while keeping the established space background intact.
+  _drawAudioWaveforms(gfx, m, perf) {
+    const samples = m.audioWaveform;
+    if (!m.enabled || !samples?.length) return;
+    const palette = this._musicPalette(m);
+    const layers = perf < 0.7 ? 1 : 2;
+    const amplitude = this.gridSize * (0.52 + m.intensity * 1.25 + m.bass * 0.72 + m.beat * 0.52 + m.drop * 0.65);
+
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+    gfx.lineCap = "round";
+    gfx.lineJoin = "round";
+    for (let layer = 0; layer < layers; layer++) {
+      const baseline = H * (layer === 0 ? 0.34 : 0.63);
+      const layerScale = layer === 0 ? 1 : 0.72;
+      const hue = palette.hues[(layer * 3 + 1) % palette.hues.length];
+      const points = [];
+      for (let i = 0; i < samples.length; i++) {
+        const sampleIndex = layer === 0 ? i : samples.length - 1 - i;
+        const x = i / Math.max(1, samples.length - 1) * W;
+        const edgeFade = Math.sin(i / Math.max(1, samples.length - 1) * Math.PI);
+        const y = baseline + samples[sampleIndex] * amplitude * layerScale * (0.68 + edgeFade * 0.32);
+        points.push({ x, y });
+      }
+
+      gfx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) gfx.moveTo(point.x, point.y);
+        else gfx.lineTo(point.x, point.y);
+      });
+      gfx.globalAlpha = clamp(0.035 + m.intensity * 0.055 + m.beat * 0.045, 0.03, 0.12);
+      gfx.strokeStyle = `hsla(${hue}, 100%, 62%, 0.72)`;
+      gfx.lineWidth = 5 + m.bass * 4;
+      gfx.stroke();
+
+      gfx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) gfx.moveTo(point.x, point.y);
+        else gfx.lineTo(point.x, point.y);
+      });
+      gfx.globalAlpha = clamp(0.12 + m.intensity * 0.12 + m.beat * 0.10, 0.10, 0.32);
+      gfx.strokeStyle = `hsla(${(hue + (layer ? 22 : 0)) % 360}, 100%, 78%, 0.94)`;
+      gfx.lineWidth = 1.15 + m.beat * 1.35;
       gfx.stroke();
     }
     gfx.restore();
@@ -1941,8 +1995,11 @@ export class Map {
     gfx.fillRect(0, 0, W, H);
     gfx.restore();
 
-    // CODEX CHANGE: Establish the space-flight story behind the grid before foreground visualizers render.
-    if (musicGrid.enabled) this._drawSpaceFlight(gfx, musicGrid, perf);
+    // CODEX CHANGE: Balance restrained space flight with real audio waveforms behind the grid.
+    if (musicGrid.enabled) {
+      this._drawSpaceFlight(gfx, musicGrid, perf);
+      this._drawAudioWaveforms(gfx, musicGrid, perf);
+    }
 
     // Background "nebula grid"
     gfx.save();

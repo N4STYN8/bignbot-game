@@ -67,6 +67,8 @@ export class MusicVisualizer {
     this.timeSeconds = this.last * 0.001;
     this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, snap: 0, drop: 0, tempo: 0.5 };
     this.spectrum = new Array(32).fill(0.18);
+    // CODEX CHANGE: Maintain a compact time-domain signal for real oscilloscope lines behind the map.
+    this.audioWaveform = new Array(64).fill(0);
     this.beatAvg = 0.12;
     this.previousBass = 0;
     this.previousHigh = 0;
@@ -176,7 +178,8 @@ export class MusicVisualizer {
       time: this.timeSeconds,
       trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
       energy: { ...this.energy },
-      spectrum: [...this.spectrum]
+      spectrum: [...this.spectrum],
+      audioWaveform: [...this.audioWaveform]
     };
   }
 
@@ -263,6 +266,8 @@ export class MusicVisualizer {
       const mid = Math.pow(this._avg(this.freq, 24, 170) / 255, 0.78);
       const high = Math.pow(this._avg(this.freq, 170, 520) / 255, 0.70);
       this._updateSpectrumFromAnalyser();
+      // CODEX CHANGE: Downsample the real playing track for canvas waveform rendering.
+      this._updateWaveformFromAnalyser();
       let waveSum = 0;
       for (let i = 0; i < this.time.length; i++) waveSum += Math.abs(this.time[i] - 128);
       const wave = clamp01((waveSum / this.time.length) / 64);
@@ -310,6 +315,8 @@ export class MusicVisualizer {
     this.energy.wave = lerp(this.energy.wave, idle * 0.8, 0.02);
     this.energy.intensity = lerp(this.energy.intensity, idle, 0.02);
     this.energy.tempo = lerp(this.energy.tempo, 0.35, 0.02);
+    // CODEX CHANGE: Let stopped music settle into a quiet standby waveform.
+    this._updateIdleWaveform(this.idleT, idle);
   }
 
   _sampleTimedTrack(dt) {
@@ -331,6 +338,8 @@ export class MusicVisualizer {
     const wave = clamp01(0.16 + bass * 0.38 + mid * 0.28 + high * 0.18);
     const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
     this._updateTimedSpectrum(t, profile, bass, mid, high);
+    // CODEX CHANGE: Supply a musically shaped waveform when the web build must use track timing.
+    this._updateTimedWaveform(t, profile, bass, mid, high);
     const newBeat = beatIndex !== this.lastSyntheticBeat && beatPos < 0.08;
     const snapIndex = Math.floor((t / beatLen) * 2);
     const newSnap = snapIndex !== this.lastSyntheticSnap && offBeatPos < 0.10;
@@ -370,6 +379,36 @@ export class MusicVisualizer {
       const end = Math.max(start + 3, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.42) * Math.min(660, this.freq.length)));
       const shaped = Math.pow(this._avg(this.freq, start, end) / 255, 0.68);
       this.spectrum[i] = lerp(this.spectrum[i], shaped, 0.34);
+    }
+  }
+
+  // CODEX CHANGE: Preserve the shape of the analyser's current time-domain frame in 64 stable samples.
+  _updateWaveformFromAnalyser() {
+    if (!this.time?.length) return;
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const sourceIndex = Math.floor(i / Math.max(1, this.audioWaveform.length - 1) * (this.time.length - 1));
+      const sample = Math.max(-1, Math.min(1, (this.time[sourceIndex] - 128) / 128));
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], sample, 0.58);
+    }
+  }
+
+  // CODEX CHANGE: Approximate layered musical oscillation only when CDN analysis is unavailable in the web build.
+  _updateTimedWaveform(t, profile, bass, mid, high) {
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const p = i / Math.max(1, this.audioWaveform.length - 1);
+      const low = Math.sin(p * Math.PI * 2 * 2 + t * 5.2 + profile.phase) * bass * 0.58;
+      const middle = Math.sin(p * Math.PI * 2 * 5 - t * 7.4 + profile.phase * 0.7) * mid * 0.30;
+      const treble = Math.sin(p * Math.PI * 2 * 11 + t * 13.2) * high * 0.16;
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], Math.max(-1, Math.min(1, low + middle + treble)), 0.46);
+    }
+  }
+
+  // CODEX CHANGE: Keep the waveform alive but calm before playback begins.
+  _updateIdleWaveform(t, idle) {
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const p = i / Math.max(1, this.audioWaveform.length - 1);
+      const sample = Math.sin(p * Math.PI * 4 + t * 0.8) * idle * 0.22;
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], sample, 0.08);
     }
   }
 

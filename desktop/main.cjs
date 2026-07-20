@@ -159,6 +159,8 @@ function createGameWindow() {
               && typeof window.orbitEchoDesktop?.exit === "function",
             saveSucceeded: window.game?.saveNow?.() === true,
             musicColorAlternation: Number.isFinite(calmHue) && Number.isFinite(beatHue) && Math.abs(calmHue - beatHue) > 0.5,
+            // CODEX CHANGE: Confirm the renderer receives a full oscilloscope sample frame.
+            audioWaveformSamples: window.game?.musicVisualizer?.getGridState?.().audioWaveform?.length || 0,
             mapCoverageX: mapWidth * zoom / Math.max(1, window.innerWidth),
             mapCoverageY: mapHeight * zoom / Math.max(1, window.innerHeight)
           };
@@ -180,6 +182,7 @@ function createGameWindow() {
           && result.desktopActions
           && result.saveSucceeded
           && result.musicColorAlternation
+          && result.audioWaveformSamples === 64
           && result.startedFullscreen
           && result.fullscreenToggledOff
           && result.activeVisualModes === 10

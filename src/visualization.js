@@ -12,6 +12,8 @@ export const VISUAL_MODES = [
   "Aurora Field",
   "Cosmic Reactor"
 ];
+// CODEX CHANGE: Keep ten active variations and add a separate V-cycle stop for all music visuals.
+export const VISUAL_OFF_MODE = VISUAL_MODES.length;
 
 const TRACK_PROFILES = [
   { bpm: 104, bass: 0.78, mid: 0.58, high: 0.42, phase: 0.1 },
@@ -39,7 +41,7 @@ export class MusicVisualizer {
     this.label = label;
     this.audioSystem = audioSystem;
     this.mode = this._loadMode();
-    this.modeName = VISUAL_MODES[this.mode] || VISUAL_MODES[0];
+    this.modeName = this._modeName(this.mode);
     this.audioContext = null;
     this.analyser = null;
     this.source = null;
@@ -117,19 +119,24 @@ export class MusicVisualizer {
   }
 
   cycleMode() {
-    this.mode = (this.mode + 1) % VISUAL_MODES.length;
-    this.modeName = VISUAL_MODES[this.mode];
+    this.mode = (this.mode + 1) % (VISUAL_MODES.length + 1);
+    this.modeName = this._modeName(this.mode);
     this._saveMode();
     this._syncLabel();
   }
 
   setLevelTheme(level, seed = 0) {
+    // OFF is an explicit player choice and must survive automatic level-theme changes.
+    if (!this.enabled) {
+      this._syncLabel();
+      return;
+    }
     const safeLevel = Math.max(1, Number(level) | 0);
     const safeSeed = Number(seed) >>> 0;
     let next = ((safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0) % VISUAL_MODES.length;
     if (safeLevel > 1 && next === this.mode) next = (next + 1) % VISUAL_MODES.length;
     this.mode = next;
-    this.modeName = VISUAL_MODES[this.mode];
+    this.modeName = this._modeName(this.mode);
     this._saveMode();
     this._syncLabel();
   }
@@ -138,6 +145,7 @@ export class MusicVisualizer {
     return {
       mode: this.mode,
       modeName: this.modeName,
+      enabled: this.enabled,
       time: this.timeSeconds,
       trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
       energy: { ...this.energy },
@@ -149,7 +157,7 @@ export class MusicVisualizer {
     try {
       const raw = window.localStorage.getItem(VISUAL_MODE_KEY);
       const idx = raw == null ? 0 : Number(raw);
-      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_MODES.length - 1, idx | 0)) : 0;
+      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_OFF_MODE, idx | 0)) : 0;
     } catch (err) {
       return 0;
     }
@@ -160,7 +168,19 @@ export class MusicVisualizer {
   }
 
   _syncLabel() {
-    if (this.label) this.label.textContent = `VISUAL MODE: ${this.modeName}`;
+    if (this.label) {
+      this.label.textContent = `VISUAL MODE: ${this.modeName}`;
+      this.label.classList.toggle("isOff", !this.enabled);
+    }
+  }
+
+  // CODEX CHANGE: Expose a single state flag to map and HUD renderers when V reaches OFF.
+  get enabled() {
+    return this.mode !== VISUAL_OFF_MODE;
+  }
+
+  _modeName(mode) {
+    return mode === VISUAL_OFF_MODE ? "OFF" : (VISUAL_MODES[mode] || VISUAL_MODES[0]);
   }
 
   _onKey(ev) {

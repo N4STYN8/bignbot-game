@@ -1,13 +1,15 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { AudioSystem } from "./audio.js?v=202606082258";
-import { Map } from "./map.js?v=202606082258";
+// CODEX CHANGE: Refresh map rendering for ten distinct music visualization modes.
+import { Map } from "./map.js?v=202607201844";
 import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606082258";
 import { Particles } from "./vfx.js?v=202606082258";
 import { Projectile } from "./projectiles.js?v=202606082258";
 // CODEX CHANGE: Refresh the turret module for the new five-level turret sprite sets.
 // CODEX CHANGE: Refresh turret integration after adding the Gravity Trap sprite progression.
 import { TURRET_TYPES, Turret } from "./turrets.js?v=202607192225";
-import { MusicVisualizer } from "./visualization.js?v=202606082258";
+// CODEX CHANGE: Refresh visualizer cycling for ten modes plus Off.
+import { MusicVisualizer } from "./visualization.js?v=202607201844";
 // CODEX CHANGE: Add one reusable canvas waveform for the currently selected turret.
 import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607171200";
 // CODEX CHANGE: Add a second reusable music ribbon around the outside of the turret HUD.
@@ -503,6 +505,7 @@ class Game {
     }
     const options = this._selectedWaveformOptions;
     options.disabled = this.visualSettings.musicVisualizations === false
+      || this.musicVisualizer?.enabled === false
       || document.documentElement.dataset.visualizationsDisabled === "true"
       || document.body.classList.contains("visualizations-disabled");
     options.vfx = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
@@ -1886,10 +1889,7 @@ class Game {
         void desktopBridge.toggleFullscreen?.();
       });
       desktopExitBtnEl?.addEventListener("click", () => {
-        showConfirm("Save & Exit", "Save your current run and exit Orbit Echo?", () => {
-          this.saveNow();
-          void desktopBridge.exit?.();
-        });
+        this._promptSaveAndExit();
       });
     }
 
@@ -2197,6 +2197,12 @@ class Game {
     window.addEventListener("keydown", (ev) => {
       if (_modalOpen && ev.key === "Escape") {
         closeConfirm();
+        return;
+      }
+      // CODEX CHANGE: Escape is the desktop-safe exit gesture; a second Escape cancels the prompt.
+      if (desktopBridge?.isDesktop && ev.key === "Escape") {
+        ev.preventDefault();
+        this._promptSaveAndExit();
         return;
       }
       if (this.gameOver || this.gameWon) return;
@@ -4120,6 +4126,15 @@ class Game {
     }
   }
 
+  // CODEX CHANGE: Reuse one confirmation path for the desktop button and Escape key.
+  _promptSaveAndExit() {
+    if (!desktopBridge?.isDesktop) return;
+    showConfirm("Save & Exit", "Save your current run and exit Orbit Echo?", () => {
+      this.saveNow();
+      void desktopBridge.exit?.();
+    });
+  }
+
   // CODEX CHANGE: Provide one public save entry point for UI, lifecycle, and Electron shutdown.
   saveNow(notify = false) {
     const saved = this._save();
@@ -5695,7 +5710,7 @@ class Game {
     // CODEX CHANGE: The visualization toggle disables both map music VFX and the selected-head waveform.
     const musicState = this.visualSettings.musicVisualizations !== false
       ? this.musicVisualizer?.getGridState?.()
-      : null;
+      : { enabled: false };
     if (musicState) {
       musicState.wave = this.wave;
       musicState.waveMax = this.waveMax;

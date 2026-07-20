@@ -16,7 +16,8 @@
   <!-- CODEX CHANGE: Refresh cached turret icon styling for the new five-level turret sets. -->
   <!-- CODEX CHANGE: Refresh turret icon styles after adding the Gravity Trap progression. -->
   <!-- CODEX CHANGE: Refresh layout styling for desktop save, fullscreen, and exit controls. -->
-  <link rel="stylesheet" href="styles.css?v=202607201826">
+  <!-- CODEX CHANGE: Refresh visual-mode label styling for the V-cycle Off state. -->
+  <link rel="stylesheet" href="styles.css?v=202607201844">
 </head>
 <body>
   <div id="app" class="layout">
@@ -61,8 +62,9 @@
             <!-- CODEX CHANGE: Refresh the visible build stamp for the turret HUD and waveform release. -->
             <!-- CODEX CHANGE: Stamp the preserved live-web snapshot before desktop packaging begins. -->
             <!-- CODEX CHANGE: Stamp the fullscreen, responsive-map, and autosave desktop build. -->
-            <span class="versionValue">v2026.07.20.1826</span>
-            <span class="versionDate">2026-07-20 18:26 -04:00</span>
+            <!-- CODEX CHANGE: Stamp the ten-mode visualizer and desktop Escape prompt build. -->
+            <span class="versionValue">v2026.07.20.1844</span>
+            <span class="versionDate">2026-07-20 18:44 -04:00</span>
           </div>
         </div>
 
@@ -365,8 +367,8 @@
                   <div><b>2</b><span>Pulse Burst</span></div>
                   <div><b>3</b><span>Overcharge</span></div>
                   <div><b>Q-P</b><span>Select turret build cards</span></div>
-                  <div><b>V</b><span>Cycle music visualization</span></div>
-                  <div><b>Esc</b><span>Cancel build mode</span></div>
+                  <div><b>V</b><span>Cycle 10 visual modes and Off</span></div>
+                  <div><b>Esc</b><span>Desktop: prompt to save and exit</span></div>
                   <div><b>Right-click</b><span>Cancel build / alternate camera drag</span></div>
                   <div><b>Mouse wheel</b><span>Zoom battlefield</span></div>
                   <div><b>Drag</b><span>Pan camera</span></div>
@@ -586,9 +588,10 @@
           <div class="statsRow"><div class="k">Zoom</div><div class="v">Mouse wheel</div></div>
           <div class="statsRow"><div class="k">Place Turret</div><div class="v">Left-click on build tile</div></div>
           <div class="statsRow"><div class="k">Select Turret</div><div class="v">Left-click turret</div></div>
-          <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click or Esc</div></div>
+          <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click</div></div>
           <div class="statsRow"><div class="k">Abilities</div><div class="v">Click buttons or press 1/2/3</div></div>
-          <div class="statsRow"><div class="k">Visual Mode</div><div class="v">Press V to cycle music visualizations</div></div>
+          <div class="statsRow"><div class="k">Visual Mode</div><div class="v">Press V for 10 modes plus Off</div></div>
+          <div class="statsRow"><div class="k">Desktop Exit</div><div class="v">Press Esc, then confirm Save &amp; Exit</div></div>
         </div>
       </div>
     </div>
@@ -600,7 +603,8 @@
   <!-- CODEX CHANGE: Refresh the live module graph so all new turret sprite sets load immediately. -->
   <!-- CODEX CHANGE: Refresh the game module graph after adding the Gravity Trap progression. -->
   <!-- CODEX CHANGE: Refresh the game module for desktop lifecycle and responsive-map behavior. -->
-  <script type="module" src="src/core.js?v=202607201826"></script>
+  <!-- CODEX CHANGE: Refresh the module graph for ten visual modes and desktop Escape handling. -->
+  <script type="module" src="src/core.js?v=202607201844"></script>
 </body>
 </html>
 

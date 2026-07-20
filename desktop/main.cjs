@@ -76,6 +76,26 @@ function createGameWindow() {
         const startedFullscreen = window.isFullScreen();
         await window.webContents.executeJavaScript("window.orbitEchoDesktop.toggleFullscreen()");
         await new Promise((resolve) => setTimeout(resolve, 900));
+        // CODEX CHANGE: Render every V-cycle state and verify Escape opens the save-and-exit prompt.
+        const visualModes = [];
+        for (let i = 0; i < 11; i++) {
+          const mode = await window.webContents.executeJavaScript(`(() => {
+            const visualizer = window.game?.musicVisualizer;
+            const state = { name: visualizer?.modeName || "", enabled: visualizer?.enabled !== false };
+            visualizer?.cycleMode?.();
+            return state;
+          })()`);
+          visualModes.push(mode);
+          await new Promise((resolve) => setTimeout(resolve, 55));
+        }
+        const escapePrompt = await window.webContents.executeJavaScript(`(() => {
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          const modal = document.getElementById("confirmModal");
+          const title = document.getElementById("modalTitle")?.textContent || "";
+          const visible = Boolean(modal && !modal.classList.contains("hidden"));
+          document.getElementById("modalCancel")?.click();
+          return visible && title === "Save & Exit";
+        })()`);
         const result = await window.webContents.executeJavaScript(`(() => {
           const mapWidth = (window.game?.map?.cols || 0) * (window.game?.map?.gridSize || 0);
           const mapHeight = (window.game?.map?.rows || 0) * (window.game?.map?.gridSize || 0);
@@ -98,6 +118,9 @@ function createGameWindow() {
         })()`);
         result.startedFullscreen = startedFullscreen;
         result.fullscreenToggledOff = !window.isFullScreen();
+        result.activeVisualModes = new Set(visualModes.filter((mode) => mode.enabled).map((mode) => mode.name)).size;
+        result.offVisualModes = visualModes.filter((mode) => !mode.enabled && mode.name === "OFF").length;
+        result.escapePrompt = escapePrompt;
         console.log(`ORBIT_ECHO_SMOKE ${JSON.stringify(result)}`);
         const mapFitsViewport = result.mapCoverageX >= 0.7 && result.mapCoverageX <= 1.05
           && result.mapCoverageY >= 0.7 && result.mapCoverageY <= 1.05;
@@ -109,6 +132,9 @@ function createGameWindow() {
           && result.saveSucceeded
           && result.startedFullscreen
           && result.fullscreenToggledOff
+          && result.activeVisualModes === 10
+          && result.offVisualModes === 1
+          && result.escapePrompt
           && mapFitsViewport
           && !result.runtimeError;
         if (!passed) {

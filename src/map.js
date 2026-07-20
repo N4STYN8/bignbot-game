@@ -937,8 +937,84 @@ export class Map {
     if (this.globalMusicPulses.length > max) this.globalMusicPulses.splice(0, this.globalMusicPulses.length - max);
   }
 
+  // CODEX CHANGE: Turn the empty background into a music-driven journey from launch to hyperspace.
+  _drawSpaceFlight(gfx, m, perf) {
+    if (!m.enabled) return;
+    const palette = this._musicPalette(m);
+    const chapter = m.boss || m.progression > 0.82 ? 2 : m.progression > 0.38 ? 1 : 0;
+    const speed = (0.055 + m.songTempo * 0.055 + m.intensity * 0.105 + m.bass * 0.075 + m.beat * 0.055)
+      * (chapter === 2 ? 1.75 : chapter === 1 ? 1.28 : 0.92);
+    const cx = W * (0.50 + Math.sin(m.time * 0.11) * 0.035 + (m.mid - 0.5) * 0.018);
+    const cy = H * (0.40 + Math.cos(m.time * 0.09) * 0.025 + (m.high - 0.5) * 0.012);
+    const maxR = Math.hypot(W, H) * 0.72;
+    const starCount = perf < 0.7 ? 56 + chapter * 8 : 76 + chapter * 16;
+    const hash = (n) => {
+      const v = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+      return v - Math.floor(v);
+    };
+
+    gfx.save();
+    gfx.globalCompositeOperation = "lighter";
+
+    // Three drifting nebula chapters establish launch, cruise, and late-level storm colors.
+    for (let cloud = 0; cloud < 3; cloud++) {
+      const drift = m.time * (0.012 + cloud * 0.004);
+      const nx = W * (0.22 + cloud * 0.31 + Math.sin(drift + cloud * 2.2) * 0.12);
+      const ny = H * (0.28 + (cloud % 2) * 0.38 + Math.cos(drift * 1.3 + cloud) * 0.10);
+      const radius = Math.max(W, H) * (0.28 + cloud * 0.055 + m.mid * 0.05);
+      const nebula = gfx.createRadialGradient(nx, ny, 0, nx, ny, radius);
+      const cloudHue = palette.hues[(cloud + chapter * 2) % palette.hues.length];
+      nebula.addColorStop(0, `hsla(${cloudHue}, 100%, 58%, ${0.026 + m.mid * 0.025 + chapter * 0.008})`);
+      nebula.addColorStop(0.48, `hsla(${(cloudHue + 34) % 360}, 100%, 42%, ${0.015 + m.intensity * 0.018})`);
+      nebula.addColorStop(1, `hsla(${cloudHue}, 100%, 30%, 0)`);
+      gfx.fillStyle = nebula;
+      gfx.fillRect(nx - radius, ny - radius, radius * 2, radius * 2);
+    }
+
+    // Perspective stars accelerate outward on bass hits and stretch into hyperspace late in the level.
+    gfx.lineCap = "round";
+    for (let i = 0; i < starCount; i++) {
+      const angle = hash(i + 1) * Math.PI * 2;
+      const lane = 0.42 + hash(i + 41) * 0.68;
+      const rate = speed * (0.68 + hash(i + 83) * 0.72);
+      const cycle = (hash(i + 127) + m.time * rate) % 1;
+      const perspective = Math.pow(cycle, 1.82);
+      const band = m.spectrum[i % m.spectrum.length] || m.intensity;
+      const streak = 0.012 + band * 0.032 + m.bass * 0.018 + m.beat * 0.034 + chapter * 0.014;
+      const previous = Math.max(0, Math.pow(Math.max(0, cycle - streak), 1.82));
+      const radius = perspective * maxR * lane;
+      const previousRadius = previous * maxR * lane;
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius;
+      const px = cx + Math.cos(angle) * previousRadius;
+      const py = cy + Math.sin(angle) * previousRadius;
+      const starHue = palette.hues[(i + chapter) % palette.hues.length];
+      gfx.globalAlpha = clamp(0.055 + perspective * 0.24 + band * 0.14 + m.beat * 0.08, 0.05, 0.42);
+      gfx.strokeStyle = `hsla(${starHue}, 100%, ${72 + band * 18}%, 0.94)`;
+      gfx.lineWidth = 0.55 + perspective * 1.45 + band * 0.75 + (chapter === 2 ? 0.45 : 0);
+      gfx.beginPath();
+      gfx.moveTo(px, py);
+      gfx.lineTo(x, y);
+      gfx.stroke();
+    }
+
+    // The vanishing-point gate becomes more active as the defence approaches its boss encounter.
+    const gateEnergy = clamp(0.16 + m.mid * 0.30 + m.beat * 0.42 + m.drop * 0.60 + chapter * 0.15, 0, 1);
+    for (let ring = 0; ring < 3; ring++) {
+      const ringCycle = (m.time * (0.18 + speed) + ring / 3) % 1;
+      const radius = this.gridSize * (0.45 + ringCycle * (2.8 + chapter * 1.6 + m.drop * 2.4));
+      gfx.globalAlpha = clamp((1 - ringCycle) * gateEnergy * 0.16, 0, 0.20);
+      gfx.strokeStyle = `hsla(${palette.hues[(ring + 2) % palette.hues.length]}, 100%, 72%, 0.90)`;
+      gfx.lineWidth = 0.8 + m.beat * 1.5;
+      gfx.beginPath();
+      gfx.ellipse(cx, cy, radius * 1.65, radius * 0.72, Math.sin(m.time * 0.08) * 0.18, 0, Math.PI * 2);
+      gfx.stroke();
+    }
+    gfx.restore();
+  }
+
   _drawGlobalMapVisuals(gfx, m, perf) {
-    if (perf < 0.7) return;
+    // CODEX CHANGE: Keep ambient music motion at 4K by reducing density instead of disabling it.
     const activity = clamp(m.activity || 0.1, 0.1, 1);
     for (const pulse of this.globalMusicPulses) pulse.age += 0.016;
     this.globalMusicPulses = this.globalMusicPulses.filter((pulse) => pulse.age < pulse.life);
@@ -949,7 +1025,8 @@ export class Map {
     gfx.globalCompositeOperation = "lighter";
     const ambientAlpha = clamp(0.025 + m.intensity * 0.055 + m.beat * 0.025, 0, 0.12);
     if (ambientAlpha > 0.01) {
-      const gap = this.gridSize * (palette.style === "rain" ? 1.25 : palette.style === "lattice" ? 2 : 3);
+      const densityScale = perf < 0.7 ? 1.65 : 1;
+      const gap = this.gridSize * (palette.style === "rain" ? 1.25 : palette.style === "lattice" ? 2 : 3) * densityScale;
       const drift = (m.time * (18 + m.tempo * 24)) % gap;
       gfx.lineWidth = palette.style === "pulse" ? 1.8 : 1;
       gfx.globalAlpha = ambientAlpha;
@@ -1006,7 +1083,8 @@ export class Map {
 
   // CODEX CHANGE: Give every active visual mode its own waveform geometry, motion, and intensity.
   _drawModeSignature(gfx, m, perf) {
-    if (!m.enabled || perf < 0.7 || m.mode === 0) return;
+    // CODEX CHANGE: Preserve each mode's signature at 4K; individual renderers already scale their density.
+    if (!m.enabled || m.mode === 0) return;
     const palette = this._musicPalette(m);
     const t = m.time;
     // CODEX CHANGE: Weight transient hits heavily so each unique mode visibly reacts to kicks, snaps, and drops.
@@ -1207,12 +1285,14 @@ export class Map {
   }
 
   _drawBackFieldWaveform(gfx, m, perf, turrets = []) {
-    if (!m.spectrum?.length || perf < 0.7) return;
+    // CODEX CHANGE: Never remove the requested bar graph at large fullscreen resolutions.
+    if (!m.spectrum?.length) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    // CODEX CHANGE: Keep the Synthwave bars compact and translucent while preserving clear musical peaks.
+    // CODEX CHANGE: Restore a balanced equalizer bed in every mode, with Synthwave remaining the boldest.
+    const modeScale = m.mode === 0 ? 1 : 0.74;
     const baseY = H - this.gridSize * (0.24 + m.bass * 0.24);
-    const maxH = Math.min(H * 0.32, this.gridSize * (2.2 + m.intensity * 5.8 + m.bass * 3.2 + m.beat * 2.6 + m.drop * 2.4));
+    const maxH = Math.min(H * (m.mode === 0 ? 0.32 : 0.24), this.gridSize * modeScale * (2.5 + m.intensity * 6.8 + m.bass * 3.8 + m.beat * 3.2 + m.drop * 3.0));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
     const relayColumns = Array.isArray(turrets)
@@ -1222,9 +1302,11 @@ export class Map {
         .sort((a, b) => a - b)
       : [];
     const relayCursor = MAP_EDGE_MARGIN + ((m.time * (3.2 + m.tempo * 2.8)) % 1) * cols;
+    const waveformPoints = [];
+    const columnStride = perf < 0.7 ? 2 : 1;
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
-    for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx++) {
+    for (let gx = MAP_EDGE_MARGIN; gx < this.cols - MAP_EDGE_MARGIN; gx += columnStride) {
       const pos = (gx - MAP_EDGE_MARGIN) / Math.max(1, cols - 1);
       const bandIndex = Math.floor(pos * (spectrum.length - 1));
       const mirrorIndex = Math.floor((1 - pos) * (spectrum.length - 1));
@@ -1249,7 +1331,8 @@ export class Map {
       ), this.gridSize * 0.30, maxH);
       const x = gx * this.gridSize + 3;
       const y = baseY - height;
-      const w = this.gridSize - 6;
+      const w = this.gridSize * columnStride - 6;
+      waveformPoints.push({ x: x + w * 0.5, y, band });
       let relay = null;
       if (relayColumns.length) {
         for (const col of relayColumns) {
@@ -1265,7 +1348,8 @@ export class Map {
       const hue = relay === null
         ? (palette.solid + band * 44 + gx * 1.5) % 360
         : (relayHue * 0.72 + (palette.accent + band * 28) * 0.28) % 360;
-      const alpha = clamp(0.045 + band * 0.18 + bandSnap * 0.08 + m.intensity * 0.06 + m.beat * 0.08 + m.drop * 0.07, 0.05, 0.34);
+      const modeAlpha = m.mode === 0 ? 1 : 0.72;
+      const alpha = clamp((0.055 + band * 0.22 + bandSnap * 0.10 + m.intensity * 0.07 + m.beat * 0.10 + m.drop * 0.08) * modeAlpha, 0.045, m.mode === 0 ? 0.38 : 0.27);
       const grad = gfx.createLinearGradient(0, y, 0, baseY);
       grad.addColorStop(0, `hsla(${hue}, 100%, ${68 + relayPulse * 8}%, ${alpha + relayPulse * 0.06})`);
       grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : (150 + (m.colorShift || 0)) % 360}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
@@ -1282,6 +1366,18 @@ export class Map {
         gfx.lineTo(x + w, y + 0.5);
         gfx.stroke();
       }
+    }
+    // CODEX CHANGE: Connect the spectrum peaks so the bars also read as one flowing musical waveform.
+    if (waveformPoints.length > 1) {
+      gfx.globalAlpha = clamp(0.10 + m.intensity * 0.12 + m.beat * 0.11, 0.10, 0.30) * (m.mode === 0 ? 1 : 0.76);
+      gfx.strokeStyle = `hsla(${palette.spark}, 100%, 78%, 0.94)`;
+      gfx.lineWidth = 1.15 + m.beat * 1.25;
+      gfx.beginPath();
+      waveformPoints.forEach((point, index) => {
+        if (index === 0) gfx.moveTo(point.x, point.y);
+        else gfx.lineTo(point.x, point.y);
+      });
+      gfx.stroke();
     }
     gfx.restore();
   }
@@ -1730,8 +1826,9 @@ export class Map {
   }
 
   _drawGridSpectrumCells(gfx, m, perf) {
-    if (perf < 0.7 || m.progression < 0.14) return;
-    const stride = m.progression < 0.42 ? 6 : m.progression < 0.72 ? 5 : 4;
+    // CODEX CHANGE: Retain spectrum cells at 4K with a coarser sampling stride.
+    if (m.progression < 0.14) return;
+    const stride = (m.progression < 0.42 ? 6 : m.progression < 0.72 ? 5 : 4) + (perf < 0.7 ? 2 : 0);
     const phase = Math.floor(m.time * (2.8 + m.tempo * 1.4));
     const bands = [m.bass, m.mid, m.high];
     gfx.save();
@@ -1834,6 +1931,9 @@ export class Map {
     gfx.fillRect(0, 0, W, H);
     gfx.restore();
 
+    // CODEX CHANGE: Establish the space-flight story behind the grid before foreground visualizers render.
+    if (musicGrid.enabled) this._drawSpaceFlight(gfx, musicGrid, perf);
+
     // Background "nebula grid"
     gfx.save();
     gfx.globalAlpha = clamp(0.24 + musicGrid.intensity * 0.11, 0.22, 0.35);
@@ -1847,10 +1947,10 @@ export class Map {
     }
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
-    // CODEX CHANGE: Reserve the bottom bar graph for Synthwave so other modes keep their unique silhouettes.
+    // CODEX CHANGE: Pair every unique mode with the restored, restrained bottom equalizer.
     if (musicGrid.enabled) {
+      this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
       if (musicGrid.mode === 0) {
-        this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
         this._drawGridEqualizer(gfx, musicGrid, perf);
       } else if (musicGrid.mode === 2 || musicGrid.mode === 3) {
         this._drawGridSpectrumCells(gfx, musicGrid, perf);

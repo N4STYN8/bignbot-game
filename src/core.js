@@ -48,6 +48,12 @@ const tutorialBodyEl = document.getElementById("tutorialBody");
 const tutorialOkEl = document.getElementById("tutorialOk");
 const tutorialSpotlightEl = document.getElementById("tutorialSpotlight");
 const tutorialCardEl = tutorialModalEl?.querySelector(".tutorialCard");
+// CODEX CHANGE: Desktop controls remain optional so the same modules still run on the live website.
+const desktopBridge = window.orbitEchoDesktop || null;
+const desktopControlsEl = document.getElementById("desktopControls");
+const desktopSaveBtnEl = document.getElementById("desktopSaveBtn");
+const desktopFullscreenBtnEl = document.getElementById("desktopFullscreenBtn");
+const desktopExitBtnEl = document.getElementById("desktopExitBtn");
 const VISUAL_SETTINGS_KEY = "orbit_echo_visual_settings_v1";
 const PROFILE_KEY = "orbit_echo_profile_v1";
 const LEADERBOARD_KEY = "orbit_echo_leaderboard_v1";
@@ -1871,6 +1877,22 @@ class Game {
       });
     });
 
+    // CODEX CHANGE: Offer explicit save, fullscreen, and save-aware exit actions only in Electron.
+    if (desktopBridge?.isDesktop) {
+      document.body.classList.add("desktopApp");
+      if (desktopControlsEl) desktopControlsEl.hidden = false;
+      desktopSaveBtnEl?.addEventListener("click", () => this.saveNow(true));
+      desktopFullscreenBtnEl?.addEventListener("click", () => {
+        void desktopBridge.toggleFullscreen?.();
+      });
+      desktopExitBtnEl?.addEventListener("click", () => {
+        showConfirm("Save & Exit", "Save your current run and exit Orbit Echo?", () => {
+          this.saveNow();
+          void desktopBridge.exit?.();
+        });
+      });
+    }
+
     audioBtn?.addEventListener("click", () => {
       this.musicVisualizer?.unlock();
       this.audio.toggle();
@@ -2090,7 +2112,10 @@ class Game {
     window.addEventListener("focus", () => this.audio.ensureActive(true));
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") this.audio.ensureActive(true);
+      else this.saveNow();
     });
+    // CODEX CHANGE: Persist the current run during browser and desktop lifecycle shutdowns.
+    window.addEventListener("pagehide", () => this.saveNow());
     canvas.addEventListener("mouseleave", () => hideTooltip());
 
     // CODEX CHANGE: Share map zoom with the turret HUD so its overlay never blocks the wheel.
@@ -2099,8 +2124,8 @@ class Game {
       ev.preventDefault();
       const delta = Math.sign(ev.deltaY);
       const next = this.zoom + (delta > 0 ? -0.1 : 0.1);
-      // CODEX CHANGE: Extend the zoom range to leave more battlefield padding around the larger radial HUD.
-      this.zoom = clamp(next, 0.6, 1.65);
+      // CODEX CHANGE: Allow large fullscreen maps to remain visible when restored into the minimum window size.
+      this.zoom = clamp(next, 0.45, 1.65);
     };
     canvas.addEventListener("wheel", handleMapZoom, { passive: false });
     turretHud?.addEventListener("wheel", handleMapZoom, { passive: false });
@@ -3724,6 +3749,15 @@ class Game {
     // Rebuilding here changes the path beneath placed turrets and active enemies.
     this._syncMusicHudGeometry();
     this._positionTutorialSpotlight();
+    // CODEX CHANGE: Fit the immutable battlefield to the resized viewport through the camera transform.
+    const mapWidth = Math.max(MAP_GRID_SIZE, (this.map?.cols || 1) * MAP_GRID_SIZE);
+    const mapHeight = Math.max(MAP_GRID_SIZE, (this.map?.rows || 1) * MAP_GRID_SIZE);
+    const fitZoom = clamp(Math.min(W / mapWidth, H / mapHeight), 0.45, 1.65);
+    this.zoom = fitZoom;
+    this.cam.x = mapWidth * 0.5 - W * 0.5;
+    this.cam.y = mapHeight * 0.5 - H * 0.5;
+    this.camStart.x = this.cam.x;
+    this.camStart.y = this.cam.y;
     // CODEX CHANGE: Re-measure the floating HUD after viewport changes.
     this._invalidateTurretHudLayout();
     this._updateTurretHudPosition();
@@ -4079,9 +4113,18 @@ class Game {
         }
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      return true;
     } catch (err) {
       // ignore storage errors (private mode, quota, etc.)
+      return false;
     }
+  }
+
+  // CODEX CHANGE: Provide one public save entry point for UI, lifecycle, and Electron shutdown.
+  saveNow(notify = false) {
+    const saved = this._save();
+    if (notify) toast(saved ? "Progress saved." : "Unable to save progress.");
+    return saved;
   }
 
   _load() {
@@ -5627,9 +5670,10 @@ class Game {
     // effects timers
     this._updateVisualEffects(dt);
     this._saveT += dt;
-    if (this._saveT >= 60) {
-      this._saveT -= 60;
-      this._save();
+    // CODEX CHANGE: Desktop-friendly autosave cadence limits progress loss during active waves.
+    if (this._saveT >= 30) {
+      this._saveT -= 30;
+      this.saveNow();
     }
     this.updateHUD();
   }

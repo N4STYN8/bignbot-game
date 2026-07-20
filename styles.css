@@ -3176,6 +3176,19 @@ body{
 .settingsSection .howGrid{
   grid-template-columns: 1fr;
 }
+/* CODEX CHANGE: Present desktop lifecycle actions as a compact settings group. */
+.desktopControls[hidden]{display:none}
+.desktopControlGrid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:8px;
+}
+.desktopControlGrid .btn{
+  width:100%;
+}
+.desktopAutosaveNote{
+  margin-top:8px;
+}
 .settingsLabel{
   font-size:11px;
   letter-spacing:.14em;
@@ -3216,6 +3229,7 @@ body{
 }
 
 @media (max-width: 700px){
+  .desktopControlGrid{grid-template-columns:1fr}
   .topbar{gap:10px}
   .brand{width:100%}
   .statRow{width:100%}

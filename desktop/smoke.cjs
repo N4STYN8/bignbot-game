@@ -7,6 +7,7 @@ const child = spawn(electronBinary, [path.join(__dirname, ".."), "--enable-loggi
   env: {
     ...process.env,
     ORBIT_ECHO_DESKTOP_SMOKE: "1",
+    ORBIT_ECHO_DESKTOP_FULLSCREEN_SMOKE: "1",
     ELECTRON_ENABLE_LOGGING: "1"
   },
   stdio: "inherit"

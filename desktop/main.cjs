@@ -1,8 +1,26 @@
 // CODEX CHANGE: Provide a secure desktop shell without coupling Electron to shared web modules.
 const path = require("node:path");
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 
 const GAME_ROOT = path.join(__dirname, "..");
+const approvedClosures = new WeakSet();
+const pendingClosures = new WeakSet();
+
+// CODEX CHANGE: Save through the renderer's established persistence path before any desktop close.
+async function saveAndClose(window) {
+  if (!window || window.isDestroyed() || pendingClosures.has(window)) return;
+  pendingClosures.add(window);
+  try {
+    await window.webContents.executeJavaScript("window.game?.saveNow?.(); true");
+  } catch (error) {
+    console.warn("Orbit Echo could not confirm its final autosave.", error);
+  } finally {
+    if (!window.isDestroyed()) {
+      approvedClosures.add(window);
+      window.close();
+    }
+  }
+}
 
 function createGameWindow() {
   const window = new BrowserWindow({
@@ -11,6 +29,8 @@ function createGameWindow() {
     height: 1000,
     minWidth: 1100,
     minHeight: 700,
+    fullscreen: process.env.ORBIT_ECHO_DESKTOP_SMOKE !== "1"
+      || process.env.ORBIT_ECHO_DESKTOP_FULLSCREEN_SMOKE === "1",
     backgroundColor: "#050914",
     autoHideMenuBar: true,
     show: false,
@@ -24,6 +44,13 @@ function createGameWindow() {
   });
 
   window.once("ready-to-show", () => window.show());
+
+  // CODEX CHANGE: Cover title-bar close, Alt+F4, and app shutdown with a final autosave.
+  window.on("close", (event) => {
+    if (approvedClosures.has(window)) return;
+    event.preventDefault();
+    void saveAndClose(window);
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) void shell.openExternal(url);
@@ -46,17 +73,50 @@ function createGameWindow() {
   if (process.env.ORBIT_ECHO_DESKTOP_SMOKE === "1") {
     window.webContents.once("did-finish-load", async () => {
       try {
-        const result = await window.webContents.executeJavaScript(`({
-          title: document.title,
-          readyState: document.readyState,
-          hasCanvas: Boolean(document.getElementById("game")),
-          hasGame: Boolean(window.game),
-          gameState: window.game?.gameState ?? null,
-          runtimeError: window.game?.runtimeError ?? null,
-          desktopBridge: window.orbitEchoDesktop?.isDesktop === true
-        })`);
+        const startedFullscreen = window.isFullScreen();
+        await window.webContents.executeJavaScript("window.orbitEchoDesktop.toggleFullscreen()");
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        const result = await window.webContents.executeJavaScript(`(() => {
+          const mapWidth = (window.game?.map?.cols || 0) * (window.game?.map?.gridSize || 0);
+          const mapHeight = (window.game?.map?.rows || 0) * (window.game?.map?.gridSize || 0);
+          const zoom = window.game?.zoom || 0;
+          return {
+            title: document.title,
+            readyState: document.readyState,
+            hasCanvas: Boolean(document.getElementById("game")),
+            hasGame: Boolean(window.game),
+            gameState: window.game?.gameState ?? null,
+            runtimeError: window.game?.runtimeError ?? null,
+            desktopBridge: window.orbitEchoDesktop?.isDesktop === true,
+            desktopControlsVisible: document.getElementById("desktopControls")?.hidden === false,
+            desktopActions: typeof window.orbitEchoDesktop?.toggleFullscreen === "function"
+              && typeof window.orbitEchoDesktop?.exit === "function",
+            saveSucceeded: window.game?.saveNow?.() === true,
+            mapCoverageX: mapWidth * zoom / Math.max(1, window.innerWidth),
+            mapCoverageY: mapHeight * zoom / Math.max(1, window.innerHeight)
+          };
+        })()`);
+        result.startedFullscreen = startedFullscreen;
+        result.fullscreenToggledOff = !window.isFullScreen();
         console.log(`ORBIT_ECHO_SMOKE ${JSON.stringify(result)}`);
-        app.exit(result.hasCanvas && result.hasGame && result.desktopBridge && !result.runtimeError ? 0 : 1);
+        const mapFitsViewport = result.mapCoverageX >= 0.7 && result.mapCoverageX <= 1.05
+          && result.mapCoverageY >= 0.7 && result.mapCoverageY <= 1.05;
+        const passed = result.hasCanvas
+          && result.hasGame
+          && result.desktopBridge
+          && result.desktopControlsVisible
+          && result.desktopActions
+          && result.saveSucceeded
+          && result.startedFullscreen
+          && result.fullscreenToggledOff
+          && mapFitsViewport
+          && !result.runtimeError;
+        if (!passed) {
+          app.exit(1);
+          return;
+        }
+        // Exercise the same save-aware IPC exit used by the visible desktop button.
+        await window.webContents.executeJavaScript("window.orbitEchoDesktop.exit()");
       } catch (error) {
         console.error("ORBIT_ECHO_SMOKE_FAILED", error);
         app.exit(1);
@@ -69,6 +129,21 @@ function createGameWindow() {
     if (process.env.ORBIT_ECHO_DESKTOP_SMOKE === "1") app.exit(1);
   });
 }
+
+// CODEX CHANGE: Restrict renderer desktop actions to fullscreen control and save-aware exit.
+ipcMain.handle("orbit-echo:toggle-fullscreen", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return false;
+  window.setFullScreen(!window.isFullScreen());
+  return window.isFullScreen();
+});
+
+ipcMain.handle("orbit-echo:exit", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return false;
+  void saveAndClose(window);
+  return true;
+});
 
 app.whenReady().then(() => {
   createGameWindow();

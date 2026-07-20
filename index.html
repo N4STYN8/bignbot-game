@@ -15,7 +15,8 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap">
   <!-- CODEX CHANGE: Refresh cached turret icon styling for the new five-level turret sets. -->
   <!-- CODEX CHANGE: Refresh turret icon styles after adding the Gravity Trap progression. -->
-  <link rel="stylesheet" href="styles.css?v=202607192238">
+  <!-- CODEX CHANGE: Refresh layout styling for desktop save, fullscreen, and exit controls. -->
+  <link rel="stylesheet" href="styles.css?v=202607201826">
 </head>
 <body>
   <div id="app" class="layout">
@@ -59,8 +60,9 @@
           <div class="versionStamp" aria-label="Build version">
             <!-- CODEX CHANGE: Refresh the visible build stamp for the turret HUD and waveform release. -->
             <!-- CODEX CHANGE: Stamp the preserved live-web snapshot before desktop packaging begins. -->
-            <span class="versionValue">v2026.07.20.1810</span>
-            <span class="versionDate">2026-07-20 18:10 -04:00</span>
+            <!-- CODEX CHANGE: Stamp the fullscreen, responsive-map, and autosave desktop build. -->
+            <span class="versionValue">v2026.07.20.1826</span>
+            <span class="versionDate">2026-07-20 18:26 -04:00</span>
           </div>
         </div>
 
@@ -484,6 +486,16 @@
             </label>
           </div>
         </div>
+        <!-- CODEX CHANGE: Keep native desktop actions hidden from the independently deployed web build. -->
+        <div id="desktopControls" class="settingsSection desktopControls" hidden>
+          <div class="settingsLabel">Desktop</div>
+          <div class="desktopControlGrid">
+            <button id="desktopSaveBtn" class="btn primary" type="button">Save Now</button>
+            <button id="desktopFullscreenBtn" class="btn ghost" type="button">Toggle Fullscreen</button>
+            <button id="desktopExitBtn" class="btn danger" type="button">Save &amp; Exit</button>
+          </div>
+          <div class="tiny desktopAutosaveNote">Autosave is on: progress saves every 30 seconds and when the game closes.</div>
+        </div>
         <div class="settingsSection">
           <div class="settingsLabel">Reset</div>
           <button id="settingsResetBtn" class="btn danger">Reset Game</button>
@@ -587,7 +599,8 @@
   </script>
   <!-- CODEX CHANGE: Refresh the live module graph so all new turret sprite sets load immediately. -->
   <!-- CODEX CHANGE: Refresh the game module graph after adding the Gravity Trap progression. -->
-  <script type="module" src="src/core.js?v=202607192227"></script>
+  <!-- CODEX CHANGE: Refresh the game module for desktop lifecycle and responsive-map behavior. -->
+  <script type="module" src="src/core.js?v=202607201826"></script>
 </body>
 </html>
 

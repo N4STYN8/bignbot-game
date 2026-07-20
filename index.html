@@ -13,8 +13,9 @@
     gtag("config", "G-WQGQLK211G");
   </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap">
-  <!-- CODEX CHANGE: Refresh cached turret icon styling for the new Pulse Spindle art. -->
-  <link rel="stylesheet" href="styles.css?v=202607171800">
+  <!-- CODEX CHANGE: Refresh cached turret icon styling for the new five-level turret sets. -->
+  <!-- CODEX CHANGE: Refresh turret icon styles after adding the Gravity Trap progression. -->
+  <link rel="stylesheet" href="styles.css?v=202607192238">
 </head>
 <body>
   <div id="app" class="layout">
@@ -57,8 +58,9 @@
 
           <div class="versionStamp" aria-label="Build version">
             <!-- CODEX CHANGE: Refresh the visible build stamp for the turret HUD and waveform release. -->
-            <span class="versionValue">v2026.07.17.1632</span>
-            <span class="versionDate">2026-07-17 16:32 -04:00</span>
+            <!-- CODEX CHANGE: Stamp the preserved live-web snapshot before desktop packaging begins. -->
+            <span class="versionValue">v2026.07.20.1810</span>
+            <span class="versionDate">2026-07-20 18:10 -04:00</span>
           </div>
         </div>
 
@@ -584,7 +586,8 @@
     window.ORBIT_ECHO_LEADERBOARD_API = "https://orbit-echo-leaderboard.nathan-scally.workers.dev";
   </script>
   <!-- CODEX CHANGE: Refresh the live module graph so all new turret sprite sets load immediately. -->
-  <script type="module" src="src/core.js?v=202607171632"></script>
+  <!-- CODEX CHANGE: Refresh the game module graph after adding the Gravity Trap progression. -->
+  <script type="module" src="src/core.js?v=202607192227"></script>
 </body>
 </html>
 

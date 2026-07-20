@@ -15,17 +15,16 @@ Completed five-level sprite sets:
 - Arc Coil: `assets/images/turrets/arc_coil/arc_coil_lv1.png` through `arc_coil_lv5.png`
 - Frost Vent: `assets/images/turrets/frost_vent/frost_vent_lv1.png` through `frost_vent_lv5.png`
 - Sun Lens: `assets/images/turrets/sun_lens/sun_lens_lv1.png` through `sun_lens_lv5.png`
+- Mortar Bloom: `assets/images/turrets/mortar_bloom/mortar_bloom_lv1.png` through `mortar_bloom_lv5.png`
+- Venom Spitter: `assets/images/turrets/venom_spitter/venom_spitter_lv1.png` through `venom_spitter_lv5.png`
+- Rail Needle: `assets/images/turrets/rail_needle/rail_needle_lv1.png` through `rail_needle_lv5.png`
+- Aura Grove: `assets/images/turrets/aura_grove/aura_grove_lv1.png` through `aura_grove_lv5.png`
+- Drone Hive: `assets/images/turrets/drone_hive/drone_hive_lv1.png` through `drone_hive_lv5.png`
+- Gravity Trap: `assets/images/turrets/gravity_trap/gravity_trap_lv1.png` through `gravity_trap_lv5.png`
 
-Remaining turret sets:
+Remaining turret sets: none.
 
-- Mortar Bloom
-- Venom Spitter
-- Rail Needle
-- Aura Grove
-- Drone Hive
-- Gravity Trap
-
-Arc Coil, Frost Vent, and Sun Lens may still be uncommitted when this document is first added. Always inspect `git status` before continuing.
+Mortar Bloom, Venom Spitter, Rail Needle, Aura Grove, Drone Hive, and Gravity Trap may still be uncommitted while their art is reviewed. Always inspect `git status` before continuing.
 
 ## Required Camera
 
@@ -100,7 +99,7 @@ Approved silhouette language:
 - Sun Lens: focused lens or beam-emitter silhouette
 - Mortar Bloom: large round launcher
 - Venom Spitter: directional chemical projector with a distinct reservoir
-- Rail Needle: long, narrow cannon
+- Rail Needle: long precision cannon on a broad wedge-shaped recoil chassis
 - Aura Grove: support emitter with a calm radial silhouette
 - Drone Hive: multiple readable drone docks
 - Gravity Trap: central gravity knot with orbiting fragments

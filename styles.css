@@ -1357,9 +1357,10 @@ body{
   transform: rotate(-35deg);
 }
 .panel.collapsed{
-  width: 64px;
-  min-width: 64px;
-  max-width: 64px;
+  /* CODEX CHANGE: Give the collapsed build rail enough room for readable turret portraits. */
+  width: 74px;
+  min-width: 74px;
+  max-width: 74px;
   transform: translateZ(0);
 }
 .panel.collapsed .panelHint,
@@ -1379,22 +1380,28 @@ body{
 /* Collapsed build panel keeps icon picker */
 .panel.left.collapsed .buildList{
   display:block;
-  padding:10px 8px;
+  /* CODEX CHANGE: Preserve a slim rail while allowing larger collapsed-state icons. */
+  padding:10px 7px;
 }
 .panel.left.collapsed .buildItem{
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:8px 6px;
-  margin-bottom:8px;
+  padding:4px;
+  margin-bottom:6px;
 }
 .panel.left.collapsed .buildMeta{
   display:none;
 }
 .panel.left.collapsed .buildIcon{
-  width:36px;
-  height:36px;
-  border-radius: 12px;
+  /* CODEX CHANGE: Make collapsed turret icons substantially easier to identify. */
+  width:48px;
+  height:48px;
+  border-radius: 14px;
+}
+.panel.left.collapsed .buildIcon::before{
+  /* CODEX CHANGE: Use more of the larger icon surface for the turret sprite itself. */
+  inset:2px;
 }
 .panelFooter{
   padding:12px 14px;
@@ -1569,29 +1576,65 @@ body{
 [data-icon="LENS"][data-level="4"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv4.png")}
 [data-icon="LENS"][data-level="5"]{--turret-img:url("assets/images/turrets/sun_lens/sun_lens_lv5.png")}
 [data-icon="MORTAR"]{
+  /* CODEX CHANGE: Use the new top-down Mortar Bloom Level 1 sprite for build and selection icons. */
   --turret-rgb: 255,184,92;
-  --turret-img: url("assets/images/turrets/mortar_bloom/mortar_base.png");
+  --turret-img: url("assets/images/turrets/mortar_bloom/mortar_bloom_lv1.png");
 }
+/* CODEX CHANGE: Keep the Mortar Bloom portrait synchronized with its battlefield upgrade level. */
+[data-icon="MORTAR"][data-level="2"]{--turret-img:url("assets/images/turrets/mortar_bloom/mortar_bloom_lv2.png")}
+[data-icon="MORTAR"][data-level="3"]{--turret-img:url("assets/images/turrets/mortar_bloom/mortar_bloom_lv3.png")}
+[data-icon="MORTAR"][data-level="4"]{--turret-img:url("assets/images/turrets/mortar_bloom/mortar_bloom_lv4.png")}
+[data-icon="MORTAR"][data-level="5"]{--turret-img:url("assets/images/turrets/mortar_bloom/mortar_bloom_lv5.png")}
 [data-icon="VENOM"]{
+  /* CODEX CHANGE: Use the new top-down Venom Spitter Level 1 sprite for build and selection icons. */
   --turret-rgb: 109,255,154;
-  --turret-img: url("assets/images/turrets/venom_spitter/venom_base.png");
+  --turret-img: url("assets/images/turrets/venom_spitter/venom_spitter_lv1.png");
 }
+/* CODEX CHANGE: Keep the Venom Spitter portrait synchronized with its battlefield upgrade level. */
+[data-icon="VENOM"][data-level="2"]{--turret-img:url("assets/images/turrets/venom_spitter/venom_spitter_lv2.png")}
+[data-icon="VENOM"][data-level="3"]{--turret-img:url("assets/images/turrets/venom_spitter/venom_spitter_lv3.png")}
+[data-icon="VENOM"][data-level="4"]{--turret-img:url("assets/images/turrets/venom_spitter/venom_spitter_lv4.png")}
+[data-icon="VENOM"][data-level="5"]{--turret-img:url("assets/images/turrets/venom_spitter/venom_spitter_lv5.png")}
 [data-icon="NEEDLE"]{
+  /* CODEX CHANGE: Use the new top-down Rail Needle Level 1 sprite for build and selection icons. */
   --turret-rgb: 190,126,255;
-  --turret-img: url("assets/images/turrets/rail_needle/rail_base.png");
+  --turret-img: url("assets/images/turrets/rail_needle/rail_needle_lv1.png?v=202607192209");
 }
+/* CODEX CHANGE: Keep the Rail Needle portrait synchronized with its battlefield upgrade level. */
+[data-icon="NEEDLE"][data-level="2"]{--turret-img:url("assets/images/turrets/rail_needle/rail_needle_lv2.png?v=202607192209")}
+[data-icon="NEEDLE"][data-level="3"]{--turret-img:url("assets/images/turrets/rail_needle/rail_needle_lv3.png?v=202607192209")}
+[data-icon="NEEDLE"][data-level="4"]{--turret-img:url("assets/images/turrets/rail_needle/rail_needle_lv4.png?v=202607192209")}
+[data-icon="NEEDLE"][data-level="5"]{--turret-img:url("assets/images/turrets/rail_needle/rail_needle_lv5.png?v=202607192209")}
 [data-icon="DRONE"]{
+  /* CODEX CHANGE: Use the new top-down Drone Hive Level 1 sprite for build and selection icons. */
   --turret-rgb: 116,236,255;
-  --turret-img: url("assets/images/turrets/drone_hive/drone_base.png");
+  --turret-img: url("assets/images/turrets/drone_hive/drone_hive_lv1.png");
 }
+/* CODEX CHANGE: Keep the Drone Hive portrait synchronized with its battlefield upgrade level. */
+[data-icon="DRONE"][data-level="2"]{--turret-img:url("assets/images/turrets/drone_hive/drone_hive_lv2.png")}
+[data-icon="DRONE"][data-level="3"]{--turret-img:url("assets/images/turrets/drone_hive/drone_hive_lv3.png")}
+[data-icon="DRONE"][data-level="4"]{--turret-img:url("assets/images/turrets/drone_hive/drone_hive_lv4.png")}
+[data-icon="DRONE"][data-level="5"]{--turret-img:url("assets/images/turrets/drone_hive/drone_hive_lv5.png")}
 [data-icon="AURA"]{
+  /* CODEX CHANGE: Use the new top-down Aura Grove Level 1 sprite for build and selection icons. */
   --turret-rgb: 171,156,255;
-  --turret-img: url("assets/images/turrets/aura_grove/aura_base.png");
+  --turret-img: url("assets/images/turrets/aura_grove/aura_grove_lv1.png");
 }
+/* CODEX CHANGE: Keep the Aura Grove portrait synchronized with its battlefield upgrade level. */
+[data-icon="AURA"][data-level="2"]{--turret-img:url("assets/images/turrets/aura_grove/aura_grove_lv2.png")}
+[data-icon="AURA"][data-level="3"]{--turret-img:url("assets/images/turrets/aura_grove/aura_grove_lv3.png")}
+[data-icon="AURA"][data-level="4"]{--turret-img:url("assets/images/turrets/aura_grove/aura_grove_lv4.png")}
+[data-icon="AURA"][data-level="5"]{--turret-img:url("assets/images/turrets/aura_grove/aura_grove_lv5.png")}
 [data-icon="TRAP"]{
+  /* CODEX CHANGE: Use the new top-down Gravity Trap Level 1 sprite for build and selection icons. */
   --turret-rgb: 180,120,255;
-  --turret-img: url("assets/images/turrets/gravity_trap/gravity_base.png");
+  --turret-img: url("assets/images/turrets/gravity_trap/gravity_trap_lv1.png?v=202607192223");
 }
+/* CODEX CHANGE: Keep the Gravity Trap portrait synchronized with its battlefield upgrade level. */
+[data-icon="TRAP"][data-level="2"]{--turret-img:url("assets/images/turrets/gravity_trap/gravity_trap_lv2.png?v=202607192223")}
+[data-icon="TRAP"][data-level="3"]{--turret-img:url("assets/images/turrets/gravity_trap/gravity_trap_lv3.png?v=202607192223")}
+[data-icon="TRAP"][data-level="4"]{--turret-img:url("assets/images/turrets/gravity_trap/gravity_trap_lv4.png?v=202607192223")}
+[data-icon="TRAP"][data-level="5"]{--turret-img:url("assets/images/turrets/gravity_trap/gravity_trap_lv5.png?v=202607192223")}
 .buildMeta{flex:1; min-width:0}
 .buildNameRow{
   display:flex;

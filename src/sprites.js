@@ -103,18 +103,27 @@ const TURRET_SPRITE_DEFS = {
   FROST: { key: "frost", aliases: ["frost_vent", "frost"], folders: ["frost", "frost_vent"] },
   // CODEX CHANGE: Resolve the new sun_lens_lv1-lv5 filenames before legacy Lens assets.
   LENS: { key: "lens", aliases: ["sun_lens", "lens", "sun"], folders: ["lens", "sun_lens"] },
-  VENOM: { key: "venom", aliases: ["venom"], folders: ["venom", "venom_spitter"] },
-  MORTAR: { key: "mortar", aliases: ["mortar"], folders: ["mortar", "mortar_bloom"] },
-  NEEDLE: { key: "needle", aliases: ["needle", "rail"], folders: ["needle", "rail_needle"] },
-  AURA: { key: "aura", aliases: ["aura"], folders: ["aura", "aura_grove"] },
-  DRONE: { key: "drone", aliases: ["drone"], folders: ["drone", "drone_hive"] },
-  TRAP: { key: "trap", aliases: ["trap", "gravity"], folders: ["trap", "gravity_trap"] },
+  // CODEX CHANGE: Resolve the new venom_spitter_lv1-lv5 filenames before legacy Venom assets.
+  VENOM: { key: "venom", aliases: ["venom_spitter", "venom"], folders: ["venom", "venom_spitter"] },
+  // CODEX CHANGE: Resolve the new mortar_bloom_lv1-lv5 filenames before legacy Mortar assets.
+  MORTAR: { key: "mortar", aliases: ["mortar_bloom", "mortar"], folders: ["mortar", "mortar_bloom"] },
+  // CODEX CHANGE: Resolve the new rail_needle_lv1-lv5 filenames before legacy Needle assets.
+  NEEDLE: { key: "needle", aliases: ["rail_needle", "needle", "rail"], folders: ["needle", "rail_needle"] },
+  // CODEX CHANGE: Resolve the new aura_grove_lv1-lv5 filenames before legacy Aura assets.
+  AURA: { key: "aura", aliases: ["aura_grove", "aura"], folders: ["aura", "aura_grove"] },
+  // CODEX CHANGE: Resolve the new drone_hive_lv1-lv5 filenames before legacy Drone assets.
+  DRONE: { key: "drone", aliases: ["drone_hive", "drone"], folders: ["drone", "drone_hive"] },
+  // CODEX CHANGE: Resolve the new gravity_trap_lv1-lv5 filenames before the legacy Gravity asset.
+  TRAP: { key: "trap", aliases: ["gravity_trap", "trap", "gravity"], folders: ["trap", "gravity_trap"] },
 };
 
 const SPRITE_PATH_ROOTS = [
   "assets/turrets",
   "assets/images/turrets",
 ];
+
+// CODEX CHANGE: Bust cached turret PNGs after completing the Gravity Trap set.
+const TURRET_SPRITE_CACHE_VERSION = "202607192223";
 
 const spriteCache = Object.create(null);
 
@@ -123,13 +132,13 @@ function createCandidateList(fileNames, folders) {
   const out = [];
   for (const root of SPRITE_PATH_ROOTS) {
     for (const name of fileNames) {
-      const flat = `${root}/${name}`;
+      const flat = `${root}/${name}?v=${TURRET_SPRITE_CACHE_VERSION}`;
       if (!seen.has(flat)) {
         seen.add(flat);
         out.push(flat);
       }
       for (const folder of folders) {
-        const nested = `${root}/${folder}/${name}`;
+        const nested = `${root}/${folder}/${name}?v=${TURRET_SPRITE_CACHE_VERSION}`;
         if (!seen.has(nested)) {
           seen.add(nested);
           out.push(nested);
@@ -153,7 +162,7 @@ function buildSpriteMap() {
     const lv1 = [...buildTierCandidates(def, "lv1"), ...buildTierCandidates(def, "u1")];
     map[typeKey] = {
       // CODEX CHANGE: New five-level turret sets use their top-down level-one art before the first upgrade.
-      base: typeKey === "PULSE" || typeKey === "ARC" || typeKey === "FROST" || typeKey === "LENS" ? [...lv1, ...base] : base,
+      base: typeKey === "PULSE" || typeKey === "ARC" || typeKey === "FROST" || typeKey === "LENS" || typeKey === "MORTAR" || typeKey === "VENOM" || typeKey === "NEEDLE" || typeKey === "AURA" || typeKey === "DRONE" || typeKey === "TRAP" ? [...lv1, ...base] : base,
       lv1,
       lv2: [...buildTierCandidates(def, "lv2"), ...buildTierCandidates(def, "u2")],
       lv3: [...buildTierCandidates(def, "lv3"), ...buildTierCandidates(def, "u3")],

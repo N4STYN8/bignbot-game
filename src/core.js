@@ -5,7 +5,8 @@ import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfx
 import { Particles } from "./vfx.js?v=202606082258";
 import { Projectile } from "./projectiles.js?v=202606082258";
 // CODEX CHANGE: Refresh the turret module for the new five-level turret sprite sets.
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202607171631";
+// CODEX CHANGE: Refresh turret integration after adding the Gravity Trap sprite progression.
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202607192225";
 import { MusicVisualizer } from "./visualization.js?v=202606082258";
 // CODEX CHANGE: Add one reusable canvas waveform for the currently selected turret.
 import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607171200";

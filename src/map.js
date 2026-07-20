@@ -996,7 +996,8 @@ export class Map {
     if (!m.enabled || perf < 0.7 || m.mode === 0) return;
     const palette = this._musicPalette(m);
     const t = m.time;
-    const energy = clamp(0.22 + m.intensity * 0.52 + m.beat * 0.22 + m.drop * 0.28, 0.18, 1);
+    // CODEX CHANGE: Weight transient hits heavily so each unique mode visibly reacts to kicks, snaps, and drops.
+    const energy = clamp(0.12 + m.intensity * 0.72 + m.bass * 0.22 + m.beat * 0.48 + m.snap * 0.20 + m.drop * 0.52, 0.12, 1);
     const hue = (offset = 0) => (palette.solid + offset) % 360;
     gfx.save();
     gfx.globalCompositeOperation = "lighter";
@@ -1136,23 +1137,25 @@ export class Map {
       gfx.lineTo(W, scanY);
       gfx.stroke();
     } else if (m.mode === 8) {
-      // Aurora Field: broad, gentle ribbons that breathe rather than flash.
-      gfx.shadowBlur = 18;
+      // CODEX CHANGE: Aurora Field remains flowing, but now swells and flashes clearly on musical transients.
+      gfx.shadowBlur = 20 + energy * 20 + m.beat * 16;
       for (let ribbon = 0; ribbon < 6; ribbon++) {
         const baseY = H * (0.20 + ribbon * 0.12);
+        const ribbonBand = m.spectrum[(ribbon * 5 + 3) % m.spectrum.length] || m.mid;
+        const transientLift = m.beat * 72 + m.drop * 104 + ribbonBand * 44;
         gfx.beginPath();
         for (let x = -20; x <= W + 20; x += 16) {
           const y = baseY
-            + Math.sin(x * 0.006 + t * (0.24 + ribbon * 0.025) + ribbon * 1.18) * (42 + m.mid * 62)
-            + Math.sin(x * 0.015 - t * 0.31) * 16;
+            + Math.sin(x * 0.006 + t * (0.34 + m.tempo * 0.28 + ribbon * 0.025) + ribbon * 1.18) * (46 + m.mid * 76 + transientLift)
+            + Math.sin(x * 0.015 - t * (0.42 + m.high * 0.34)) * (18 + m.high * 28);
           if (x < 0) gfx.moveTo(x, y);
           else gfx.lineTo(x, y);
         }
         const ribbonHue = hue(ribbon * 31 - 52);
-        gfx.globalAlpha = clamp(0.020 + energy * 0.034, 0.018, 0.065);
+        gfx.globalAlpha = clamp(0.028 + energy * 0.078 + ribbonBand * 0.035 + m.beat * 0.055, 0.025, 0.19);
         gfx.strokeStyle = `hsla(${ribbonHue}, 100%, 70%, 0.84)`;
         gfx.shadowColor = `hsla(${ribbonHue}, 100%, 58%, 0.74)`;
-        gfx.lineWidth = 8 + ribbon * 1.6 + m.bass * 5;
+        gfx.lineWidth = 9 + ribbon * 1.8 + m.bass * 8 + m.beat * 5;
         gfx.stroke();
       }
     } else if (m.mode === 9) {
@@ -1194,8 +1197,10 @@ export class Map {
     if (!m.spectrum?.length || perf < 0.7) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    const baseY = H - this.gridSize * (0.42 + m.bass * 0.42);
-    const maxH = Math.min(H * 0.54, this.gridSize * (3.8 + m.intensity * 10.8 + m.bass * 5.2 + m.beat * 4.2 + m.drop * 3.2));
+    // CODEX CHANGE: Give every mode a stronger shared spectrum bed with large musical peaks and drop surges.
+    const modeBoost = m.mode === 9 ? 1.22 : m.mode === 8 ? 1.14 : 1;
+    const baseY = H - this.gridSize * (0.34 + m.bass * 0.52 + m.beat * 0.18);
+    const maxH = Math.min(H * 0.68, this.gridSize * modeBoost * (4.2 + m.intensity * 13.4 + m.bass * 7.2 + m.beat * 7.8 + m.drop * 6.8));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
     const relayColumns = Array.isArray(turrets)
@@ -1216,19 +1221,19 @@ export class Map {
       const centerLift = 0.90 + 0.10 * Math.sin(m.time * 0.7 + gx * 0.19);
       const rawBand = sampleBand(bandIndex);
       const mirroredRaw = sampleBand(mirrorIndex);
-      const band = clamp(localBand * 0.42 + mirrorBand * 0.18 + rawBand * 0.30 + mirroredRaw * 0.04 + m.intensity * 0.10, 0, 1);
-      const bandSnap = Math.pow(clamp(rawBand * 0.76 + mirroredRaw * 0.14 + m.high * 0.24 + m.snap * 0.12, 0, 1), 1.18);
-      const beatKick = Math.pow(clamp(m.beat * 0.94 + m.bass * 0.62 + m.drop * 0.40, 0, 1), 1.12);
+      const band = clamp(localBand * 0.48 + mirrorBand * 0.18 + rawBand * 0.34 + mirroredRaw * 0.05 + m.intensity * 0.12, 0, 1);
+      const bandSnap = Math.pow(clamp(rawBand * 0.82 + mirroredRaw * 0.16 + m.high * 0.30 + m.snap * 0.26, 0, 1), 1.08);
+      const beatKick = Math.pow(clamp(m.beat * 1.08 + m.bass * 0.72 + m.drop * 0.64, 0, 1), 1.02);
       const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + Math.abs(pos - 0.5) * 5.2);
       const columnBeat = 0.6 + 0.4 * Math.sin(m.time * (7 + m.tempo * 5) + gx * 0.72);
       const height = clamp(maxH * (
-        0.10
-        + band * 0.72 * centerLift
-        + bandSnap * 0.30
-        + beatKick * (0.18 + columnBeat * 0.14)
-        + m.mid * 0.075
-        + m.high * 0.045
-        + phase * 0.055
+        0.075
+        + band * 0.84 * centerLift
+        + bandSnap * 0.38
+        + beatKick * (0.25 + columnBeat * 0.20)
+        + m.mid * 0.10
+        + m.high * 0.07
+        + phase * 0.07
       ), this.gridSize * 0.55, maxH);
       const x = gx * this.gridSize + 3;
       const y = baseY - height;
@@ -1247,7 +1252,7 @@ export class Map {
       const hue = relay === null
         ? (palette.solid + band * 44 + gx * 1.5) % 360
         : (relayHue * 0.72 + (palette.accent + band * 28) * 0.28) % 360;
-      const alpha = clamp(0.08 + band * 0.28 + bandSnap * 0.14 + m.intensity * 0.10 + m.beat * 0.16 + m.drop * 0.10, 0.10, 0.52);
+      const alpha = clamp(0.10 + band * 0.36 + bandSnap * 0.20 + m.intensity * 0.14 + m.beat * 0.24 + m.drop * 0.18, 0.12, 0.68);
       const grad = gfx.createLinearGradient(0, y, 0, baseY);
       grad.addColorStop(0, `hsla(${hue}, 100%, ${68 + relayPulse * 8}%, ${alpha + relayPulse * 0.06})`);
       grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : 150}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
@@ -1829,15 +1834,13 @@ export class Map {
     }
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
-    // CODEX CHANGE: Route each mode to a distinct visual stack instead of layering every waveform together.
+    // CODEX CHANGE: Keep each signature distinct while giving all ten modes the stronger shared audio waveform.
     if (musicGrid.enabled) {
+      this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
       if (musicGrid.mode === 0) {
-        this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
         this._drawGridEqualizer(gfx, musicGrid, perf);
       } else if (musicGrid.mode === 2 || musicGrid.mode === 3) {
         this._drawGridSpectrumCells(gfx, musicGrid, perf);
-      } else if (musicGrid.mode === 9) {
-        this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
       }
       this._drawGlobalMapVisuals(gfx, musicGrid, perf);
       this._drawModeSignature(gfx, musicGrid, perf);

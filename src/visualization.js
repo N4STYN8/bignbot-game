@@ -82,7 +82,8 @@ export class MusicVisualizer {
         this.audioContext = new AudioContextCtor();
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 2048;
-        this.analyser.smoothingTimeConstant = 0.70;
+        // CODEX CHANGE: Keep real-audio visuals responsive enough to show drum attacks and high-frequency snaps.
+        this.analyser.smoothingTimeConstant = 0.56;
         this.analyser.connect(this.audioContext.destination);
         this.freq = new Uint8Array(this.analyser.frequencyBinCount);
         this.time = new Uint8Array(this.analyser.fftSize);
@@ -236,11 +237,12 @@ export class MusicVisualizer {
       this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.8);
       this.energy.snap = Math.max(snap, this.energy.snap - dt * 8.0);
       this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.5);
-      this.energy.bass = lerp(this.energy.bass, bass, 0.34);
-      this.energy.mid = lerp(this.energy.mid, mid, 0.26);
-      this.energy.high = lerp(this.energy.high, high, 0.30);
-      this.energy.wave = lerp(this.energy.wave, wave, 0.28);
-      this.energy.intensity = lerp(this.energy.intensity, instant, 0.26);
+      // CODEX CHANGE: Use a quicker attack so every renderer visibly lands on the music instead of drifting behind it.
+      this.energy.bass = lerp(this.energy.bass, bass, 0.48);
+      this.energy.mid = lerp(this.energy.mid, mid, 0.40);
+      this.energy.high = lerp(this.energy.high, high, 0.44);
+      this.energy.wave = lerp(this.energy.wave, wave, 0.42);
+      this.energy.intensity = lerp(this.energy.intensity, instant, 0.38);
       this.energy.tempo = lerp(this.energy.tempo, clamp01(0.3 + (0.72 / this.beatInterval) * 0.32), 0.08);
       this.previousBass = bass;
       this.previousHigh = high;
@@ -296,11 +298,12 @@ export class MusicVisualizer {
     this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
     this.energy.snap = Math.max(newSnap ? 1 : 0, this.energy.snap - dt * 8.2);
     this.energy.drop = Math.max(drop ? 1 : 0, this.energy.drop - dt * 2.6);
-    this.energy.bass = lerp(this.energy.bass, bass, 0.32);
-    this.energy.mid = lerp(this.energy.mid, mid, 0.26);
-    this.energy.high = lerp(this.energy.high, high, 0.30);
-    this.energy.wave = lerp(this.energy.wave, wave, 0.28);
-    this.energy.intensity = lerp(this.energy.intensity, instant, 0.24);
+    // CODEX CHANGE: Make the CDN timing fallback hit its generated kicks, snares, and phrases more decisively.
+    this.energy.bass = lerp(this.energy.bass, bass, 0.52);
+    this.energy.mid = lerp(this.energy.mid, mid, 0.42);
+    this.energy.high = lerp(this.energy.high, high, 0.48);
+    this.energy.wave = lerp(this.energy.wave, wave, 0.44);
+    this.energy.intensity = lerp(this.energy.intensity, instant, 0.40);
     this.energy.tempo = lerp(this.energy.tempo, clamp01((profile.bpm - 82) / 62), 0.12);
     this.previousBass = bass;
     this.previousHigh = high;
@@ -333,7 +336,8 @@ export class MusicVisualizer {
       const highWeight = Math.max(0, (p - 0.42) * 1.72);
       const motion = 0.72 + 0.28 * Math.sin(t * (1.9 + p * 4.2) + profile.phase + i * 0.43);
       const value = clamp01((bass * lowWeight + mid * midWeight * 0.72 + high * highWeight * 0.65) * motion);
-      this.spectrum[i] = lerp(this.spectrum[i], value, 0.22);
+      // CODEX CHANGE: Let individual fallback spectrum bands visibly jump with the beat.
+      this.spectrum[i] = lerp(this.spectrum[i], value, 0.40);
     }
   }
 

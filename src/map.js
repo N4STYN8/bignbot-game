@@ -1114,12 +1114,13 @@ export class Map {
           gfx.stroke();
         }
       } else {
+        // CODEX CHANGE: Batch lattice/tide ambience into one canvas stroke instead of one draw call per row.
+        gfx.beginPath();
         for (let y = MAP_EDGE_MARGIN * this.gridSize + drift; y < H; y += gap) {
-          gfx.beginPath();
           gfx.moveTo(0, y);
           gfx.lineTo(W, y + Math.sin(m.time * 0.9 + y * 0.01) * this.gridSize * 0.8);
-          gfx.stroke();
         }
+        gfx.stroke();
       }
     }
     if (!this.globalMusicPulses.length && activity < 0.32) {
@@ -1199,21 +1200,25 @@ export class Map {
       }
     } else if (m.mode === 3) {
       // Quantum Grid: counter-moving diamond lattices in green, cyan, and violet.
-      const gap = this.gridSize * (1.35 - energy * 0.20);
+      // CODEX CHANGE: Batch the full Quantum lattice into one gradient stroke and scale spacing at 4K.
+      const densityScale = perf < 0.7 ? 1.85 : perf < 1 ? 1.28 : 1;
+      const gap = this.gridSize * (1.35 - energy * 0.20) * densityScale;
       const drift = (t * (18 + m.tempo * 16)) % gap;
       gfx.globalAlpha = clamp(0.025 + energy * 0.052, 0.02, 0.10);
       gfx.lineWidth = 1;
+      const latticeGradient = gfx.createLinearGradient(0, 0, W, H);
+      latticeGradient.addColorStop(0, `hsla(${hue(-22)}, 100%, 66%, 0.74)`);
+      latticeGradient.addColorStop(0.5, `hsla(${hue(34)}, 100%, 70%, 0.82)`);
+      latticeGradient.addColorStop(1, `hsla(${hue(108)}, 100%, 66%, 0.74)`);
+      gfx.strokeStyle = latticeGradient;
+      gfx.beginPath();
       for (let x = -H; x < W + H; x += gap) {
-        gfx.strokeStyle = `hsla(${hue((x / gap) * 9)}, 100%, 66%, 0.78)`;
-        gfx.beginPath();
         gfx.moveTo(x + drift, 0);
         gfx.lineTo(x - H + drift, H);
-        gfx.stroke();
-        gfx.beginPath();
         gfx.moveTo(x - drift, 0);
         gfx.lineTo(x + H - drift, H);
-        gfx.stroke();
       }
+      gfx.stroke();
     } else if (m.mode === 4) {
       // Orbital Echo Rings: elliptical orbits precess around the map core.
       const cx = W * 0.5;
@@ -1892,7 +1897,10 @@ export class Map {
   _drawGridSpectrumCells(gfx, m, perf) {
     // CODEX CHANGE: Retain spectrum cells at 4K with a coarser sampling stride.
     if (m.progression < 0.14) return;
-    const stride = (m.progression < 0.42 ? 6 : m.progression < 0.72 ? 5 : 4) + (perf < 0.7 ? 2 : 0);
+    // CODEX CHANGE: Quantum samples fewer secondary cells because its primary lattice already covers the map.
+    const stride = (m.progression < 0.42 ? 6 : m.progression < 0.72 ? 5 : 4)
+      + (perf < 0.7 ? 2 : 0)
+      + (m.mode === 3 ? (perf < 1 ? 3 : 2) : 0);
     const phase = Math.floor(m.time * (2.8 + m.tempo * 1.4));
     const bands = [m.bass, m.mid, m.high];
     gfx.save();
@@ -1907,11 +1915,13 @@ export class Map {
         const x = gx * this.gridSize;
         const y = gy * this.gridSize;
         const hue = this._musicHue(m, gx * 5 + gy * 3);
-        const barW = Math.max(2, (this.gridSize - 12) / 5);
-        for (let b = 0; b < 3; b++) {
+        const bandSlots = m.mode === 3 ? [0, 2] : [0, 1, 2];
+        const barW = Math.max(2, (this.gridSize - 12) / (bandSlots.length * 1.65));
+        for (let slot = 0; slot < bandSlots.length; slot++) {
+          const b = bandSlots[slot];
           const level = bands[b] * (0.6 + 0.4 * Math.sin(m.time * (2.2 + b) + gx * 0.3 + gy * 0.2));
           const h = clamp(level, 0, 1) * (this.gridSize * 0.38);
-          const bx = x + 6 + b * (barW + 2);
+          const bx = x + 6 + slot * (barW + 3);
           const by = y + this.gridSize - 6 - h;
           gfx.globalAlpha = clamp(0.035 + bands[b] * 0.13 + m.progression * 0.035, 0, 0.20);
           gfx.fillStyle = `hsla(${(hue + b * 46) % 360}, 100%, ${58 + b * 4}%, 0.75)`;

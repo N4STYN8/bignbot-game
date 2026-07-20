@@ -437,6 +437,8 @@ export class Map {
     return {
       enabled,
       mode: Number.isFinite(music?.mode) ? music.mode | 0 : 0,
+      // CODEX CHANGE: Carry the persisted C-key hue rotation into every map visual renderer.
+      colorShift: Number.isFinite(music?.colorShift) ? ((music.colorShift % 360) + 360) % 360 : 0,
       bass: clamp(bass * amp, 0, 1),
       mid: clamp(mid * amp, 0, 1),
       high: clamp(high * amp, 0, 1),
@@ -651,7 +653,8 @@ export class Map {
   }
 
   _musicHue(m, offset = 0) {
-    return (188 + offset + m.level * 11 + m.trackIndex * 17 + m.intensity * 42 + Math.sin(m.time * (0.24 + m.songTempo * 0.28) + offset) * 34) % 360;
+    // CODEX CHANGE: Apply the C-key color rotation to legacy music-reactive grid helpers too.
+    return (188 + (m.colorShift || 0) + offset + m.level * 11 + m.trackIndex * 17 + m.intensity * 42 + Math.sin(m.time * (0.24 + m.songTempo * 0.28) + offset) * 34) % 360;
   }
 
   _musicPalette(m) {
@@ -667,7 +670,17 @@ export class Map {
       { name: "Aurora Field", hues: [136, 164, 188, 218, 268, 318], spark: 166, style: "aurora", solid: 188, accent: 318 },
       { name: "Cosmic Reactor", hues: [18, 38, 54, 188, 236, 312], spark: 48, style: "reactor", solid: 38, accent: 188 }
     ];
-    return palettes[((m.mode % palettes.length) + palettes.length) % palettes.length];
+    // CODEX CHANGE: Rotate each mode's full palette together so C recolors every linked effect consistently.
+    const base = palettes[((m.mode % palettes.length) + palettes.length) % palettes.length];
+    const shift = Number.isFinite(m.colorShift) ? m.colorShift : 0;
+    const rotate = (hue) => ((hue + shift) % 360 + 360) % 360;
+    return {
+      ...base,
+      hues: base.hues.map(rotate),
+      spark: rotate(base.spark),
+      solid: rotate(base.solid),
+      accent: rotate(base.accent)
+    };
   }
 
   _musicRand() {
@@ -1248,14 +1261,15 @@ export class Map {
       const relayPulse = relay === null
         ? 0
         : clamp(1 - Math.abs(gx - relayCursor) / Math.max(2.5, cols * 0.18), 0.18, 1);
-      const relayHue = (42 + Math.sin(m.time * 2.4 + (relay || 0) * 0.27) * 28 + m.high * 44) % 360;
+      // CODEX CHANGE: Recolor relay-driven equalizer columns with the selected C-key palette.
+      const relayHue = (42 + (m.colorShift || 0) + Math.sin(m.time * 2.4 + (relay || 0) * 0.27) * 28 + m.high * 44) % 360;
       const hue = relay === null
         ? (palette.solid + band * 44 + gx * 1.5) % 360
         : (relayHue * 0.72 + (palette.accent + band * 28) * 0.28) % 360;
       const alpha = clamp(0.10 + band * 0.36 + bandSnap * 0.20 + m.intensity * 0.14 + m.beat * 0.24 + m.drop * 0.18, 0.12, 0.68);
       const grad = gfx.createLinearGradient(0, y, 0, baseY);
       grad.addColorStop(0, `hsla(${hue}, 100%, ${68 + relayPulse * 8}%, ${alpha + relayPulse * 0.06})`);
-      grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : 150}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
+      grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : (150 + (m.colorShift || 0)) % 360}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
       grad.addColorStop(1, `hsla(${hue}, 100%, 42%, 0.02)`);
       gfx.globalAlpha = 1;
       gfx.fillStyle = grad;

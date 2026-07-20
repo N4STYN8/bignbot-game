@@ -1,15 +1,15 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
 import { AudioSystem } from "./audio.js?v=202606082258";
-// CODEX CHANGE: Refresh map rendering for the stronger audio-reactive waveform pass.
-import { Map } from "./map.js?v=202607201903";
+// CODEX CHANGE: Refresh map rendering for C-key visualization color variants.
+import { Map } from "./map.js?v=202607201907";
 import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606082258";
 import { Particles } from "./vfx.js?v=202606082258";
 import { Projectile } from "./projectiles.js?v=202606082258";
 // CODEX CHANGE: Refresh the turret module for the new five-level turret sprite sets.
 // CODEX CHANGE: Refresh turret integration after adding the Gravity Trap sprite progression.
 import { TURRET_TYPES, Turret } from "./turrets.js?v=202607192225";
-// CODEX CHANGE: Refresh visualizer sampling for sharper musical transients.
-import { MusicVisualizer } from "./visualization.js?v=202607201903";
+// CODEX CHANGE: Refresh visualizer controls for independent V-mode and C-color cycling.
+import { MusicVisualizer } from "./visualization.js?v=202607201907";
 // CODEX CHANGE: Add one reusable canvas waveform for the currently selected turret.
 import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607171200";
 // CODEX CHANGE: Add a second reusable music ribbon around the outside of the turret HUD.
@@ -100,7 +100,8 @@ const NEW_PLAYER_WAVE_TIPS = {
   2: "Tip: Upgrade a turret by selecting it; each tier changes how it fights.",
   3: "Tip: Power tiles boost damage, range, and fire rate once unlocked.",
   4: "Tip: Press 1, 2, or 3 for abilities when a wave starts getting heavy.",
-  5: "Tip: Press V to change the music-reactive grid style."
+  // CODEX CHANGE: Teach both music-visual keyboard controls in the rotating tips.
+  5: "Tip: Press V for visual styles and C for color palettes."
 };
 const FIRST_WAVE_TUTORIAL = [
   {
@@ -117,7 +118,8 @@ const FIRST_WAVE_TUTORIAL = [
   },
   {
     title: "Abilities And Music",
-    body: "Use 1, 2, and 3 for EMP Pulse, Pulse Burst, and Overcharge. Press V at any time to cycle the music-reactive battlefield visualization.",
+    // CODEX CHANGE: Include independent C-key color cycling in the keyboard tutorial.
+    body: "Use 1, 2, and 3 for EMP Pulse, Pulse Burst, and Overcharge. Press V to cycle visualization styles and C to cycle their color palettes.",
     target: "#abilitiesBar",
     placement: "top"
   },

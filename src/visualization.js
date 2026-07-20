@@ -1,4 +1,6 @@
 const VISUAL_MODE_KEY = "orbit_echo_grid_visual_mode_v1";
+// CODEX CHANGE: Persist a separate C-key color choice without changing the selected waveform mode.
+const VISUAL_COLOR_KEY = "orbit_echo_grid_visual_color_v1";
 
 export const VISUAL_MODES = [
   "Synthwave Equalizer",
@@ -14,6 +16,16 @@ export const VISUAL_MODES = [
 ];
 // CODEX CHANGE: Keep ten active variations and add a separate V-cycle stop for all music visuals.
 export const VISUAL_OFF_MODE = VISUAL_MODES.length;
+
+// CODEX CHANGE: Provide six reusable hue families for every visualization.
+export const VISUAL_COLOR_VARIANTS = [
+  { name: "Original", shift: 0 },
+  { name: "Sunset", shift: 52 },
+  { name: "Voltage", shift: 108 },
+  { name: "Arctic", shift: 172 },
+  { name: "Ultraviolet", shift: 236 },
+  { name: "Candy", shift: 302 }
+];
 
 const TRACK_PROFILES = [
   { bpm: 104, bass: 0.78, mid: 0.58, high: 0.42, phase: 0.1 },
@@ -42,6 +54,9 @@ export class MusicVisualizer {
     this.audioSystem = audioSystem;
     this.mode = this._loadMode();
     this.modeName = this._modeName(this.mode);
+    // CODEX CHANGE: Restore the player's independently selected visualization colors.
+    this.colorIndex = this._loadColor();
+    this.colorName = VISUAL_COLOR_VARIANTS[this.colorIndex].name;
     this.audioContext = null;
     this.analyser = null;
     this.source = null;
@@ -126,6 +141,14 @@ export class MusicVisualizer {
     this._syncLabel();
   }
 
+  // CODEX CHANGE: Let C recolor the active waveform without altering its geometry or animation.
+  cycleColor() {
+    this.colorIndex = (this.colorIndex + 1) % VISUAL_COLOR_VARIANTS.length;
+    this.colorName = VISUAL_COLOR_VARIANTS[this.colorIndex].name;
+    this._saveColor();
+    this._syncLabel();
+  }
+
   setLevelTheme(level, seed = 0) {
     // OFF is an explicit player choice and must survive automatic level-theme changes.
     if (!this.enabled) {
@@ -146,6 +169,9 @@ export class MusicVisualizer {
     return {
       mode: this.mode,
       modeName: this.modeName,
+      colorIndex: this.colorIndex,
+      colorName: this.colorName,
+      colorShift: VISUAL_COLOR_VARIANTS[this.colorIndex].shift,
       enabled: this.enabled,
       time: this.timeSeconds,
       trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
@@ -168,9 +194,25 @@ export class MusicVisualizer {
     try { window.localStorage.setItem(VISUAL_MODE_KEY, String(this.mode)); } catch (err) {}
   }
 
+  // CODEX CHANGE: Validate and persist C-key palette selections across launches.
+  _loadColor() {
+    try {
+      const raw = window.localStorage.getItem(VISUAL_COLOR_KEY);
+      const idx = raw == null ? 0 : Number(raw);
+      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_COLOR_VARIANTS.length - 1, idx | 0)) : 0;
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  _saveColor() {
+    try { window.localStorage.setItem(VISUAL_COLOR_KEY, String(this.colorIndex)); } catch (err) {}
+  }
+
   _syncLabel() {
     if (this.label) {
-      this.label.textContent = `VISUAL MODE: ${this.modeName}`;
+      // CODEX CHANGE: Show both keyboard-controlled choices in the compact battlefield label.
+      this.label.textContent = `VISUAL: ${this.modeName} · COLOR: ${this.colorName}`;
       this.label.classList.toggle("isOff", !this.enabled);
     }
   }
@@ -187,8 +229,11 @@ export class MusicVisualizer {
   _onKey(ev) {
     const tag = ev.target?.tagName?.toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return;
-    if (ev.key?.toLowerCase() !== "v") return;
-    this.cycleMode();
+    if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const key = ev.key?.toLowerCase();
+    // CODEX CHANGE: V changes waveform geometry; C independently changes its color family.
+    if (key === "v") this.cycleMode();
+    else if (key === "c") this.cycleColor();
   }
 
   _frame(now) {

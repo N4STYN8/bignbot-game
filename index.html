@@ -64,14 +64,16 @@
             <!-- CODEX CHANGE: Stamp the fullscreen, responsive-map, and autosave desktop build. -->
             <!-- CODEX CHANGE: Stamp the ten-mode visualizer and desktop Escape prompt build. -->
             <!-- CODEX CHANGE: Advance the visible build stamp for the stronger music-reactive visuals. -->
-            <span class="versionValue">v2026.07.20.1903</span>
-            <span class="versionDate">2026-07-20 19:03 -04:00</span>
+            <!-- CODEX CHANGE: Advance the visible build stamp for C-key visualization colors. -->
+            <span class="versionValue">v2026.07.20.1907</span>
+            <span class="versionDate">2026-07-20 19:07 -04:00</span>
           </div>
         </div>
 
         <div id="turretStateBar" class="turretStateBar hidden" aria-live="polite"></div>
 
-        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">VISUAL MODE: Synthwave</div>
+        <!-- CODEX CHANGE: Preview both independent visualization controls before the game module loads. -->
+        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">VISUAL: Synthwave Equalizer · COLOR: Original</div>
 
         <div id="musicHud" class="musicHud" aria-label="Background music player">
           <div class="musicHudInfo">
@@ -349,7 +351,8 @@
                 <div class="howH">Music & Visuals</div>
                 <div class="howP">
                   The music HUD controls play, pause, previous, next, repeat, shuffle, mute, seek, and volume.
-                  The battlefield grid reacts to the current song. Press <b>V</b> to cycle visual modes.
+                  <!-- CODEX CHANGE: Explain independent waveform and color cycling. -->
+                  The battlefield grid reacts to the current song. Press <b>V</b> to cycle visual modes and <b>C</b> to change their colors.
                 </div>
               </div>
 
@@ -369,6 +372,8 @@
                   <div><b>3</b><span>Overcharge</span></div>
                   <div><b>Q-P</b><span>Select turret build cards</span></div>
                   <div><b>V</b><span>Cycle 10 visual modes and Off</span></div>
+                  <!-- CODEX CHANGE: Add the new visualization color hotkey. -->
+                  <div><b>C</b><span>Cycle visualization colors</span></div>
                   <div><b>Esc</b><span>Desktop: prompt to save and exit</span></div>
                   <div><b>Right-click</b><span>Cancel build / alternate camera drag</span></div>
                   <div><b>Mouse wheel</b><span>Zoom battlefield</span></div>
@@ -592,6 +597,8 @@
           <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click</div></div>
           <div class="statsRow"><div class="k">Abilities</div><div class="v">Click buttons or press 1/2/3</div></div>
           <div class="statsRow"><div class="k">Visual Mode</div><div class="v">Press V for 10 modes plus Off</div></div>
+          <!-- CODEX CHANGE: Include color cycling in the compact controls reference. -->
+          <div class="statsRow"><div class="k">Visual Color</div><div class="v">Press C to cycle color palettes</div></div>
           <div class="statsRow"><div class="k">Desktop Exit</div><div class="v">Press Esc, then confirm Save &amp; Exit</div></div>
         </div>
       </div>
@@ -605,8 +612,8 @@
   <!-- CODEX CHANGE: Refresh the game module graph after adding the Gravity Trap progression. -->
   <!-- CODEX CHANGE: Refresh the game module for desktop lifecycle and responsive-map behavior. -->
   <!-- CODEX CHANGE: Refresh the module graph for ten visual modes and desktop Escape handling. -->
-  <!-- CODEX CHANGE: Refresh the desktop/web module cache for the music-reactivity update. -->
-  <script type="module" src="src/core.js?v=202607201903"></script>
+  <!-- CODEX CHANGE: Refresh the desktop/web module cache for C-key visualization colors. -->
+  <script type="module" src="src/core.js?v=202607201907"></script>
 </body>
 </html>
 

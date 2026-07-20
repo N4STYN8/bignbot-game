@@ -76,7 +76,7 @@ function createGameWindow() {
         const startedFullscreen = window.isFullScreen();
         await window.webContents.executeJavaScript("window.orbitEchoDesktop.toggleFullscreen()");
         await new Promise((resolve) => setTimeout(resolve, 900));
-        // CODEX CHANGE: Render every V-cycle state and verify Escape opens the save-and-exit prompt.
+        // CODEX CHANGE: Render every V-cycle state, verify all C palettes, and check the Escape prompt.
         const visualModes = [];
         for (let i = 0; i < 11; i++) {
           const mode = await window.webContents.executeJavaScript(`(() => {
@@ -86,6 +86,17 @@ function createGameWindow() {
             return state;
           })()`);
           visualModes.push(mode);
+          await new Promise((resolve) => setTimeout(resolve, 55));
+        }
+        const visualColors = [];
+        for (let i = 0; i < 6; i++) {
+          const color = await window.webContents.executeJavaScript(`(() => {
+            const visualizer = window.game?.musicVisualizer;
+            const state = { name: visualizer?.colorName || "", index: visualizer?.colorIndex ?? -1 };
+            visualizer?.cycleColor?.();
+            return state;
+          })()`);
+          visualColors.push(color);
           await new Promise((resolve) => setTimeout(resolve, 55));
         }
         const escapePrompt = await window.webContents.executeJavaScript(`(() => {
@@ -120,6 +131,7 @@ function createGameWindow() {
         result.fullscreenToggledOff = !window.isFullScreen();
         result.activeVisualModes = new Set(visualModes.filter((mode) => mode.enabled).map((mode) => mode.name)).size;
         result.offVisualModes = visualModes.filter((mode) => !mode.enabled && mode.name === "OFF").length;
+        result.colorVariants = new Set(visualColors.map((color) => color.name).filter(Boolean)).size;
         result.escapePrompt = escapePrompt;
         console.log(`ORBIT_ECHO_SMOKE ${JSON.stringify(result)}`);
         const mapFitsViewport = result.mapCoverageX >= 0.7 && result.mapCoverageX <= 1.05
@@ -134,6 +146,7 @@ function createGameWindow() {
           && result.fullscreenToggledOff
           && result.activeVisualModes === 10
           && result.offVisualModes === 1
+          && result.colorVariants === 6
           && result.escapePrompt
           && mapFitsViewport
           && !result.runtimeError;

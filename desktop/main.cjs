@@ -1,10 +1,25 @@
 // CODEX CHANGE: Provide a secure desktop shell without coupling Electron to shared web modules.
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, session, shell } = require("electron");
 
 const GAME_ROOT = path.join(__dirname, "..");
 const approvedClosures = new WeakSet();
 const pendingClosures = new WeakSet();
+
+// CODEX CHANGE: Allow only Orbit Echo's music CDN responses to feed Electron's Web Audio analyser.
+function enableCdnAudioAnalysis() {
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ["https://cdn.bignbot.com/assets/music/*"] },
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...(details.responseHeaders || {}),
+          "Access-Control-Allow-Origin": ["*"]
+        }
+      });
+    }
+  );
+}
 
 // CODEX CHANGE: Save through the renderer's established persistence path before any desktop close.
 async function saveAndClose(window) {
@@ -76,6 +91,14 @@ function createGameWindow() {
         const startedFullscreen = window.isFullScreen();
         await window.webContents.executeJavaScript("window.orbitEchoDesktop.toggleFullscreen()");
         await new Promise((resolve) => setTimeout(resolve, 900));
+        // CODEX CHANGE: Wait for the CDN probe and prove the desktop can use real track frequency data.
+        const realAudioAnalysis = await window.webContents.executeJavaScript(`(async () => {
+          const deadline = Date.now() + 5000;
+          while (!window.game?.audio?.analysisCorsReady && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          return window.game?.audio?.analysisCorsReady === true;
+        })()`);
         // CODEX CHANGE: Render every V-cycle state, verify all C palettes, and check the Escape prompt.
         const visualModes = [];
         for (let i = 0; i < 11; i++) {
@@ -132,6 +155,7 @@ function createGameWindow() {
         result.activeVisualModes = new Set(visualModes.filter((mode) => mode.enabled).map((mode) => mode.name)).size;
         result.offVisualModes = visualModes.filter((mode) => !mode.enabled && mode.name === "OFF").length;
         result.colorVariants = new Set(visualColors.map((color) => color.name).filter(Boolean)).size;
+        result.realAudioAnalysis = realAudioAnalysis;
         result.escapePrompt = escapePrompt;
         console.log(`ORBIT_ECHO_SMOKE ${JSON.stringify(result)}`);
         const mapFitsViewport = result.mapCoverageX >= 0.7 && result.mapCoverageX <= 1.05
@@ -147,6 +171,7 @@ function createGameWindow() {
           && result.activeVisualModes === 10
           && result.offVisualModes === 1
           && result.colorVariants === 6
+          && result.realAudioAnalysis
           && result.escapePrompt
           && mapFitsViewport
           && !result.runtimeError;
@@ -185,6 +210,8 @@ ipcMain.handle("orbit-echo:exit", (event) => {
 });
 
 app.whenReady().then(() => {
+  // CODEX CHANGE: Install the narrow CDN response rule before loading any game audio.
+  enableCdnAudioAnalysis();
   createGameWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createGameWindow();

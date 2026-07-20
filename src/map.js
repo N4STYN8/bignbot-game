@@ -1210,10 +1210,9 @@ export class Map {
     if (!m.spectrum?.length || perf < 0.7) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
-    // CODEX CHANGE: Give every mode a stronger shared spectrum bed with large musical peaks and drop surges.
-    const modeBoost = m.mode === 9 ? 1.22 : m.mode === 8 ? 1.14 : 1;
-    const baseY = H - this.gridSize * (0.34 + m.bass * 0.52 + m.beat * 0.18);
-    const maxH = Math.min(H * 0.68, this.gridSize * modeBoost * (4.2 + m.intensity * 13.4 + m.bass * 7.2 + m.beat * 7.8 + m.drop * 6.8));
+    // CODEX CHANGE: Keep the Synthwave bars compact and translucent while preserving clear musical peaks.
+    const baseY = H - this.gridSize * (0.24 + m.bass * 0.24);
+    const maxH = Math.min(H * 0.32, this.gridSize * (2.2 + m.intensity * 5.8 + m.bass * 3.2 + m.beat * 2.6 + m.drop * 2.4));
     const spectrum = m.spectrum;
     const sampleBand = (idx) => spectrum[clamp(idx, 0, spectrum.length - 1) | 0] || 0;
     const relayColumns = Array.isArray(turrets)
@@ -1240,14 +1239,14 @@ export class Map {
       const phase = Math.sin(m.time * (2.2 + m.tempo * 1.4) + Math.abs(pos - 0.5) * 5.2);
       const columnBeat = 0.6 + 0.4 * Math.sin(m.time * (7 + m.tempo * 5) + gx * 0.72);
       const height = clamp(maxH * (
-        0.075
-        + band * 0.84 * centerLift
-        + bandSnap * 0.38
-        + beatKick * (0.25 + columnBeat * 0.20)
-        + m.mid * 0.10
-        + m.high * 0.07
-        + phase * 0.07
-      ), this.gridSize * 0.55, maxH);
+        0.04
+        + band * 0.66 * centerLift
+        + bandSnap * 0.22
+        + beatKick * (0.10 + columnBeat * 0.08)
+        + m.mid * 0.05
+        + m.high * 0.035
+        + phase * 0.035
+      ), this.gridSize * 0.30, maxH);
       const x = gx * this.gridSize + 3;
       const y = baseY - height;
       const w = this.gridSize - 6;
@@ -1266,7 +1265,7 @@ export class Map {
       const hue = relay === null
         ? (palette.solid + band * 44 + gx * 1.5) % 360
         : (relayHue * 0.72 + (palette.accent + band * 28) * 0.28) % 360;
-      const alpha = clamp(0.10 + band * 0.36 + bandSnap * 0.20 + m.intensity * 0.14 + m.beat * 0.24 + m.drop * 0.18, 0.12, 0.68);
+      const alpha = clamp(0.045 + band * 0.18 + bandSnap * 0.08 + m.intensity * 0.06 + m.beat * 0.08 + m.drop * 0.07, 0.05, 0.34);
       const grad = gfx.createLinearGradient(0, y, 0, baseY);
       grad.addColorStop(0, `hsla(${hue}, 100%, ${68 + relayPulse * 8}%, ${alpha + relayPulse * 0.06})`);
       grad.addColorStop(0.55, `hsla(${relay === null ? palette.accent : (150 + (m.colorShift || 0)) % 360}, 100%, ${54 + relayPulse * 8}%, ${alpha * (0.60 + relayPulse * 0.18)})`);
@@ -1848,10 +1847,10 @@ export class Map {
     }
     gfx.restore();
     this._updateTileEnergy(musicGrid, perf);
-    // CODEX CHANGE: Keep each signature distinct while giving all ten modes the stronger shared audio waveform.
+    // CODEX CHANGE: Reserve the bottom bar graph for Synthwave so other modes keep their unique silhouettes.
     if (musicGrid.enabled) {
-      this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
       if (musicGrid.mode === 0) {
+        this._drawBackFieldWaveform(gfx, musicGrid, perf, turrets);
         this._drawGridEqualizer(gfx, musicGrid, perf);
       } else if (musicGrid.mode === 2 || musicGrid.mode === 3) {
         this._drawGridSpectrumCells(gfx, musicGrid, perf);

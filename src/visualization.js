@@ -1,7 +1,9 @@
 const VISUAL_MODE_KEY = "orbit_echo_grid_visual_mode_v1";
+const ECOSYSTEM_ENABLED_KEY = "orbit_echo_evolution_enabled_v1";
 // CODEX CHANGE: Persist a separate C-key color choice without changing the selected waveform mode.
 const VISUAL_COLOR_KEY = "orbit_echo_grid_visual_color_v1";
 
+// Each identity mutates the same persistent Echo Evolution ecosystem.
 export const VISUAL_MODES = [
   "Synthwave Equalizer",
   "Neon Ocean",
@@ -14,7 +16,6 @@ export const VISUAL_MODES = [
   "Aurora Field",
   "Cosmic Reactor"
 ];
-// CODEX CHANGE: Keep ten active variations and add a separate V-cycle stop for all music visuals.
 export const VISUAL_OFF_MODE = VISUAL_MODES.length;
 
 // CODEX CHANGE: Provide six reusable hue families for every visualization.
@@ -54,6 +55,17 @@ export class MusicVisualizer {
     this.audioSystem = audioSystem;
     this.mode = this._loadMode();
     this.modeName = this._modeName(this.mode);
+    this.nextMode = Math.min(VISUAL_MODES.length - 1, this.mode + 1);
+    this.modeBlend = 0;
+    this.evolutionPosition = this.mode;
+    this.evolutionTarget = this.mode;
+    this.ecosystemSeed = 1;
+    this.motionQuery = typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : null;
+    this.reducedMotion = !!this.motionQuery?.matches;
+    this._onMotionChange = (event) => { this.reducedMotion = !!event.matches; };
+    this.motionQuery?.addEventListener?.("change", this._onMotionChange);
     // CODEX CHANGE: Restore the player's independently selected visualization colors.
     this.colorIndex = this._loadColor();
     this.colorName = VISUAL_COLOR_VARIANTS[this.colorIndex].name;
@@ -68,7 +80,7 @@ export class MusicVisualizer {
     this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, snap: 0, drop: 0, tempo: 0.5 };
     this.spectrum = new Array(32).fill(0.18);
     // CODEX CHANGE: Maintain a compact time-domain signal for real oscilloscope lines behind the map.
-    this.audioWaveform = new Array(64).fill(0);
+    this.audioWaveform = new Array(128).fill(0);
     this.beatAvg = 0.12;
     this.previousBass = 0;
     this.previousHigh = 0;
@@ -137,10 +149,8 @@ export class MusicVisualizer {
   }
 
   cycleMode() {
-    this.mode = (this.mode + 1) % (VISUAL_MODES.length + 1);
-    this.modeName = this._modeName(this.mode);
-    this._saveMode();
-    this._syncLabel();
+    // Compatibility alias: identities evolve automatically, while V changes color.
+    this.cycleColor();
   }
 
   // CODEX CHANGE: Let C recolor the active waveform without altering its geometry or animation.
@@ -152,49 +162,67 @@ export class MusicVisualizer {
   }
 
   setLevelTheme(level, seed = 0) {
-    // OFF is an explicit player choice and must survive automatic level-theme changes.
-    if (!this.enabled) {
-      this._syncLabel();
-      return;
-    }
     const safeLevel = Math.max(1, Number(level) | 0);
     const safeSeed = Number(seed) >>> 0;
-    let next = ((safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0) % VISUAL_MODES.length;
-    if (safeLevel > 1 && next === this.mode) next = (next + 1) % VISUAL_MODES.length;
-    this.mode = next;
-    this.modeName = this._modeName(this.mode);
-    this._saveMode();
+    this.ecosystemSeed = (safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0 || 1;
+    // The seed changes the organism each level; the player's selected identity remains stable.
     this._syncLabel();
+  }
+
+  setEvolutionWave(wave, waveMax = 16) {
+    const safeMax = Math.max(2, Number(waveMax) || 16);
+    const safeWave = Math.max(1, Number(wave) || 1);
+    const progress = clamp01((safeWave - 1) / (safeMax - 1));
+    this.evolutionTarget = progress * (VISUAL_MODES.length - 1);
+  }
+
+  _updateEvolution(dt) {
+    const gap = this.evolutionTarget - this.evolutionPosition;
+    if (Math.abs(gap) > 0.0001) {
+      this.evolutionPosition += gap * (1 - Math.exp(-dt * 0.58));
+      if (Math.abs(this.evolutionTarget - this.evolutionPosition) < 0.002) this.evolutionPosition = this.evolutionTarget;
+    }
+    const from = Math.max(0, Math.min(VISUAL_MODES.length - 1, Math.floor(this.evolutionPosition)));
+    const next = Math.min(VISUAL_MODES.length - 1, from + 1);
+    const fraction = clamp01(this.evolutionPosition - from);
+    const blend = fraction * fraction * (3 - 2 * fraction);
+    const changed = from !== this.mode || next !== this.nextMode || Math.abs(blend - this.modeBlend) > 0.025;
+    this.mode = from;
+    this.nextMode = next;
+    this.modeBlend = blend;
+    this.modeName = this._modeName(blend >= 0.5 ? next : from);
+    if (changed) this._syncLabel();
   }
 
   getGridState() {
     return {
       mode: this.mode,
+      nextMode: this.nextMode,
+      modeBlend: this.modeBlend,
       modeName: this.modeName,
       colorIndex: this.colorIndex,
       colorName: this.colorName,
       colorShift: VISUAL_COLOR_VARIANTS[this.colorIndex].shift,
       enabled: this.enabled,
+      ecosystemSeed: this.ecosystemSeed,
+      reducedMotion: this.reducedMotion,
       time: this.timeSeconds,
       trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
-      energy: { ...this.energy },
-      spectrum: [...this.spectrum],
-      audioWaveform: [...this.audioWaveform]
+      energy: this.energy,
+      spectrum: this.spectrum,
+      audioWaveform: this.audioWaveform
     };
   }
 
   _loadMode() {
-    try {
-      const raw = window.localStorage.getItem(VISUAL_MODE_KEY);
-      const idx = raw == null ? 0 : Number(raw);
-      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_OFF_MODE, idx | 0)) : 0;
-    } catch (err) {
-      return 0;
-    }
+    return 0;
   }
 
   _saveMode() {
-    try { window.localStorage.setItem(VISUAL_MODE_KEY, String(this.mode)); } catch (err) {}
+    try {
+      window.localStorage.setItem(VISUAL_MODE_KEY, String(this.mode));
+      window.localStorage.setItem(ECOSYSTEM_ENABLED_KEY, this.enabled ? "1" : "0");
+    } catch (err) {}
   }
 
   // CODEX CHANGE: Validate and persist C-key palette selections across launches.
@@ -214,19 +242,23 @@ export class MusicVisualizer {
 
   _syncLabel() {
     if (this.label) {
-      // CODEX CHANGE: Show both keyboard-controlled choices in the compact battlefield label.
-      this.label.textContent = `VISUAL: ${this.modeName} · COLOR: ${this.colorName}`;
-      this.label.classList.toggle("isOff", !this.enabled);
+      const fromName = VISUAL_MODES[this.mode] || VISUAL_MODES[0];
+      const nextName = VISUAL_MODES[this.nextMode] || fromName;
+      const identity = this.nextMode !== this.mode && this.modeBlend > 0.08
+        ? `${fromName} → ${nextName}`
+        : fromName;
+      this.label.textContent = `EVOLUTION: ${identity} · COLOR: ${this.colorName}`;
+      this.label.classList.remove("isOff");
     }
   }
 
   // CODEX CHANGE: Expose a single state flag to map and HUD renderers when V reaches OFF.
   get enabled() {
-    return this.mode !== VISUAL_OFF_MODE;
+    return true;
   }
 
   _modeName(mode) {
-    return mode === VISUAL_OFF_MODE ? "OFF" : (VISUAL_MODES[mode] || VISUAL_MODES[0]);
+    return VISUAL_MODES[mode] || VISUAL_MODES[0];
   }
 
   _onKey(ev) {
@@ -234,18 +266,27 @@ export class MusicVisualizer {
     if (tag === "input" || tag === "textarea" || tag === "select") return;
     if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const key = ev.key?.toLowerCase();
-    // CODEX CHANGE: V changes waveform geometry; C independently changes its color family.
-    if (key === "v") this.cycleMode();
-    else if (key === "c") this.cycleColor();
+    // The level controls identity evolution. V changes color; C remains a compatibility alias.
+    if (key === "v" || key === "c") this.cycleColor();
   }
 
   _frame(now) {
     const dt = Math.min(0.05, Math.max(0.001, (now - this.last) / 1000));
     this.last = now;
-    this.timeSeconds = now * 0.001;
     this._connectCurrentAudio();
+    this.timeSeconds = this._resolveVisualTime(now);
+    this._updateEvolution(dt);
     this._sample(dt);
     this._raf = requestAnimationFrame((next) => this._frame(next));
+  }
+
+  _resolveVisualTime(now) {
+    // Drive every procedural phase from the track itself so pause, seek, restart, and beat timing stay aligned.
+    const audio = this.audioSystem?.bgm;
+    const trackTime = Number(audio?.currentTime);
+    const hasTrackClock = Number.isFinite(trackTime)
+      && (trackTime > 0 || this.audioSystem?.isMusicPlaying?.());
+    return hasTrackClock ? trackTime : now * 0.001;
   }
 
   _connectCurrentAudio() {
@@ -378,7 +419,8 @@ export class MusicVisualizer {
       const start = Math.floor(Math.pow(p, 1.42) * Math.min(620, this.freq.length - 2));
       const end = Math.max(start + 3, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.42) * Math.min(660, this.freq.length)));
       const shaped = Math.pow(this._avg(this.freq, start, end) / 255, 0.68);
-      this.spectrum[i] = lerp(this.spectrum[i], shaped, 0.34);
+      const response = shaped > this.spectrum[i] ? 0.60 : 0.24;
+      this.spectrum[i] = lerp(this.spectrum[i], shaped, response);
     }
   }
 
@@ -421,7 +463,8 @@ export class MusicVisualizer {
       const motion = 0.72 + 0.28 * Math.sin(t * (1.9 + p * 4.2) + profile.phase + i * 0.43);
       const value = clamp01((bass * lowWeight + mid * midWeight * 0.72 + high * highWeight * 0.65) * motion);
       // CODEX CHANGE: Let individual fallback spectrum bands visibly jump with the beat.
-      this.spectrum[i] = lerp(this.spectrum[i], value, 0.40);
+      const response = value > this.spectrum[i] ? 0.58 : 0.25;
+      this.spectrum[i] = lerp(this.spectrum[i], value, response);
     }
   }
 

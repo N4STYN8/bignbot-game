@@ -1335,9 +1335,16 @@ export class Turret {
       gfx.restore();
     }
 
-    if (selected) {
+    const hoverRangeAlpha = clamp(Number(this._hoverRangeAlpha) || 0, 0, 1);
+    if (selected || hoverRangeAlpha > 0.001) {
       gfx.save();
-      gfx.globalAlpha = 0.18;
+      const rangeAlpha = selected ? Math.max(0.18, 0.10 + hoverRangeAlpha * 0.16) : hoverRangeAlpha * 0.24;
+      gfx.globalAlpha = rangeAlpha * 0.32;
+      gfx.fillStyle = this.boosted ? "rgba(255,207,91,0.20)" : "rgba(98,242,255,0.16)";
+      gfx.beginPath();
+      gfx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+      gfx.fill();
+      gfx.globalAlpha = rangeAlpha;
       gfx.strokeStyle = "rgba(98,242,255,0.8)";
       gfx.lineWidth = 1.5;
       gfx.beginPath();

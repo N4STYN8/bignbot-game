@@ -28,6 +28,7 @@ export class HudOuterWaveform {
     this.canvas = canvas || null;
     this.gfx = this.canvas?.getContext?.("2d", { alpha: true }) || null;
     this.values = new Float32Array(MAX_POINTS);
+    this.waveValues = new Float32Array(MAX_POINTS);
     this.geometry = {
       low: makeGeometry(PROFILES.low.points),
       med: makeGeometry(PROFILES.med.points),
@@ -40,6 +41,7 @@ export class HudOuterWaveform {
     this.mid = 0;
     this.high = 0;
     this.intensity = 0;
+    this.beat = 0;
     this.zoomOut = 0;
     this.turret = null;
     this.profileKey = "med";
@@ -57,6 +59,7 @@ export class HudOuterWaveform {
       this.alpha = 0;
       this.flash = 0;
       this.values.fill(0);
+      this.waveValues.fill(0);
       this.gfx?.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
   }
@@ -96,6 +99,7 @@ export class HudOuterWaveform {
 
     const energy = musicVisualizer?.energy || {};
     const spectrum = musicVisualizer?.spectrum;
+    const audioWaveform = musicVisualizer?.audioWaveform;
     const musicPlaying = musicVisualizer?.audioSystem?.isMusicPlaying?.() !== false;
     const quiet = musicPlaying ? 1 : 0.16;
     const bassTarget = clamp01(energy.bass) * quiet;
@@ -106,15 +110,25 @@ export class HudOuterWaveform {
     this.high += (highTarget - this.high) * (1 - Math.exp(-safeDt * 11));
     this.intensity += (clamp01(energy.intensity) * quiet - this.intensity) * (1 - Math.exp(-safeDt * 6));
     const beat = Math.max(clamp01(energy.beat), clamp01(energy.drop));
+    this.beat += (beat - this.beat) * (1 - Math.exp(-safeDt * (beat > this.beat ? 19 : 6)));
     if (beat > 0.58) this.flash = Math.max(this.flash, beat * 0.78);
-    this.phase += safeDt * (0.42 + this.high * 0.34);
+    const trackTime = Number(musicVisualizer?.timeSeconds);
+    this.phase = Number.isFinite(trackTime)
+      ? trackTime * (0.24 + this.high * 0.12)
+      : this.phase + safeDt * (0.24 + this.high * 0.12);
 
     for (let i = 0; i < profile.points; i++) {
       const bin = Math.min(31, Math.floor(i / profile.points * 32));
       const fallback = bin < 8 ? this.bass : bin < 21 ? this.mid : this.high;
       const raw = clamp01((spectrum?.[bin] ?? fallback) * quiet);
-      const response = bin < 8 ? 4.4 : bin < 21 ? 7.2 : 11.5;
+      const response = raw > this.values[i]
+        ? (bin < 8 ? 17 : bin < 21 ? 21 : 26)
+        : (bin < 8 ? 6 : bin < 21 ? 8 : 10);
       this.values[i] += (raw - this.values[i]) * (1 - Math.exp(-safeDt * response));
+      const waveIndex = Math.floor(i / Math.max(1, profile.points - 1) * Math.max(0, (audioWaveform?.length || 1) - 1));
+      const waveTarget = (Number(audioWaveform?.[waveIndex]) || 0) * quiet;
+      const waveResponse = Math.abs(waveTarget) > Math.abs(this.waveValues[i]) ? 24 : 11;
+      this.waveValues[i] += (waveTarget - this.waveValues[i]) * (1 - Math.exp(-safeDt * waveResponse));
     }
     this._draw(profile);
   }
@@ -127,8 +141,8 @@ export class HudOuterWaveform {
     const cy = height * 0.5;
     // CODEX CHANGE: Reserve an explicit outer gutter before the ribbon begins and extra room for beats.
     const hudRadius = Math.min(width, height) * 0.333;
-    const brightness = clamp01(0.78 + this.intensity * 0.28 + this.flash * 0.44);
-    const audioLift = profile.amplitude * (0.20 + this.bass * 0.72 + this.flash * 0.34);
+    const brightness = clamp01(0.15 + this.intensity * 0.55 + this.beat * 0.25 + this.flash * 0.12);
+    const audioLift = profile.amplitude * (0.025 + this.bass * 0.20 + this.beat * 0.12);
     const zoomEnergy = 1 + this.zoomOut * 0.50;
     const geometry = this.geometry[this.profileKey];
 
@@ -153,10 +167,13 @@ export class HudOuterWaveform {
       for (let i = 0; i <= profile.points; i++) {
         const idx = i === profile.points ? 0 : i;
         const angle = idx / profile.points * TWO_PI;
-        const ripple = (Math.sin(angle * (3 + strand % 2) + strandPhase) + 1) * profile.amplitude * 0.34 * zoomEnergy;
-        const detail = (Math.sin(angle * (7 + strand) - strandPhase * 1.35) + 1) * profile.amplitude * 0.11 * zoomEnergy;
-        const spectrumLift = this.values[idx] * profile.amplitude * (0.34 + strandMix * 0.18) * zoomEnergy;
-        const radius = baseRadius + ripple + detail + spectrumLift + audioLift;
+        const harmonic = Math.sin(angle * (3 + strand % 2) + strandPhase)
+          * profile.amplitude * (0.025 + this.mid * 0.09 + this.high * 0.045) * zoomEnergy;
+        const waveformLift = this.waveValues[idx] * profile.amplitude * (0.78 + strandMix * 0.28) * zoomEnergy;
+        const spectrumLift = this.values[idx] * profile.amplitude * (0.42 + strandMix * 0.20) * zoomEnergy;
+        const transientLift = this.beat * Math.max(0, Math.sin(angle * 2 - this.phase * 3 + strand * 0.4))
+          * profile.amplitude * 0.12 * zoomEnergy;
+        const radius = baseRadius + harmonic + waveformLift + spectrumLift + transientLift + audioLift;
         const x = geometry.cos[idx] * radius;
         const y = geometry.sin[idx] * radius;
         if (i === 0) gfx.moveTo(x, y);

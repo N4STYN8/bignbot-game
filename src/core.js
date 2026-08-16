@@ -1,19 +1,19 @@
 import { clamp, lerp, dist2, rand, pick, easeInOut, fmt, lerpColor, canvas, ctx, W, H, DPR, resize, goldEl, livesEl, waveEl, waveMaxEl, nextInEl, levelValEl, envValEl, seedValEl, startBtn, resetBtn, pauseBtn, helpBtn, audioBtn, musicVol, musicHud, musicPrevBtn, musicPlayBtn, musicNextBtn, musicRepeatBtn, musicShuffleBtn, musicBack10Btn, musicForward10Btn, musicMuteBtn, musicHudVol, musicTrackName, musicElapsed, musicDuration, musicProgress, sfxVol, settingsBtn, settingsModal, settingsClose, settingsResetBtn, overlay, closeHelp, buildList, selectionBody, selSub, sellBtn, turretHud, turretHudBody, turretHudSellBtn, turretHudCloseBtn, turretStateBar, toastEl, tooltipEl, topbarEl, abilitiesBarEl, levelOverlay, levelOverlayText, confirmModal, modalTitle, modalBody, modalCancel, modalConfirm, leftPanel, rightPanel, abilityScanBtn, abilityPulseBtn, abilityOverBtn, abilityScanCd, abilityPulseCd, abilityOverCd, anomalyLabel, anomalyPill, waveStatsModal, waveStatsTitle, waveStatsBody, waveStatsContinue, waveStatsSkip, waveStatsControls, controlsModal, controlsClose, speedBtn, SAVE_KEY, AUDIO_KEY, START_GOLD, START_GOLD_PER_LEVEL, START_LIVES, GOLD_LOW, GOLD_MID, GOLD_HIGH, LIFE_RED_MAX, LIFE_YELLOW_MAX, LIFE_GREEN_MIN, LIFE_COLORS, ABILITY_COOLDOWN, OVERCHARGE_COOLDOWN, SKIP_GOLD_BONUS, SKIP_COOLDOWN_REDUCE, INTERMISSION_SECS, TOWER_UNLOCKS, GAME_STATE, MAP_GRID_SIZE, MAP_EDGE_MARGIN, TRACK_RADIUS, TRACK_BLOCK_PAD, POWER_TILE_COUNT, POWER_NEAR_MIN, POWER_NEAR_MAX, POWER_TILE_MIN_DIST, LEVEL_HP_SCALE, LEVEL_SPD_SCALE, ENV_PRESETS, makeRNG, randInt, distPointToSegmentSquared, distanceToSegmentsSquared, buildPathSegments, generatePath, getPlayBounds, generatePowerTiles, generateMap, toast, showTooltip, hideTooltip, flashAbilityButton, _modalOpen, _modalOnConfirm, showConfirm, closeConfirm } from "./shared.js";
-import { AudioSystem } from "./audio.js?v=202606082258";
+import { AudioSystem } from "./audio.js?v=202607220220";
 // CODEX CHANGE: Refresh map rendering for real oscilloscope ribbons and calmer space streaks.
-import { Map } from "./map.js?v=202607201938";
+import { Map } from "./map.js?v=202608161330";
 import { DAMAGE, ANOMALIES, ENEMY_TYPES, Enemy, ENEMY_RENDER_CONFIG, getEnemyVfxScale } from "./enemies.js?v=202606082258";
 import { Particles } from "./vfx.js?v=202606082258";
 import { Projectile } from "./projectiles.js?v=202606082258";
 // CODEX CHANGE: Refresh the turret module for the new five-level turret sprite sets.
 // CODEX CHANGE: Refresh turret integration after adding the Gravity Trap sprite progression.
-import { TURRET_TYPES, Turret } from "./turrets.js?v=202607192225";
+import { TURRET_TYPES, Turret } from "./turrets.js?v=202607220610";
 // CODEX CHANGE: Refresh visualizer controls for independent V-mode and C-color cycling.
-import { MusicVisualizer } from "./visualization.js?v=202607201935";
+import { MusicVisualizer } from "./visualization.js?v=202607212200";
 // CODEX CHANGE: Add one reusable canvas waveform for the currently selected turret.
-import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607171200";
+import { SelectedTurretWaveform } from "./selectedTurretWaveform.js?v=202607220315";
 // CODEX CHANGE: Add a second reusable music ribbon around the outside of the turret HUD.
-import { HudOuterWaveform } from "./hudOuterWaveform.js?v=202607171400";
+import { HudOuterWaveform } from "./hudOuterWaveform.js?v=202607220315";
 import { COMBAT_EVENT_TYPES, createCombatEvent, emitCombatEvent } from "./combatEvents.js?v=202606082258";
 import { createDefaultSynergyRegistry } from "./synergies.js?v=202606082258";
 import { STATUS, setStatusState } from "./statusEffects.js?v=202606082258";
@@ -95,13 +95,14 @@ const ECHO_CASCADE_GOLD_TIERS = [
 const ECHO_CASCADE_FADE_SECS = 0.45;
 const ECHO_CASCADE_PULSE_SHAKE_T = 0.02;
 const ECHO_CASCADE_PULSE_SHAKE_MAG = 0.35;
+const SKIPPED_WAVE_STAGGER_SECS = 4;
 const NEW_PLAYER_WAVE_TIPS = {
   1: "Tip: Build on glowing square tiles before enemies reach the core path.",
   2: "Tip: Upgrade a turret by selecting it; each tier changes how it fights.",
   3: "Tip: Power tiles boost damage, range, and fire rate once unlocked.",
   4: "Tip: Press 1, 2, or 3 for abilities when a wave starts getting heavy.",
   // CODEX CHANGE: Teach both music-visual keyboard controls in the rotating tips.
-  5: "Tip: Press V for visual styles and C for color palettes."
+  5: "Tip: Visual styles evolve with the waves. Press V to change their colors."
 };
 const FIRST_WAVE_TUTORIAL = [
   {
@@ -118,8 +119,7 @@ const FIRST_WAVE_TUTORIAL = [
   },
   {
     title: "Abilities And Music",
-    // CODEX CHANGE: Include independent C-key color cycling in the keyboard tutorial.
-    body: "Use 1, 2, and 3 for EMP Pulse, Pulse Burst, and Overcharge. Press V to cycle visualization styles and C to cycle their color palettes.",
+    body: "Use 1, 2, and 3 for EMP Pulse, Pulse Burst, and Overcharge. Visual styles evolve automatically; press V to cycle their color palettes.",
     target: "#abilitiesBar",
     placement: "top"
   },
@@ -403,6 +403,7 @@ class Game {
     this.spawnQueue = [];
     this.spawnIndex = 0;
     this.spawnT = 0;
+    this._lastQueuedWaveStartT = 0;
     this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
     this._saveT = 0;
     this.waveAnomaly = null;
@@ -438,6 +439,7 @@ class Game {
     this.selectedEnemy = null;
     this.selectedTileCell = null;
     this.hoverCell = null;
+    this.hoveredTurret = null;
     this.mouse = { x: 0, y: 0 };
     this._id = 1;
     this.collapseEnabled = false;
@@ -519,10 +521,25 @@ class Game {
     this.hudOuterWaveform?.update(dt, selected || null, this.musicVisualizer, options);
   }
 
+  _updateHoveredTurretRange(dt) {
+    if (this.hoveredTurret && !this.turrets.includes(this.hoveredTurret)) this.hoveredTurret = null;
+    const step = clamp(Number(dt) || 0, 0, 0.05);
+    for (const turret of this.turrets) {
+      const target = turret === this.hoveredTurret ? 1 : 0;
+      const current = clamp(Number(turret._hoverRangeAlpha) || 0, 0, 1);
+      const speed = target > current ? 11 : 7;
+      turret._hoverRangeAlpha = current + (target - current) * (1 - Math.exp(-step * speed));
+      if (target === 0 && turret._hoverRangeAlpha < 0.002) turret._hoverRangeAlpha = 0;
+    }
+  }
+
   // CODEX CHANGE: Briefly brighten the selected waveform on its attacks and on enemy kills.
   onCombatEvent(event) {
     this.selectedTurretWaveform?.onCombatEvent(event, this.selectedTurret);
     this.hudOuterWaveform?.onCombatEvent(event, this.selectedTurret);
+    if (event?.type === COMBAT_EVENT_TYPES.TOWER_FIRE) {
+      this.map?.triggerTurretFirePulse?.(event.source, event.target);
+    }
   }
 
   _loadNewPlayerTipsSeen() {
@@ -689,7 +706,7 @@ class Game {
     if (!this.audio) return;
     this._syncMusicHudGeometry();
     const bgm = this.audio.bgm;
-    const vol = String(Math.round((this.audio.bgm?.volume ?? 0.32) * 100));
+    const vol = String(Math.round((this.audio.musicVolume ?? 0.32) * 100));
     if (musicTrackName) musicTrackName.textContent = this.audio.currentTrackName();
     if (musicPlayBtn) {
       const icon = musicPlayBtn.querySelector(".material-symbols-rounded");
@@ -1285,6 +1302,7 @@ class Game {
     this.spawnQueue = [];
     this.spawnIndex = 0;
     this.spawnT = 0;
+    this._lastQueuedWaveStartT = 0;
     this.selectedEnemy = null;
     this.selectedTurret = null;
     this.clearBuildMode();
@@ -1715,14 +1733,14 @@ class Game {
     startBtn.addEventListener("pointerenter", (ev) => {
       if (!startBtn || startBtn.disabled) return;
       const msg = this.hasStarted
-        ? "Skip for gold bonus and -15s ability cooldowns"
+        ? "Queue the next wave with 4s launch spacing; intermission skips also grant bonuses"
         : "Start wave";
       showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
     });
     startBtn.addEventListener("pointermove", (ev) => {
       if (!startBtn || startBtn.disabled) return;
       const msg = this.hasStarted
-        ? "Skip for gold bonus and -15s ability cooldowns"
+        ? "Queue the next wave with 4s launch spacing; intermission skips also grant bonuses"
         : "Start wave";
       showTooltip(msg, ev.clientX + 12, ev.clientY + 12);
     });
@@ -1844,8 +1862,8 @@ class Game {
       this.audio.setSfxVolume(v);
     });
 
-    if (musicVol) musicVol.value = String(Math.round(this.audio.bgm.volume * 100));
-    if (musicHudVol) musicHudVol.value = String(Math.round(this.audio.bgm.volume * 100));
+    if (musicVol) musicVol.value = String(Math.round(this.audio.musicVolume * 100));
+    if (musicHudVol) musicHudVol.value = String(Math.round(this.audio.musicVolume * 100));
     if (sfxVol) sfxVol.value = String(Math.round(this.audio.sfxVol * 100));
     this._syncMusicHud();
     this._syncVisualSettingsUi();
@@ -2029,6 +2047,7 @@ class Game {
           break;
         }
       }
+      this.hoveredTurret = hoveredTurret;
       if (hoveredTurret) {
         const dps = hoveredTurret.fire > 0 ? (hoveredTurret.dmg / hoveredTurret.fire) : hoveredTurret.dmg * 12;
         const active = [];
@@ -2118,7 +2137,10 @@ class Game {
     });
     // CODEX CHANGE: Persist the current run during browser and desktop lifecycle shutdowns.
     window.addEventListener("pagehide", () => this.saveNow());
-    canvas.addEventListener("mouseleave", () => hideTooltip());
+    canvas.addEventListener("mouseleave", () => {
+      this.hoveredTurret = null;
+      hideTooltip();
+    });
 
     // CODEX CHANGE: Share map zoom with the turret HUD so its overlay never blocks the wheel.
     const handleMapZoom = (ev) => {
@@ -3147,7 +3169,7 @@ class Game {
       if (this.paused) {
         this.paused = false;
         if (pauseBtn) pauseBtn.textContent = "PAUSE";
-        if (this.audio?.enabled) this.audio.bgm?.play().catch(() => {});
+        if (this.audio?.enabled) this.audio.resumeForGame?.();
       }
       this.updateHUD();
       return;
@@ -3174,10 +3196,10 @@ class Game {
     this.paused = !this.paused;
     if (pauseBtn) pauseBtn.textContent = this.paused ? "RESUME" : "PAUSE";
     if (this.paused) {
-      if (this.audio?.bgm) this.audio.bgm.pause();
+      this.audio?.pauseForGame?.();
       this._openWaveStats("pause");
     } else {
-      if (this.audio?.enabled) this.audio.bgm?.play().catch(() => {});
+      if (this.audio?.enabled) this.audio.resumeForGame?.();
     }
     this.updateHUD();
   }
@@ -3942,6 +3964,44 @@ class Game {
     return this._spaceHeavySpawns(spawns);
   }
 
+  _queueWaveSpawns(newSpawns, waveNumber) {
+    const spawns = Array.isArray(newSpawns) ? newSpawns : [];
+    if (!this.waveActive) {
+      this.waveActive = true;
+      this.intermission = 0;
+      this.spawnT = 0;
+      this.spawnIndex = 0;
+      this._lastQueuedWaveStartT = 0;
+      for (const spawn of spawns) {
+        spawn.queuedWave = waveNumber;
+        spawn.waveStartT = 0;
+      }
+      this.spawnQueue = spawns;
+      return 0;
+    }
+
+    // Repeated skip clicks enqueue distinct launch windows. Sorting is essential:
+    // appending an earlier timestamp behind the old queue caused an entire skipped
+    // wave to become overdue and spawn in one frame once the prior queue finished.
+    const previousStart = Math.max(0, Number(this._lastQueuedWaveStartT) || 0);
+    const waveStartT = Math.max(
+      (Number(this.spawnT) || 0) + SKIPPED_WAVE_STAGGER_SECS,
+      previousStart + SKIPPED_WAVE_STAGGER_SECS
+    );
+    for (const spawn of spawns) {
+      spawn.t += waveStartT;
+      spawn.queuedWave = waveNumber;
+      spawn.waveStartT = waveStartT;
+    }
+    const consumed = this.spawnQueue.slice(0, this.spawnIndex);
+    const pending = this.spawnQueue.slice(this.spawnIndex);
+    pending.push(...spawns);
+    pending.sort((a, b) => a.t - b.t || (a.queuedWave || 0) - (b.queuedWave || 0));
+    this.spawnQueue = consumed.concat(pending);
+    this._lastQueuedWaveStartT = waveStartT;
+    return waveStartT;
+  }
+
   startWave() {
     if (this.gameState !== GAME_STATE.GAMEPLAY) return;
     if (this.gameOver || this.gameWon) return;
@@ -3963,18 +4023,10 @@ class Game {
     const scalar = this._waveScalar(this.wave);
     this.waveScalar = this._sanitizeWaveScalar(scalar);
     const newSpawns = this._buildWave(this.wave, scalar);
-    if (!this.waveActive) {
-      this.waveActive = true;
-      this.intermission = 0;
-      this.spawnT = 0;
-      this.spawnIndex = 0;
-      this.spawnQueue = newSpawns;
-    } else {
-      const offset = this.spawnT + 0.2;
-      for (const s of newSpawns) s.t += offset;
-      this.spawnQueue = this.spawnQueue.concat(newSpawns);
-    }
-    toast(`Wave ${this.wave} launched`);
+    const queuedStart = this._queueWaveSpawns(newSpawns, this.wave);
+    toast(queuedStart > this.spawnT + 0.5
+      ? `Wave ${this.wave} queued: launch in ${Math.ceil(queuedStart - this.spawnT)}s`
+      : `Wave ${this.wave} launched`);
     if (this.wave === 1) this._startFirstWaveTutorial();
     else this._showNewPlayerWaveTip(this.wave);
     const spawn = this.map?.pathPts?.[0];
@@ -4061,6 +4113,7 @@ class Game {
         spawnQueue: this.spawnQueue,
         spawnIndex: this.spawnIndex,
         spawnT: this.spawnT,
+        lastQueuedWaveStartT: this._lastQueuedWaveStartT,
         waveScalar: this.waveScalar,
         globalOverchargeT: this.globalOverchargeT,
         abilityPowerTokens: this.abilityPowerTokens || 0,
@@ -4228,6 +4281,11 @@ class Game {
       this.spawnQueue = data.spawnQueue || [];
       this.spawnIndex = data.spawnIndex || 0;
       this.spawnT = data.spawnT || 0;
+      this._lastQueuedWaveStartT = Math.max(
+        0,
+        Number(data.lastQueuedWaveStartT) || 0,
+        ...this.spawnQueue.map((spawn) => Number(spawn?.waveStartT) || 0)
+      );
       this.waveScalar = this._sanitizeWaveScalar(data.waveScalar || this.waveScalar);
       this.globalOverchargeT = data.globalOverchargeT || 0;
       this.abilityPowerTokens = Math.max(0, Number(data.abilityPowerTokens) | 0);
@@ -4311,6 +4369,7 @@ class Game {
   }
 
   _resetRun() {
+    this.map?.resetEcosystem?.();
     this.turrets = [];
     this.enemies = [];
     this.projectiles = [];
@@ -4358,6 +4417,7 @@ class Game {
     this.spawnQueue = [];
     this.spawnIndex = 0;
     this.spawnT = 0;
+    this._lastQueuedWaveStartT = 0;
     this.waveScalar = { hp: 1, spd: 1, armor: 0, shield: 1, regen: 1, reward: 1 };
     this.waveAnomaly = null;
     this._warpRippleT = 0;
@@ -5443,6 +5503,7 @@ class Game {
     this._syncMusicHud();
     // CODEX CHANGE: Update selection fade and music response even while gameplay itself is paused.
     this._updateSelectedTurretWaveform(dt);
+    this._updateHoveredTurretRange(dt);
     if (this.gameOver || this.gameWon) {
       this.updateHUD();
       return;
@@ -5535,6 +5596,7 @@ class Game {
       }
       if (this.spawnIndex >= this.spawnQueue.length && this.enemies.every(e => e.hp <= 0 || e._dead)) {
         this.waveActive = false;
+        this._lastQueuedWaveStartT = 0;
         this.waveAnomaly = null;
         this._warpRippleT = 0;
         this._save();
@@ -5709,7 +5771,8 @@ class Game {
     gfx.translate(W * 0.5, H * 0.5);
     gfx.scale(renderZoom, renderZoom);
     gfx.translate(-W * 0.5 - renderCam.x, -H * 0.5 - renderCam.y);
-    // CODEX CHANGE: The visualization toggle disables both map music VFX and the selected-head waveform.
+    this.musicVisualizer?.setEvolutionWave?.(this.wave, this.waveMax);
+    // The visualization toggle disables both map music VFX and the selected-head waveform.
     const musicState = this.visualSettings.musicVisualizations !== false
       ? this.musicVisualizer?.getGridState?.()
       : { enabled: false };
@@ -5721,6 +5784,8 @@ class Game {
         || this.gameState === GAME_STATE.BOSS_CINEMATIC
         || this.enemies.some((e) => e && e.hp > 0 && (e.isBoss || e.isMiniBoss || e.isFinalBoss));
       musicState.bossCinematic = this.gameState === GAME_STATE.BOSS_CINEMATIC;
+      musicState.simulationPaused = this.paused || this.menuOpen || this.gameOver || this.gameWon || this.statsOpen;
+      musicState.vfxQuality = this._sanitizeVfxIntensity(this.visualSettings.vfxIntensity);
     }
     this.map.drawBase(gfx, musicState, this.turrets);
 

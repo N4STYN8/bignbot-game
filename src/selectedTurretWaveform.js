@@ -45,6 +45,7 @@ export class SelectedTurretWaveform {
     this.midPulse = 0;
     this.highPulse = 0;
     this.intensity = 0;
+    this.beatPulse = 0;
     this.time = 0;
     this.x = 0;
     this.y = 0;
@@ -113,6 +114,7 @@ export class SelectedTurretWaveform {
 
     const energy = musicVisualizer?.energy || EMPTY_ENERGY;
     const spectrum = musicVisualizer?.spectrum;
+    const audioWaveform = musicVisualizer?.audioWaveform;
     const musicPlaying = musicVisualizer?.audioSystem?.isMusicPlaying?.() !== false;
     const quietScale = musicPlaying ? 1 : 0.18;
     const bassTarget = clamp01(energy.bass) * quietScale;
@@ -124,6 +126,7 @@ export class SelectedTurretWaveform {
     this.intensity += (clamp01(energy.intensity) * quietScale - this.intensity) * (1 - Math.exp(-safeDt * 7));
 
     const beat = Math.max(clamp01(energy.beat), clamp01(energy.drop));
+    this.beatPulse += (beat - this.beatPulse) * (1 - Math.exp(-safeDt * (beat > this.beatPulse ? 20 : 7)));
     if (beat > 0.58) this.flash = Math.max(this.flash, beat * 0.82);
     const combatLift = clamp01((options?.enemyCount || 0) / 90 + (options?.boss ? 0.22 : 0));
     const count = profile.count;
@@ -131,19 +134,16 @@ export class SelectedTurretWaveform {
       const spectrumIndex = geometry.spectrumIndex[i];
       const fallback = spectrumIndex < 8 ? this.bassPulse : spectrumIndex < 21 ? this.midPulse : this.highPulse;
       const raw = clamp01((spectrum?.[spectrumIndex] ?? fallback) * quietScale);
-      let target;
-      let response;
-      if (spectrumIndex < 8) {
-        target = raw * profile.bass + this.bassPulse * profile.bass * (0.34 + beat * 0.42);
-        response = 5.2;
-      } else if (spectrumIndex < 21) {
-        target = raw * profile.mid + this.midPulse * profile.mid * 0.22;
-        response = 8.5;
-      } else {
-        target = raw * profile.high + this.highPulse * profile.high * (0.12 + clamp01(energy.snap) * 0.28);
-        response = 13;
-      }
-      target += combatLift * (this.profileKey === "high" ? 3.2 : this.profileKey === "med" ? 1.8 : 0.8);
+      const waveformIndex = Math.floor(i / Math.max(1, count - 1) * Math.max(0, (audioWaveform?.length || 1) - 1));
+      const waveform = Math.abs(Number(audioWaveform?.[waveformIndex]) || 0) * quietScale;
+      const bandEnergy = spectrumIndex < 8 ? this.bassPulse : spectrumIndex < 21 ? this.midPulse : this.highPulse;
+      const transient = spectrumIndex < 8
+        ? this.beatPulse * 0.22
+        : spectrumIndex >= 21 ? clamp01(energy.snap) * 0.16 : this.beatPulse * 0.07;
+      const target = clamp01(raw * 0.56 + bandEnergy * 0.18 + waveform * 0.32 + transient + combatLift * 0.045);
+      const response = target > this.values[i]
+        ? (spectrumIndex < 8 ? 18 : spectrumIndex < 21 ? 22 : 27)
+        : (spectrumIndex < 8 ? 6.5 : spectrumIndex < 21 ? 8 : 10);
       this.values[i] += (target - this.values[i]) * (1 - Math.exp(-safeDt * response));
     }
   }
@@ -155,7 +155,7 @@ export class SelectedTurretWaveform {
     const innerRadius = (this.headRadius + profile.gap) * this.zoomScale;
     const waveformRadius = innerRadius + 3 * this.zoomScale;
     const brightness = clamp01(0.48 + this.intensity * 0.38 + this.flash * 0.5);
-    const expansion = 1 + this.flash * (this.profileKey === "high" ? 0.28 : this.profileKey === "med" ? 0.21 : 0.12);
+    const expansion = 1 + this.flash * (this.profileKey === "high" ? 0.18 : this.profileKey === "med" ? 0.14 : 0.09);
     const echoPulse = 1.2 + this.bassPulse * 2.4 + this.flash * 2.8;
 
     gfx.save();
@@ -184,7 +184,7 @@ export class SelectedTurretWaveform {
     gfx.shadowBlur = profile.glow * (1 + this.flash);
     gfx.beginPath();
     for (let i = 0; i < profile.count; i++) {
-      const barLength = Math.min(profile.max, 1.6 + this.values[i] * expansion) * this.zoomScale;
+      const barLength = Math.min(profile.max * 1.18, (1.25 + this.values[i] * profile.max) * expansion) * this.zoomScale;
       const outerRadius = waveformRadius + barLength;
       const cos = geometry.cos[i];
       const sin = geometry.sin[i];

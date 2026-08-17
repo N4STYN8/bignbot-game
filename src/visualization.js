@@ -1,5 +1,9 @@
 const VISUAL_MODE_KEY = "orbit_echo_grid_visual_mode_v1";
+const ECOSYSTEM_ENABLED_KEY = "orbit_echo_evolution_enabled_v1";
+// CODEX CHANGE: Persist a separate C-key color choice without changing the selected waveform mode.
+const VISUAL_COLOR_KEY = "orbit_echo_grid_visual_color_v1";
 
+// Each identity mutates the same persistent Echo Evolution ecosystem.
 export const VISUAL_MODES = [
   "Synthwave Equalizer",
   "Neon Ocean",
@@ -11,6 +15,17 @@ export const VISUAL_MODES = [
   "Cyber Pulse",
   "Aurora Field",
   "Cosmic Reactor"
+];
+export const VISUAL_OFF_MODE = VISUAL_MODES.length;
+
+// CODEX CHANGE: Provide six reusable hue families for every visualization.
+export const VISUAL_COLOR_VARIANTS = [
+  { name: "Original", shift: 0 },
+  { name: "Sunset", shift: 52 },
+  { name: "Voltage", shift: 108 },
+  { name: "Arctic", shift: 172 },
+  { name: "Ultraviolet", shift: 236 },
+  { name: "Candy", shift: 302 }
 ];
 
 const TRACK_PROFILES = [
@@ -39,7 +54,21 @@ export class MusicVisualizer {
     this.label = label;
     this.audioSystem = audioSystem;
     this.mode = this._loadMode();
-    this.modeName = VISUAL_MODES[this.mode] || VISUAL_MODES[0];
+    this.modeName = this._modeName(this.mode);
+    this.nextMode = Math.min(VISUAL_MODES.length - 1, this.mode + 1);
+    this.modeBlend = 0;
+    this.evolutionPosition = this.mode;
+    this.evolutionTarget = this.mode;
+    this.ecosystemSeed = 1;
+    this.motionQuery = typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : null;
+    this.reducedMotion = !!this.motionQuery?.matches;
+    this._onMotionChange = (event) => { this.reducedMotion = !!event.matches; };
+    this.motionQuery?.addEventListener?.("change", this._onMotionChange);
+    // CODEX CHANGE: Restore the player's independently selected visualization colors.
+    this.colorIndex = this._loadColor();
+    this.colorName = VISUAL_COLOR_VARIANTS[this.colorIndex].name;
     this.audioContext = null;
     this.analyser = null;
     this.source = null;
@@ -50,6 +79,8 @@ export class MusicVisualizer {
     this.timeSeconds = this.last * 0.001;
     this.energy = { bass: 0, mid: 0, high: 0, wave: 0, intensity: 0, beat: 0, snap: 0, drop: 0, tempo: 0.5 };
     this.spectrum = new Array(32).fill(0.18);
+    // CODEX CHANGE: Maintain a compact time-domain signal for real oscilloscope lines behind the map.
+    this.audioWaveform = new Array(128).fill(0);
     this.beatAvg = 0.12;
     this.previousBass = 0;
     this.previousHigh = 0;
@@ -80,7 +111,8 @@ export class MusicVisualizer {
         this.audioContext = new AudioContextCtor();
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 2048;
-        this.analyser.smoothingTimeConstant = 0.70;
+        // CODEX CHANGE: Keep real-audio visuals responsive enough to show drum attacks and high-frequency snaps.
+        this.analyser.smoothingTimeConstant = 0.56;
         this.analyser.connect(this.audioContext.destination);
         this.freq = new Uint8Array(this.analyser.frequencyBinCount);
         this.time = new Uint8Array(this.analyser.fftSize);
@@ -117,66 +149,144 @@ export class MusicVisualizer {
   }
 
   cycleMode() {
-    this.mode = (this.mode + 1) % VISUAL_MODES.length;
-    this.modeName = VISUAL_MODES[this.mode];
-    this._saveMode();
+    // Compatibility alias: identities evolve automatically, while V changes color.
+    this.cycleColor();
+  }
+
+  // CODEX CHANGE: Let C recolor the active waveform without altering its geometry or animation.
+  cycleColor() {
+    this.colorIndex = (this.colorIndex + 1) % VISUAL_COLOR_VARIANTS.length;
+    this.colorName = VISUAL_COLOR_VARIANTS[this.colorIndex].name;
+    this._saveColor();
     this._syncLabel();
   }
 
   setLevelTheme(level, seed = 0) {
     const safeLevel = Math.max(1, Number(level) | 0);
     const safeSeed = Number(seed) >>> 0;
-    let next = ((safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0) % VISUAL_MODES.length;
-    if (safeLevel > 1 && next === this.mode) next = (next + 1) % VISUAL_MODES.length;
-    this.mode = next;
-    this.modeName = VISUAL_MODES[this.mode];
-    this._saveMode();
+    this.ecosystemSeed = (safeSeed ^ Math.imul(safeLevel, 2654435761)) >>> 0 || 1;
+    // The seed changes the organism each level; the player's selected identity remains stable.
     this._syncLabel();
+  }
+
+  setEvolutionWave(wave, waveMax = 16) {
+    const safeMax = Math.max(2, Number(waveMax) || 16);
+    const safeWave = Math.max(1, Number(wave) || 1);
+    const progress = clamp01((safeWave - 1) / (safeMax - 1));
+    this.evolutionTarget = progress * (VISUAL_MODES.length - 1);
+  }
+
+  _updateEvolution(dt) {
+    const gap = this.evolutionTarget - this.evolutionPosition;
+    if (Math.abs(gap) > 0.0001) {
+      this.evolutionPosition += gap * (1 - Math.exp(-dt * 0.58));
+      if (Math.abs(this.evolutionTarget - this.evolutionPosition) < 0.002) this.evolutionPosition = this.evolutionTarget;
+    }
+    const from = Math.max(0, Math.min(VISUAL_MODES.length - 1, Math.floor(this.evolutionPosition)));
+    const next = Math.min(VISUAL_MODES.length - 1, from + 1);
+    const fraction = clamp01(this.evolutionPosition - from);
+    const blend = fraction * fraction * (3 - 2 * fraction);
+    const changed = from !== this.mode || next !== this.nextMode || Math.abs(blend - this.modeBlend) > 0.025;
+    this.mode = from;
+    this.nextMode = next;
+    this.modeBlend = blend;
+    this.modeName = this._modeName(blend >= 0.5 ? next : from);
+    if (changed) this._syncLabel();
   }
 
   getGridState() {
     return {
       mode: this.mode,
+      nextMode: this.nextMode,
+      modeBlend: this.modeBlend,
       modeName: this.modeName,
+      colorIndex: this.colorIndex,
+      colorName: this.colorName,
+      colorShift: VISUAL_COLOR_VARIANTS[this.colorIndex].shift,
+      enabled: this.enabled,
+      ecosystemSeed: this.ecosystemSeed,
+      reducedMotion: this.reducedMotion,
       time: this.timeSeconds,
       trackIndex: Math.max(0, this.audioSystem?.trackIndex | 0),
-      energy: { ...this.energy },
-      spectrum: [...this.spectrum]
+      energy: this.energy,
+      spectrum: this.spectrum,
+      audioWaveform: this.audioWaveform
     };
   }
 
   _loadMode() {
+    return 0;
+  }
+
+  _saveMode() {
     try {
-      const raw = window.localStorage.getItem(VISUAL_MODE_KEY);
+      window.localStorage.setItem(VISUAL_MODE_KEY, String(this.mode));
+      window.localStorage.setItem(ECOSYSTEM_ENABLED_KEY, this.enabled ? "1" : "0");
+    } catch (err) {}
+  }
+
+  // CODEX CHANGE: Validate and persist C-key palette selections across launches.
+  _loadColor() {
+    try {
+      const raw = window.localStorage.getItem(VISUAL_COLOR_KEY);
       const idx = raw == null ? 0 : Number(raw);
-      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_MODES.length - 1, idx | 0)) : 0;
+      return Number.isFinite(idx) ? Math.max(0, Math.min(VISUAL_COLOR_VARIANTS.length - 1, idx | 0)) : 0;
     } catch (err) {
       return 0;
     }
   }
 
-  _saveMode() {
-    try { window.localStorage.setItem(VISUAL_MODE_KEY, String(this.mode)); } catch (err) {}
+  _saveColor() {
+    try { window.localStorage.setItem(VISUAL_COLOR_KEY, String(this.colorIndex)); } catch (err) {}
   }
 
   _syncLabel() {
-    if (this.label) this.label.textContent = `VISUAL MODE: ${this.modeName}`;
+    if (this.label) {
+      const fromName = VISUAL_MODES[this.mode] || VISUAL_MODES[0];
+      const nextName = VISUAL_MODES[this.nextMode] || fromName;
+      const identity = this.nextMode !== this.mode && this.modeBlend > 0.08
+        ? `${fromName} → ${nextName}`
+        : fromName;
+      this.label.textContent = `EVOLUTION: ${identity} · COLOR: ${this.colorName}`;
+      this.label.classList.remove("isOff");
+    }
+  }
+
+  // CODEX CHANGE: Expose a single state flag to map and HUD renderers when V reaches OFF.
+  get enabled() {
+    return true;
+  }
+
+  _modeName(mode) {
+    return VISUAL_MODES[mode] || VISUAL_MODES[0];
   }
 
   _onKey(ev) {
     const tag = ev.target?.tagName?.toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return;
-    if (ev.key?.toLowerCase() !== "v") return;
-    this.cycleMode();
+    if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const key = ev.key?.toLowerCase();
+    // The level controls identity evolution. V changes color; C remains a compatibility alias.
+    if (key === "v" || key === "c") this.cycleColor();
   }
 
   _frame(now) {
     const dt = Math.min(0.05, Math.max(0.001, (now - this.last) / 1000));
     this.last = now;
-    this.timeSeconds = now * 0.001;
     this._connectCurrentAudio();
+    this.timeSeconds = this._resolveVisualTime(now);
+    this._updateEvolution(dt);
     this._sample(dt);
     this._raf = requestAnimationFrame((next) => this._frame(next));
+  }
+
+  _resolveVisualTime(now) {
+    // Drive every procedural phase from the track itself so pause, seek, restart, and beat timing stay aligned.
+    const audio = this.audioSystem?.bgm;
+    const trackTime = Number(audio?.currentTime);
+    const hasTrackClock = Number.isFinite(trackTime)
+      && (trackTime > 0 || this.audioSystem?.isMusicPlaying?.());
+    return hasTrackClock ? trackTime : now * 0.001;
   }
 
   _connectCurrentAudio() {
@@ -197,6 +307,8 @@ export class MusicVisualizer {
       const mid = Math.pow(this._avg(this.freq, 24, 170) / 255, 0.78);
       const high = Math.pow(this._avg(this.freq, 170, 520) / 255, 0.70);
       this._updateSpectrumFromAnalyser();
+      // CODEX CHANGE: Downsample the real playing track for canvas waveform rendering.
+      this._updateWaveformFromAnalyser();
       let waveSum = 0;
       for (let i = 0; i < this.time.length; i++) waveSum += Math.abs(this.time[i] - 128);
       const wave = clamp01((waveSum / this.time.length) / 64);
@@ -216,11 +328,12 @@ export class MusicVisualizer {
       this.energy.beat = Math.max(spike, this.energy.beat - dt * 4.8);
       this.energy.snap = Math.max(snap, this.energy.snap - dt * 8.0);
       this.energy.drop = Math.max(drop, this.energy.drop - dt * 2.5);
-      this.energy.bass = lerp(this.energy.bass, bass, 0.34);
-      this.energy.mid = lerp(this.energy.mid, mid, 0.26);
-      this.energy.high = lerp(this.energy.high, high, 0.30);
-      this.energy.wave = lerp(this.energy.wave, wave, 0.28);
-      this.energy.intensity = lerp(this.energy.intensity, instant, 0.26);
+      // CODEX CHANGE: Use a quicker attack so every renderer visibly lands on the music instead of drifting behind it.
+      this.energy.bass = lerp(this.energy.bass, bass, 0.48);
+      this.energy.mid = lerp(this.energy.mid, mid, 0.40);
+      this.energy.high = lerp(this.energy.high, high, 0.44);
+      this.energy.wave = lerp(this.energy.wave, wave, 0.42);
+      this.energy.intensity = lerp(this.energy.intensity, instant, 0.38);
       this.energy.tempo = lerp(this.energy.tempo, clamp01(0.3 + (0.72 / this.beatInterval) * 0.32), 0.08);
       this.previousBass = bass;
       this.previousHigh = high;
@@ -243,6 +356,8 @@ export class MusicVisualizer {
     this.energy.wave = lerp(this.energy.wave, idle * 0.8, 0.02);
     this.energy.intensity = lerp(this.energy.intensity, idle, 0.02);
     this.energy.tempo = lerp(this.energy.tempo, 0.35, 0.02);
+    // CODEX CHANGE: Let stopped music settle into a quiet standby waveform.
+    this._updateIdleWaveform(this.idleT, idle);
   }
 
   _sampleTimedTrack(dt) {
@@ -264,6 +379,8 @@ export class MusicVisualizer {
     const wave = clamp01(0.16 + bass * 0.38 + mid * 0.28 + high * 0.18);
     const instant = clamp01(bass * 0.58 + mid * 0.26 + high * 0.16);
     this._updateTimedSpectrum(t, profile, bass, mid, high);
+    // CODEX CHANGE: Supply a musically shaped waveform when the web build must use track timing.
+    this._updateTimedWaveform(t, profile, bass, mid, high);
     const newBeat = beatIndex !== this.lastSyntheticBeat && beatPos < 0.08;
     const snapIndex = Math.floor((t / beatLen) * 2);
     const newSnap = snapIndex !== this.lastSyntheticSnap && offBeatPos < 0.10;
@@ -276,11 +393,12 @@ export class MusicVisualizer {
     this.energy.beat = Math.max(newBeat ? 1 : 0, this.energy.beat - dt * 5.2);
     this.energy.snap = Math.max(newSnap ? 1 : 0, this.energy.snap - dt * 8.2);
     this.energy.drop = Math.max(drop ? 1 : 0, this.energy.drop - dt * 2.6);
-    this.energy.bass = lerp(this.energy.bass, bass, 0.32);
-    this.energy.mid = lerp(this.energy.mid, mid, 0.26);
-    this.energy.high = lerp(this.energy.high, high, 0.30);
-    this.energy.wave = lerp(this.energy.wave, wave, 0.28);
-    this.energy.intensity = lerp(this.energy.intensity, instant, 0.24);
+    // CODEX CHANGE: Make the CDN timing fallback hit its generated kicks, snares, and phrases more decisively.
+    this.energy.bass = lerp(this.energy.bass, bass, 0.52);
+    this.energy.mid = lerp(this.energy.mid, mid, 0.42);
+    this.energy.high = lerp(this.energy.high, high, 0.48);
+    this.energy.wave = lerp(this.energy.wave, wave, 0.44);
+    this.energy.intensity = lerp(this.energy.intensity, instant, 0.40);
     this.energy.tempo = lerp(this.energy.tempo, clamp01((profile.bpm - 82) / 62), 0.12);
     this.previousBass = bass;
     this.previousHigh = high;
@@ -301,7 +419,38 @@ export class MusicVisualizer {
       const start = Math.floor(Math.pow(p, 1.42) * Math.min(620, this.freq.length - 2));
       const end = Math.max(start + 3, Math.floor(Math.pow((i + 1) / this.spectrum.length, 1.42) * Math.min(660, this.freq.length)));
       const shaped = Math.pow(this._avg(this.freq, start, end) / 255, 0.68);
-      this.spectrum[i] = lerp(this.spectrum[i], shaped, 0.34);
+      const response = shaped > this.spectrum[i] ? 0.60 : 0.24;
+      this.spectrum[i] = lerp(this.spectrum[i], shaped, response);
+    }
+  }
+
+  // CODEX CHANGE: Preserve the shape of the analyser's current time-domain frame in 64 stable samples.
+  _updateWaveformFromAnalyser() {
+    if (!this.time?.length) return;
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const sourceIndex = Math.floor(i / Math.max(1, this.audioWaveform.length - 1) * (this.time.length - 1));
+      const sample = Math.max(-1, Math.min(1, (this.time[sourceIndex] - 128) / 128));
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], sample, 0.58);
+    }
+  }
+
+  // CODEX CHANGE: Approximate layered musical oscillation only when CDN analysis is unavailable in the web build.
+  _updateTimedWaveform(t, profile, bass, mid, high) {
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const p = i / Math.max(1, this.audioWaveform.length - 1);
+      const low = Math.sin(p * Math.PI * 2 * 2 + t * 5.2 + profile.phase) * bass * 0.58;
+      const middle = Math.sin(p * Math.PI * 2 * 5 - t * 7.4 + profile.phase * 0.7) * mid * 0.30;
+      const treble = Math.sin(p * Math.PI * 2 * 11 + t * 13.2) * high * 0.16;
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], Math.max(-1, Math.min(1, low + middle + treble)), 0.46);
+    }
+  }
+
+  // CODEX CHANGE: Keep the waveform alive but calm before playback begins.
+  _updateIdleWaveform(t, idle) {
+    for (let i = 0; i < this.audioWaveform.length; i++) {
+      const p = i / Math.max(1, this.audioWaveform.length - 1);
+      const sample = Math.sin(p * Math.PI * 4 + t * 0.8) * idle * 0.22;
+      this.audioWaveform[i] = lerp(this.audioWaveform[i], sample, 0.08);
     }
   }
 
@@ -313,7 +462,9 @@ export class MusicVisualizer {
       const highWeight = Math.max(0, (p - 0.42) * 1.72);
       const motion = 0.72 + 0.28 * Math.sin(t * (1.9 + p * 4.2) + profile.phase + i * 0.43);
       const value = clamp01((bass * lowWeight + mid * midWeight * 0.72 + high * highWeight * 0.65) * motion);
-      this.spectrum[i] = lerp(this.spectrum[i], value, 0.22);
+      // CODEX CHANGE: Let individual fallback spectrum bands visibly jump with the beat.
+      const response = value > this.spectrum[i] ? 0.58 : 0.25;
+      this.spectrum[i] = lerp(this.spectrum[i], value, response);
     }
   }
 

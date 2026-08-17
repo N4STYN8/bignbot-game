@@ -1,0 +1,41 @@
+{
+  "name": "orbit-echo",
+  "version": "0.1.19",
+  "private": true,
+  "description": "Orbit Echo desktop build",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "desktop": "electron .",
+    "desktop:smoke": "node desktop/smoke.cjs",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:dist": "electron-builder --win nsis",
+    "check": "node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/smoke.cjs"
+  },
+  "build": {
+    "appId": "com.bignbot.orbitecho",
+    "productName": "Orbit Echo",
+    "asar": true,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "desktop/**/*",
+      "index.html",
+      "styles.css",
+      "src/**/*",
+      "assets/images/**/*",
+      "assets/sfx/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  }
+}

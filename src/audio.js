@@ -95,8 +95,13 @@ export class AudioSystem {
     this._pendingSeekSeconds = 0;
     this._pendingProgressDisplay = 0;
     this._failedBgmTracks = new Set();
+    this.musicVolume = 0.32;
+    this.crossfadeDuration = 4.5;
+    this._crossfade = null;
+    this._crossfadeFrame = 0;
+    this._transitionToken = 0;
     this.bgm = this._makeBgm();
-    this.bgm.volume = 0.32;
+    this.bgm.volume = this.musicVolume;
     this._probeAnalysisCors();
     this.sfx = {
       build: ["assets/sfx/sfx_build.wav"],
@@ -284,8 +289,9 @@ export class AudioSystem {
   _refreshBgmForAnalysis() {
     const prev = this.bgm;
     if (!prev || prev.crossOrigin === "anonymous") return;
+    this._cancelCrossfade();
     const currentTime = Number.isFinite(prev.currentTime) ? prev.currentTime : 0;
-    const volume = prev.volume;
+    const volume = this.musicVolume;
     const wasPlaying = !prev.paused;
     prev.pause();
     this.bgm = this._makeBgm();
@@ -299,7 +305,7 @@ export class AudioSystem {
 
   _makeBgm() {
     const trackIndex = this.trackIndex;
-    const a = this._makeAudio([this.bgmSources[this.trackIndex]], false, this.bgm?.volume ?? 0.32);
+    const a = this._makeAudio([this.bgmSources[this.trackIndex]], false, this.musicVolume);
     a.preload = "metadata";
     a.muted = this.musicMuted;
     a.addEventListener("loadedmetadata", () => {
@@ -307,7 +313,8 @@ export class AudioSystem {
       this._applyPendingSeek();
     });
     a.addEventListener("error", () => this._handleBgmError(trackIndex));
-    a.addEventListener("ended", () => this._handleTrackEnded());
+    a.addEventListener("timeupdate", () => this._maybeStartAutomaticCrossfade(a, trackIndex));
+    a.addEventListener("ended", () => this._handleTrackEnded(a, trackIndex));
     return a;
   }
 
@@ -348,7 +355,8 @@ export class AudioSystem {
     }
   }
 
-  _handleTrackEnded() {
+  _handleTrackEnded(audio = this.bgm, trackIndex = this.trackIndex) {
+    if (audio !== this.bgm || trackIndex !== this.trackIndex || this._crossfade) return;
     if (this.repeat) {
       this.nextTrack(this.enabled && this.unlocked && !this.musicPaused);
       return;
@@ -359,17 +367,108 @@ export class AudioSystem {
     this.savePref();
   }
 
-  setTrackIndex(index, autoplay = false, save = true) {
+  _automaticNextIndex() {
+    if (!this.bgmSources.length) return null;
+    if (this.shuffle && this.bgmSources.length > 1) {
+      let next = this.trackIndex;
+      while (next === this.trackIndex) next = Math.floor(Math.random() * this.bgmSources.length);
+      return next;
+    }
+    if (!this.repeat && this.trackIndex >= this.bgmSources.length - 1) return null;
+    return (this.trackIndex + 1) % this.bgmSources.length;
+  }
+
+  _maybeStartAutomaticCrossfade(audio, trackIndex) {
+    if (audio !== this.bgm || trackIndex !== this.trackIndex || this._crossfade) return;
+    if (!this.enabled || this.musicPaused || audio.paused) return;
+    const duration = Number(audio.duration);
+    const current = Number(audio.currentTime);
+    if (!Number.isFinite(duration) || !Number.isFinite(current) || duration <= 0) return;
+    const remaining = duration - current;
+    if (remaining > this.crossfadeDuration + 0.45 || remaining <= 0.12) return;
+    const next = this._automaticNextIndex();
+    if (next !== null) this.setTrackIndex(next, true, true, true);
+  }
+
+  _startCrossfade(outgoing, incoming, previousIndex) {
+    if (!incoming) return;
+    this.enabled = true;
+    this.musicPaused = false;
+    incoming.muted = this.musicMuted;
+    if (!outgoing || outgoing.paused) {
+      outgoing?.pause();
+      incoming.volume = this.musicVolume;
+      incoming.play().catch(() => {});
+      return;
+    }
+
+    const token = ++this._transitionToken;
+    const durationMs = Math.max(800, this.crossfadeDuration * 1000);
+    const startedAt = performance.now();
+    outgoing.muted = this.musicMuted;
+    incoming.volume = 0;
+    this._crossfade = { outgoing, incoming, progress: 0, previousIndex };
+
+    incoming.play().then(() => {
+      const step = (now) => {
+        if (token !== this._transitionToken || !this._crossfade || incoming !== this.bgm) return;
+        const progress = clamp((now - startedAt) / durationMs, 0, 1);
+        this._crossfade.progress = progress;
+        const angle = progress * Math.PI * 0.5;
+        outgoing.volume = clamp(this.musicVolume * Math.cos(angle), 0, 1);
+        incoming.volume = clamp(this.musicVolume * Math.sin(angle), 0, 1);
+        if (progress < 1) {
+          this._crossfadeFrame = requestAnimationFrame(step);
+          return;
+        }
+        outgoing.pause();
+        incoming.volume = this.musicVolume;
+        this._crossfade = null;
+        this._crossfadeFrame = 0;
+      };
+      this._crossfadeFrame = requestAnimationFrame(step);
+    }).catch(() => {
+      if (token !== this._transitionToken) return;
+      incoming.pause();
+      this.bgm = outgoing;
+      this.trackIndex = previousIndex;
+      outgoing.volume = this.musicVolume;
+      this._crossfade = null;
+      this._crossfadeFrame = 0;
+      this.savePref();
+    });
+  }
+
+  _cancelCrossfade() {
+    this._transitionToken++;
+    if (this._crossfadeFrame) cancelAnimationFrame(this._crossfadeFrame);
+    const outgoing = this._crossfade?.outgoing;
+    if (outgoing && outgoing !== this.bgm) outgoing.pause();
+    this._crossfade = null;
+    this._crossfadeFrame = 0;
+    if (this.bgm) this.bgm.volume = this.musicVolume;
+  }
+
+  setTrackIndex(index, autoplay = false, save = true, crossfade = false) {
     if (!this.bgmSources.length) return;
     const next = ((index % this.bgmSources.length) + this.bgmSources.length) % this.bgmSources.length;
-    const volume = this.bgm ? this.bgm.volume : 0.32;
-    const wasPlaying = this.bgm && !this.bgm.paused;
-    if (this.bgm) this.bgm.pause();
+    if (next === this.trackIndex && this.bgm) return;
+    const outgoing = this.bgm;
+    const previousIndex = this.trackIndex;
+    const wasPlaying = !!outgoing && !outgoing.paused;
+    this._cancelCrossfade();
     this.trackIndex = next;
-    this.bgm = this._makeBgm();
-    this.bgm.volume = volume;
+    const incoming = this._makeBgm();
+    this.bgm = incoming;
     if (save) this.savePref();
-    if (autoplay || wasPlaying) this.playMusic();
+    if (crossfade && (autoplay || wasPlaying)) {
+      this._startCrossfade(outgoing, incoming, previousIndex);
+    } else {
+      outgoing?.pause();
+      incoming.volume = this.musicVolume;
+      incoming.muted = this.musicMuted;
+      if (autoplay || wasPlaying) this.playMusic().catch(() => {});
+    }
   }
 
   currentTrackName() {
@@ -398,7 +497,8 @@ export class AudioSystem {
       if (typeof data?.muted === "boolean") this.musicMuted = data.muted;
       if (this.bgm) this.bgm.muted = this.musicMuted;
       this.musicPaused = data?.musicPaused === true;
-      if (typeof data?.music === "number") this.bgm.volume = clamp(data.music, 0, 1);
+      if (typeof data?.music === "number") this.musicVolume = clamp(data.music, 0, 1);
+      if (this.bgm) this.bgm.volume = this.musicVolume;
       if (typeof data?.sfx === "number") this.sfxVol = clamp(data.sfx, 0, 1);
     } catch (err) {
       this.enabled = true;
@@ -410,7 +510,7 @@ export class AudioSystem {
     try {
       localStorage.setItem(AUDIO_KEY, JSON.stringify({
         enabled: this.enabled ? 1 : 0,
-        music: this.bgm.volume,
+        music: this.musicVolume,
         sfx: this.sfxVol,
         track: this.trackIndex,
         repeat: this.repeat,
@@ -449,7 +549,7 @@ export class AudioSystem {
     if (!this.unlocked) return;
     if (this.enabled) {
       this.musicPaused = false;
-      this.bgm.volume = this.bgm.volume ?? 0.32;
+      this.bgm.volume = this.musicVolume;
       this.playMusic().catch(() => {
         if (!this._errorShown) {
           this._errorShown = true;
@@ -459,15 +559,24 @@ export class AudioSystem {
       // Quick confirm beep
       this.play("build");
     } else {
+      this._cancelCrossfade();
       if (this.bgm) this.bgm.pause();
     }
   }
 
   setMusicVolume(v) {
-    this.bgm.volume = clamp(v, 0, 1);
-    if (this.bgm.volume > 0) {
+    this.musicVolume = clamp(v, 0, 1);
+    if (this._crossfade) {
+      const angle = this._crossfade.progress * Math.PI * 0.5;
+      this._crossfade.outgoing.volume = clamp(this.musicVolume * Math.cos(angle), 0, 1);
+      this._crossfade.incoming.volume = clamp(this.musicVolume * Math.sin(angle), 0, 1);
+    } else if (this.bgm) {
+      this.bgm.volume = this.musicVolume;
+    }
+    if (this.musicVolume > 0) {
       this.musicMuted = false;
-      this.bgm.muted = false;
+      if (this.bgm) this.bgm.muted = false;
+      if (this._crossfade?.outgoing) this._crossfade.outgoing.muted = false;
     }
     this.savePref();
   }
@@ -500,6 +609,7 @@ export class AudioSystem {
 
   pauseMusic() {
     this.musicPaused = true;
+    this._cancelCrossfade();
     if (this.bgm) this.bgm.pause();
     this.savePref();
   }
@@ -547,8 +657,20 @@ export class AudioSystem {
   toggleMute() {
     this.musicMuted = !this.musicMuted;
     if (this.bgm) this.bgm.muted = this.musicMuted;
+    if (this._crossfade?.outgoing) this._crossfade.outgoing.muted = this.musicMuted;
     this.savePref();
     return this.musicMuted;
+  }
+
+  pauseForGame() {
+    if (this.bgm) this.bgm.pause();
+    if (this._crossfade?.outgoing) this._crossfade.outgoing.pause();
+  }
+
+  resumeForGame() {
+    if (!this.enabled || this.musicPaused) return;
+    if (this._crossfade?.outgoing) this._crossfade.outgoing.play().catch(() => {});
+    this.bgm?.play().catch(() => {});
   }
 
   seekBy(seconds) {

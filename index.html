@@ -15,7 +15,9 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap">
   <!-- CODEX CHANGE: Refresh cached turret icon styling for the new five-level turret sets. -->
   <!-- CODEX CHANGE: Refresh turret icon styles after adding the Gravity Trap progression. -->
-  <link rel="stylesheet" href="styles.css?v=202607192238">
+  <!-- CODEX CHANGE: Refresh layout styling for desktop save, fullscreen, and exit controls. -->
+  <!-- CODEX CHANGE: Refresh visual-mode label styling for the V-cycle Off state. -->
+  <link rel="stylesheet" href="styles.css?v=202607201844">
 </head>
 <body>
   <div id="app" class="layout">
@@ -59,14 +61,25 @@
           <div class="versionStamp" aria-label="Build version">
             <!-- CODEX CHANGE: Refresh the visible build stamp for the turret HUD and waveform release. -->
             <!-- CODEX CHANGE: Stamp the preserved live-web snapshot before desktop packaging begins. -->
-            <span class="versionValue">v2026.07.20.1810</span>
-            <span class="versionDate">2026-07-20 18:10 -04:00</span>
+            <!-- CODEX CHANGE: Stamp the fullscreen, responsive-map, and autosave desktop build. -->
+            <!-- CODEX CHANGE: Stamp the ten-mode visualizer and desktop Escape prompt build. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for the stronger music-reactive visuals. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for C-key visualization colors. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for real desktop audio analysis and calmer bars. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for the space-flight visualization story. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for music-driven color alternation. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for real waveform ribbons and calmer flight streaks. -->
+            <!-- CODEX CHANGE: Advance the visible build stamp for Quantum Grid performance batching. -->
+            <!-- CODEX CHANGE: Temporarily hide the bottom spectrum bars for a composition comparison. -->
+            <span class="versionValue">v0.1.19</span>
+            <span class="versionDate">2026-08-16 20:41 -04:00</span>
           </div>
         </div>
 
         <div id="turretStateBar" class="turretStateBar hidden" aria-live="polite"></div>
 
-        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">VISUAL MODE: Synthwave</div>
+        <!-- CODEX CHANGE: Preview both independent visualization controls before the game module loads. -->
+        <div id="visualModeLabel" class="visualModeLabel" aria-live="polite">EVOLUTION: Synthwave Equalizer · COLOR: Original</div>
 
         <div id="musicHud" class="musicHud" aria-label="Background music player">
           <div class="musicHudInfo">
@@ -344,7 +357,8 @@
                 <div class="howH">Music & Visuals</div>
                 <div class="howP">
                   The music HUD controls play, pause, previous, next, repeat, shuffle, mute, seek, and volume.
-                  The battlefield grid reacts to the current song. Press <b>V</b> to cycle visual modes.
+                  <!-- CODEX CHANGE: Explain independent waveform and color cycling. -->
+                  Music, turret fire, and enemy deaths shape a living tile ecosystem throughout the level. Its ten visual identities now evolve automatically as waves advance. Press <b>V</b> to change its colors.
                 </div>
               </div>
 
@@ -363,8 +377,9 @@
                   <div><b>2</b><span>Pulse Burst</span></div>
                   <div><b>3</b><span>Overcharge</span></div>
                   <div><b>Q-P</b><span>Select turret build cards</span></div>
-                  <div><b>V</b><span>Cycle music visualization</span></div>
-                  <div><b>Esc</b><span>Cancel build mode</span></div>
+                  <div><b>V</b><span>Cycle visualization colors</span></div>
+                  <div><b>C</b><span>Alternate visualization color key</span></div>
+                  <div><b>Esc</b><span>Desktop: prompt to save and exit</span></div>
                   <div><b>Right-click</b><span>Cancel build / alternate camera drag</span></div>
                   <div><b>Mouse wheel</b><span>Zoom battlefield</span></div>
                   <div><b>Drag</b><span>Pan camera</span></div>
@@ -484,6 +499,16 @@
             </label>
           </div>
         </div>
+        <!-- CODEX CHANGE: Keep native desktop actions hidden from the independently deployed web build. -->
+        <div id="desktopControls" class="settingsSection desktopControls" hidden>
+          <div class="settingsLabel">Desktop</div>
+          <div class="desktopControlGrid">
+            <button id="desktopSaveBtn" class="btn primary" type="button">Save Now</button>
+            <button id="desktopFullscreenBtn" class="btn ghost" type="button">Toggle Fullscreen</button>
+            <button id="desktopExitBtn" class="btn danger" type="button">Save &amp; Exit</button>
+          </div>
+          <div class="tiny desktopAutosaveNote">Autosave is on: progress saves every 30 seconds and when the game closes.</div>
+        </div>
         <div class="settingsSection">
           <div class="settingsLabel">Reset</div>
           <button id="settingsResetBtn" class="btn danger">Reset Game</button>
@@ -574,9 +599,12 @@
           <div class="statsRow"><div class="k">Zoom</div><div class="v">Mouse wheel</div></div>
           <div class="statsRow"><div class="k">Place Turret</div><div class="v">Left-click on build tile</div></div>
           <div class="statsRow"><div class="k">Select Turret</div><div class="v">Left-click turret</div></div>
-          <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click or Esc</div></div>
+          <div class="statsRow"><div class="k">Cancel Build</div><div class="v">Right-click</div></div>
           <div class="statsRow"><div class="k">Abilities</div><div class="v">Click buttons or press 1/2/3</div></div>
-          <div class="statsRow"><div class="k">Visual Mode</div><div class="v">Press V to cycle music visualizations</div></div>
+          <div class="statsRow"><div class="k">Visual Evolution</div><div class="v">Ten identities evolve automatically with the waves</div></div>
+          <!-- CODEX CHANGE: Include color cycling in the compact controls reference. -->
+          <div class="statsRow"><div class="k">Visual Color</div><div class="v">Press V to cycle color palettes</div></div>
+          <div class="statsRow"><div class="k">Desktop Exit</div><div class="v">Press Esc, then confirm Save &amp; Exit</div></div>
         </div>
       </div>
     </div>
@@ -587,7 +615,10 @@
   </script>
   <!-- CODEX CHANGE: Refresh the live module graph so all new turret sprite sets load immediately. -->
   <!-- CODEX CHANGE: Refresh the game module graph after adding the Gravity Trap progression. -->
-  <script type="module" src="src/core.js?v=202607192227"></script>
+  <!-- CODEX CHANGE: Refresh the game module for desktop lifecycle and responsive-map behavior. -->
+  <!-- CODEX CHANGE: Refresh the module graph for ten visual modes and desktop Escape handling. -->
+  <!-- CODEX CHANGE: Refresh the desktop/web module cache for the space-flight visualizer. -->
+  <script type="module" src="src/core.js?v=202608162041"></script>
 </body>
 </html>
 

@@ -92,6 +92,13 @@ body{
   backdrop-filter:blur(6px);
   text-shadow:0 0 10px rgba(98,242,255,.32);
 }
+/* CODEX CHANGE: Make the V-cycle's non-rendering state unmistakable. */
+.visualModeLabel.isOff{
+  color:rgba(190,205,224,.62);
+  border-color:rgba(150,165,195,.15);
+  text-shadow:none;
+  opacity:.72;
+}
 .screenFx::before{
   content:"";
   position:absolute;
@@ -3176,6 +3183,19 @@ body{
 .settingsSection .howGrid{
   grid-template-columns: 1fr;
 }
+/* CODEX CHANGE: Present desktop lifecycle actions as a compact settings group. */
+.desktopControls[hidden]{display:none}
+.desktopControlGrid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:8px;
+}
+.desktopControlGrid .btn{
+  width:100%;
+}
+.desktopAutosaveNote{
+  margin-top:8px;
+}
 .settingsLabel{
   font-size:11px;
   letter-spacing:.14em;
@@ -3216,6 +3236,7 @@ body{
 }
 
 @media (max-width: 700px){
+  .desktopControlGrid{grid-template-columns:1fr}
   .topbar{gap:10px}
   .brand{width:100%}
   .statRow{width:100%}

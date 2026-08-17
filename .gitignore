@@ -3,6 +3,8 @@ assets/music/bgmdontuse.mp3
 assets/music/
 videos/
 .wrangler/
+node_modules/
+dist-electron/
 .http-server.log
 .http-server-error.log
 *.mp3

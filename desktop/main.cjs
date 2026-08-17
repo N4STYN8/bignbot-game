@@ -283,6 +283,8 @@ function createGameWindow() {
           const map = game?.map;
           const visual = game?.musicVisualizer?.getGridState?.();
           if (!map?._drawBackFieldWaveform || !visual) return false;
+          const savedBottomBars = map.showBottomSpectrumBars;
+          map.showBottomSpectrumBars = true;
           const measure = (energy, spectrum, audioWaveform) => {
             const music = map._musicGridState({ ...visual, mode: 8, nextMode: 8, modeBlend: 0, energy, spectrum, audioWaveform, wave: 10, waveMax: 16 });
             const canvas = document.createElement("canvas");
@@ -305,8 +307,10 @@ function createGameWindow() {
             new Array(32).fill(0).map((_, i) => 0.18 + 0.54 * Math.abs(Math.sin(i * 0.47 + 0.2))),
             new Array(128).fill(0).map((_, i) => Math.sin(i * 0.31) * 0.045)
           );
+          map.showBottomSpectrumBars = savedBottomBars;
           return music.average > quiet.average * 2 && music.max > map.gridSize * 3.5;
         })()`);
+        const bottomBarDisabled = await window.webContents.executeJavaScript(`window.game?.map?.showBottomSpectrumBars === false`);
         const evolvingBackgroundWaveforms = await window.webContents.executeJavaScript(`(() => {
           const game = window.game;
           const map = game?.map;
@@ -466,6 +470,7 @@ function createGameWindow() {
         result.turretHoverRangeFade = turretHoverRangeFade;
         result.skippedWavesStaggered = skippedWavesStaggered;
         result.barGraphMusicReactive = barGraphMusicReactive;
+        result.bottomBarDisabled = bottomBarDisabled;
         result.evolvingBackgroundWaveforms = evolvingBackgroundWaveforms;
         result.realAudioAnalysis = realAudioAnalysis;
         result.escapePrompt = escapePrompt;
@@ -500,6 +505,7 @@ function createGameWindow() {
           && result.turretHoverRangeFade
           && result.skippedWavesStaggered
           && result.barGraphMusicReactive
+          && result.bottomBarDisabled
           && result.evolvingBackgroundWaveforms
           && result.realAudioAnalysis
           && result.escapePrompt

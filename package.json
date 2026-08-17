@@ -1,6 +1,6 @@
 {
   "name": "orbit-echo",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "Orbit Echo desktop build",
   "main": "desktop/main.cjs",

@@ -74,6 +74,9 @@ export class Map {
     this._relayColumns = [];
     this._relayColumnFlags = null;
     this._nebulaSprites = new globalThis.Map();
+    // Temporary A/B switch: keep the spectrum-bar implementation available,
+    // but remove it from the battlefield composition by default.
+    this.showBottomSpectrumBars = false;
     this._turretFirePulseTimes = new WeakMap();
     this._initPadlockSprite();
     if (mapData) this.loadGeneratedMap(mapData);
@@ -1635,7 +1638,8 @@ export class Map {
   }
 
   _drawBackFieldWaveform(gfx, m, perf, turrets = []) {
-    // CODEX CHANGE: Never remove the requested bar graph at large fullscreen resolutions.
+    // CODEX CHANGE: Allow a reversible composition test with the bar layer hidden.
+    if (this.showBottomSpectrumBars === false) return;
     if (!m.spectrum?.length) return;
     const palette = this._musicPalette(m);
     const cols = Math.max(1, this.cols - MAP_EDGE_MARGIN * 2);
